@@ -25,7 +25,6 @@
     selection-background-padding = 5,6
     min-input-width = 120
     border-color = ${config.lib.stylix.colors.withHashtag.base0D}
-    background-color = #00000000
     text-color = ${config.lib.stylix.colors.withHashtag.base05}
     selection-color = ${config.lib.stylix.colors.withHashtag.base05}
     selection-background = ${config.lib.stylix.colors.withHashtag.base0D}33
