@@ -16,7 +16,7 @@
     late-keyboard-init = true
     result-spacing = 6
     corner-radius = 14
-    border-width = 2
+    border-width = 0
     padding-top = 14
     padding-bottom = 14
     padding-left = 18
