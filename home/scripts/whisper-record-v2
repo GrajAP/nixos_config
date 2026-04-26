@@ -1,0 +1,941 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+state_dir="$runtime_dir/whisper-record-v2"
+data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/whisper-record-v2"
+pid_file="$state_dir/record.pid"
+raw_file="$state_dir/record.raw"
+wav_file="$state_dir/record.wav"
+txt_file="$state_dir/record.txt"
+dict_file="$data_dir/dict.txt"
+corrections_file="$data_dir/corrections.tsv"
+learn_script="$state_dir/learn.py"
+backend_file="$state_dir/backend"
+record_log="$state_dir/last-record.log"
+record_err="$state_dir/record.err"
+dict_log="$data_dir/dict.log"
+review_err="$state_dir/review.err"
+indicator_pid_file="$state_dir/indicator.pid"
+review_css_file="$state_dir/review.css"
+notification_id_file="$state_dir/notification.id"
+
+mkdir -p "$state_dir"
+mkdir -p "$data_dir"
+
+notify_whisper() {
+  notify-send "$@" >/dev/null 2>&1 || true
+}
+
+whispr_app_name="WhisprFlow"
+
+ensure_ui_css() {
+  cat >"$review_css_file" <<'CSS'
+window {
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 22px;
+}
+
+label {
+  color: #cdd6f4;
+}
+
+textview,
+textview text,
+scrolledwindow,
+viewport {
+  background: #313244;
+  color: #cdd6f4;
+  border-radius: 16px;
+}
+
+button {
+  background: #313244;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+CSS
+}
+
+notify_status() {
+  local title="$1"
+  local body="${2:-}"
+  local tone="${3:-info}"
+  local timeout_ms="${4:-1800}"
+  local urgency="normal"
+  local icon="dialog-information"
+  local replace_id=""
+  local notification_id=""
+
+  case "$tone" in
+    listening)
+      urgency="low"
+      icon="audio-input-microphone"
+      ;;
+    working)
+      urgency="normal"
+      icon="system-search"
+      ;;
+    success)
+      urgency="low"
+      icon="emblem-ok"
+      ;;
+    error)
+      urgency="critical"
+      icon="dialog-error"
+      ;;
+    *)
+      urgency="normal"
+      icon="dialog-information"
+      ;;
+  esac
+
+  if [[ -f "$notification_id_file" ]]; then
+    replace_id="$(cat "$notification_id_file" 2>/dev/null || true)"
+  fi
+
+  if command -v notify-send >/dev/null 2>&1; then
+    if [[ -n "$replace_id" ]]; then
+      notification_id="$(
+        notify-send \
+          -a "$whispr_app_name" \
+          -p \
+          -r "$replace_id" \
+          -e \
+          -u "$urgency" \
+          -t "$timeout_ms" \
+          -i "$icon" \
+          "$title" \
+          "$body" 2>/dev/null || true
+      )"
+    else
+      notification_id="$(
+        notify-send \
+          -a "$whispr_app_name" \
+          -p \
+          -e \
+          -u "$urgency" \
+          -t "$timeout_ms" \
+          -i "$icon" \
+          "$title" \
+          "$body" 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  if [[ "$notification_id" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$notification_id" >"$notification_id_file"
+  fi
+}
+
+hide_indicator() {
+  local pid
+  pid="$(cat "$indicator_pid_file" 2>/dev/null || true)"
+  if [[ -n "${pid:-}" ]]; then
+    kill "$pid" 2>/dev/null || true
+  fi
+  rm -f "$indicator_pid_file"
+
+  local notification_id
+  notification_id="$(cat "$notification_id_file" 2>/dev/null || true)"
+  if [[ -n "${notification_id:-}" ]] && command -v makoctl >/dev/null 2>&1; then
+    makoctl dismiss -n "$notification_id" >/dev/null 2>&1 || true
+  fi
+  rm -f "$notification_id_file"
+}
+
+start_spinner_indicator() {
+  local title="$1"
+  local body="${2:-}"
+  local tone="${3:-info}"
+  hide_indicator
+  (
+    local frames=("|" "/" "-" "\\")
+    local i=0
+    while true; do
+      notify_status "${frames[i]} $title" "$body" "$tone" 1200
+      i=$(( (i + 1) % ${#frames[@]} ))
+      sleep 0.12
+    done
+  ) >/dev/null 2>>"$review_err" &
+  echo $! >"$indicator_pid_file"
+}
+
+show_indicator() {
+  local title="$1"
+  local body="${2:-}"
+  local tone="${3:-info}"
+  local timeout_ms="${4:-0}"
+
+  if [[ "$timeout_ms" =~ ^[0-9]+$ ]] && [[ "$timeout_ms" -eq 0 ]]; then
+    start_spinner_indicator "$title" "$body" "$tone"
+    return 0
+  fi
+
+  hide_indicator
+  notify_status "$title" "$body" "$tone" "$timeout_ms"
+}
+
+flash_indicator() {
+  show_indicator "$1" "${2:-}" "${3:-info}" "${4:-1800}"
+}
+
+learn_from_pair() {
+  local transcript="$1"
+  local corrected="$2"
+  ensure_learn_script
+
+  [[ -z "$transcript" || -z "$corrected" || "$transcript" == "$corrected" ]] && return 0
+
+  TRANSCRIPT="$transcript" \
+    CLIP="$corrected" \
+    DICT_PATH="$dict_file" \
+    CORRECTIONS_PATH="$corrections_file" \
+    DICT_LOG="$dict_log" \
+    whisper-python "$learn_script" >/dev/null 2>&1 || true
+}
+
+capture_active_window() {
+  local active_window_json
+  active_window_json="$(hyprctl -j activewindow 2>/dev/null || true)"
+  ACTIVE_WINDOW_JSON="$active_window_json" whisper-python - <<'PY'
+import json
+import os
+
+try:
+    data = json.loads(os.environ.get("ACTIVE_WINDOW_JSON", ""))
+except Exception:
+    raise SystemExit(0)
+
+address = data.get("address", "") or ""
+print(address)
+PY
+}
+
+refocus_window() {
+  local address="$1"
+  [[ -z "$address" ]] && return 0
+  hyprctl dispatch focuswindow "address:${address}" >/dev/null 2>&1 || true
+}
+
+review_text_popup() {
+  local initial_text="$1"
+  local output_file="$state_dir/review.out"
+
+  rm -f "$output_file" "$review_err"
+  ensure_ui_css
+  printf '%s' "$initial_text" >"$output_file"
+
+  if ! command -v yad >/dev/null 2>&1; then
+    printf '%s' "$initial_text"
+    return 0
+  fi
+
+  if yad --text-info \
+    --editable \
+    --filename="$output_file" \
+    --in-place \
+    --title="Whispr Flow" \
+    --text="Edit the transcription, then click Paste to type it under your cursor." \
+    --width=860 \
+    --height=320 \
+    --center \
+    --on-top \
+    --fixed \
+    --sticky \
+    --undecorated \
+    --skip-taskbar \
+    --window-type=dialog \
+    --borders=16 \
+    --wrap \
+    --margins=12 \
+    --css="$review_css_file" \
+    --button="Cancel:1" \
+    --button="Paste:0" \
+    >/dev/null 2>"$review_err"; then
+    cat "$output_file"
+    return 0
+  fi
+
+  return 1
+}
+
+run_voice_command() {
+  local text="$1"
+  local normalized
+  normalized="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+
+  case "$normalized" in
+    hyprland\ *|hyperland\ *|hiperland\ *)
+      normalized="${normalized#* }"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "$normalized" in
+    shutdown|poweroff|turn\ off|wyłącz\ komputer|wylacz\ komputer)
+      flash_indicator "Whispr Flow" "Running voice command: shutdown" "success" 1200
+      systemctl poweroff
+      return 0
+      ;;
+    reboot|restart)
+      flash_indicator "Whispr Flow" "Running voice command: reboot" "success" 1200
+      systemctl reboot
+      return 0
+      ;;
+    suspend|sleep|uśpij|uspij)
+      flash_indicator "Whispr Flow" "Running voice command: suspend" "success" 1200
+      systemctl suspend
+      return 0
+      ;;
+    lock|zablokuj)
+      flash_indicator "Whispr Flow" "Running voice command: lock" "success" 1200
+      loginctl lock-session
+      return 0
+      ;;
+    open\ terminal|terminal|open\ the\ terminal|otwórz\ terminal|otworz\ terminal)
+      hyprctl dispatch exec "foot -e sh -c 'exec tmux'" >/dev/null 2>&1 || true
+      flash_indicator "Whispr Flow" "Running voice command: terminal" "success" 1400
+      return 0
+      ;;
+    open\ browser|browser|open\ helium|przeglądarka|przegladarka)
+      hyprctl dispatch exec "helium" >/dev/null 2>&1 || true
+      flash_indicator "Whispr Flow" "Running voice command: browser" "success" 1400
+      return 0
+      ;;
+    open\ file\ manager|file\ manager|open\ nemo|nemo|menedżer\ plików|menedzer\ plikow)
+      hyprctl dispatch exec "nemo" >/dev/null 2>&1 || true
+      flash_indicator "Whispr Flow" "Running voice command: file manager" "success" 1400
+      return 0
+      ;;
+    logout|log\ out|wyloguj)
+      hyprctl dispatch exec "wlogout" >/dev/null 2>&1 || true
+      flash_indicator "Whispr Flow" "Running voice command: logout" "success" 1400
+      return 0
+      ;;
+    *)
+      flash_indicator "Whispr Flow" "Unknown voice command: $normalized" "error" 2200
+      return 0
+      ;;
+  esac
+}
+
+cleanup_stale_pid() {
+  if [[ -f "$pid_file" ]]; then
+    local pid
+    pid=$(cat "$pid_file" 2>/dev/null || true)
+    if [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+    rm -f "$pid_file"
+  fi
+}
+
+get_default_source() {
+  if command -v pactl >/dev/null 2>&1; then
+    pactl get-default-source 2>/dev/null || true
+  fi
+}
+
+ensure_source_unmuted() {
+  local src="$1"
+  if [[ -n "${src:-}" ]] && command -v pactl >/dev/null 2>&1; then
+    pactl set-source-mute "$src" 0 >/dev/null 2>&1 || true
+  fi
+}
+
+ensure_learn_script() {
+  cat >"$learn_script" <<'PY'
+#!/usr/bin/env python3
+import difflib
+import os
+import re
+from pathlib import Path
+
+transcript = os.environ.get("TRANSCRIPT", "")
+clip = os.environ.get("CLIP", "")
+dict_path = Path(os.environ.get("DICT_PATH", ""))
+corrections_path = Path(os.environ.get("CORRECTIONS_PATH", ""))
+log_path = Path(os.environ.get("DICT_LOG", ""))
+
+def words(s: str):
+    return re.findall(r"[0-9A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż][0-9A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż'+.-]*", s)
+
+def normalize_word(s: str):
+    return re.sub(r"\s+", " ", s).strip().casefold()
+
+def load_existing_lines(path: Path):
+    if not path.exists():
+        return []
+    return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+def choose_dictionary_terms(tokens):
+    learned = []
+    for token in tokens:
+        if len(token) <= 2:
+            continue
+        if token.isdigit():
+            continue
+        if any(ch.isupper() for ch in token) or re.search(r"[0-9_-]", token):
+            learned.append(token)
+    return learned
+
+def learn_capitalization_preferences(src_words, dst_words):
+    matcher = difflib.SequenceMatcher(a=[w.casefold() for w in src_words], b=[w.casefold() for w in dst_words])
+    pairs = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag != "equal":
+            continue
+        left = src_words[i1:i2]
+        right = dst_words[j1:j2]
+        for wrong, correct in zip(left, right):
+            if wrong == correct:
+                continue
+            if wrong.casefold() != correct.casefold():
+                continue
+            if not any(ch.isupper() for ch in correct):
+                continue
+            pairs.append((wrong, correct))
+    return pairs
+
+def learn_replacements(src_words, dst_words):
+    matcher = difflib.SequenceMatcher(a=[w.casefold() for w in src_words], b=[w.casefold() for w in dst_words])
+    pairs = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag != "replace":
+            continue
+        left = src_words[i1:i2]
+        right = dst_words[j1:j2]
+        if not left or not right:
+            continue
+        if len(left) > 5 or len(right) > 5:
+            continue
+        wrong = " ".join(left).strip()
+        correct = " ".join(right).strip()
+        if normalize_word(wrong) == normalize_word(correct):
+            continue
+        pairs.append((wrong, correct))
+    return pairs
+
+t_words = words(transcript)
+c_words = words(clip)
+
+if not t_words or not c_words:
+    raise SystemExit(0)
+
+t_set = {w.casefold() for w in t_words}
+c_set = {w.casefold() for w in c_words}
+
+overlap = len(t_set & c_set) / max(1, len(t_set))
+len_ok = 0.5 <= (len(clip) / max(1, len(transcript))) <= 2.0
+
+if overlap < 0.3 or not len_ok:
+    raise SystemExit(0)
+
+new_words = []
+for w in c_words:
+    if w.casefold() not in t_set or any(ch.isupper() for ch in w) or re.search(r"[0-9_-]", w):
+        new_words.append(w)
+
+replacement_pairs = learn_replacements(t_words, c_words)
+replacement_pairs.extend(learn_capitalization_preferences(t_words, c_words))
+dictionary_terms = choose_dictionary_terms(new_words + [item for _wrong, correct in replacement_pairs for item in words(correct)])
+
+dict_entries = set(load_existing_lines(dict_path))
+for w in dictionary_terms:
+    dict_entries.add(w)
+
+if dict_entries:
+    dict_path.parent.mkdir(parents=True, exist_ok=True)
+    dict_path.write_text("\n".join(sorted(dict_entries, key=str.casefold)), encoding="utf-8")
+
+corrections = {}
+for line in load_existing_lines(corrections_path):
+    if "\t" not in line:
+        continue
+    wrong, correct = line.split("\t", 1)
+    if wrong.strip() and correct.strip():
+        corrections[normalize_word(wrong)] = (wrong.strip(), correct.strip())
+
+for wrong, correct in replacement_pairs:
+    corrections[normalize_word(wrong)] = (wrong, correct)
+
+if corrections:
+    corrections_path.parent.mkdir(parents=True, exist_ok=True)
+    ordered = sorted(corrections.values(), key=lambda item: (-len(item[0].split()), item[0].casefold(), item[1].casefold()))
+    corrections_path.write_text("\n".join(f"{wrong}\t{correct}" for wrong, correct in ordered), encoding="utf-8")
+
+try:
+    if log_path:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            if replacement_pairs:
+                fh.write("corrections: " + "; ".join(f"{wrong} -> {correct}" for wrong, correct in replacement_pairs) + "\n")
+            if dictionary_terms:
+                fh.write("dictionary: " + ", ".join(dictionary_terms) + "\n")
+except Exception:
+    pass
+PY
+  chmod 700 "$learn_script"
+}
+
+stop_recording() {
+  local pid
+  pid=$(cat "$pid_file" 2>/dev/null || true)
+  if [[ -z "${pid:-}" ]]; then
+    rm -f "$pid_file"
+    return 1
+  fi
+
+  kill -INT "$pid" 2>/dev/null || true
+
+  # Wait for arecord to exit
+  for _ in $(seq 1 100); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.05
+  done
+
+  rm -f "$pid_file"
+
+  {
+    echo "stop_time: $(date -Is)"
+    echo "backend: $(cat "$backend_file" 2>/dev/null || echo unknown)"
+    echo "raw_size: $(stat -c '%s' "$raw_file" 2>/dev/null || echo 0)"
+    echo "wav_size: $(stat -c '%s' "$wav_file" 2>/dev/null || echo 0)"
+  } >>"$record_log" 2>/dev/null || true
+
+  if [[ -s "$raw_file" ]]; then
+    RAW_PATH="$raw_file" WAV_PATH="$wav_file" WHISPER_RATE=16000 WHISPER_CHANNELS=1 whisper-python - <<'PY'
+import os
+import wave
+from pathlib import Path
+
+raw_path = Path(os.environ["RAW_PATH"])
+wav_path = Path(os.environ["WAV_PATH"])
+rate = int(os.environ.get("WHISPER_RATE", "16000"))
+channels = int(os.environ.get("WHISPER_CHANNELS", "1"))
+
+data = raw_path.read_bytes()
+if not data:
+    wav_path.write_bytes(b"")
+    raise SystemExit(0)
+
+with wave.open(str(wav_path), "wb") as wf:
+    wf.setnchannels(channels)
+    wf.setsampwidth(2)  # s16le
+    wf.setframerate(rate)
+    wf.writeframes(data)
+PY
+  fi
+
+  if [[ ! -s "$wav_file" ]]; then
+    hide_indicator
+    flash_indicator "Whispr Flow" "No audio captured." "error" 2200
+    return 1
+  fi
+  if [[ $(stat -c '%s' "$wav_file") -lt 1024 ]]; then
+    flash_indicator "Whispr Flow" "Audio too short or silent. Check mic input/mute." "error" 2200
+  fi
+
+  show_indicator "Whispr Flow" "Transcribing..." "working" 0
+
+  log_file="$state_dir/last-error.log"
+
+  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-small}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" whisper-python - <<'PY' 2>"$log_file"; then
+import math
+import os
+import re
+from pathlib import Path
+from faster_whisper import WhisperModel
+
+wav_path = Path(os.environ["WAV_PATH"])
+txt_path = Path(os.environ["TXT_PATH"])
+model_name = os.environ.get("WHISPER_MODEL", "small")
+dict_path = Path(os.environ.get("DICT_PATH", ""))
+corrections_path = Path(os.environ.get("CORRECTIONS_PATH", ""))
+language = os.environ.get("WHISPER_LANGUAGE", "").strip() or None
+allowed_languages = [lang.strip() for lang in os.environ.get("WHISPER_LANGS", "pl,en").split(",") if lang.strip()]
+if not allowed_languages:
+    allowed_languages = ["pl", "en"]
+
+if language and language not in allowed_languages:
+    raise SystemExit(f"Unsupported WHISPER_LANGUAGE={language!r}. Allowed: {', '.join(allowed_languages)}")
+
+initial_prompt = None
+if dict_path and dict_path.exists():
+    # Keep prompt reasonably short.
+    lines = [ln.strip() for ln in dict_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if lines:
+        prompt = "Spellings: " + ", ".join(lines)
+        initial_prompt = prompt[:1000]
+
+if corrections_path and corrections_path.exists():
+    learned = []
+    for line in corrections_path.read_text(encoding="utf-8").splitlines():
+        if "\t" not in line:
+            continue
+        _wrong, correct = line.split("\t", 1)
+        correct = correct.strip()
+        if correct:
+            learned.append(correct)
+    if learned:
+        learned_prompt = "Preferred terms: " + ", ".join(learned[:50])
+        if initial_prompt:
+            initial_prompt = f"{initial_prompt}. {learned_prompt}"[:1000]
+        else:
+            initial_prompt = learned_prompt[:1000]
+if allowed_languages:
+    prefix = f"Language: {', '.join(allowed_languages)}. "
+    if initial_prompt:
+        initial_prompt = (prefix + initial_prompt)[:1000]
+    else:
+        initial_prompt = prefix[:1000]
+
+model = WhisperModel(model_name, device="cpu", compute_type="int8")
+
+def transcribe_once(lang: str):
+    segments, _info = model.transcribe(
+        str(wav_path),
+        beam_size=5,
+        initial_prompt=initial_prompt,
+        language=lang,
+    )
+    segments = list(segments)
+    text = "".join(seg.text for seg in segments).strip()
+
+    score = 0.0
+    saw_logprob = False
+    for seg in segments:
+        avg_logprob = getattr(seg, "avg_logprob", None)
+        if avg_logprob is None:
+            continue
+        saw_logprob = True
+        duration = max(0.1, float(getattr(seg, "end", 0.0)) - float(getattr(seg, "start", 0.0)))
+        score += float(avg_logprob) * duration
+
+    if not saw_logprob:
+        score = float(len(text))
+
+    return {
+        "language": lang,
+        "text": text,
+        "score": score if text else -math.inf,
+    }
+
+candidates = [language] if language else allowed_languages
+best = max((transcribe_once(lang) for lang in candidates), key=lambda item: (item["score"], len(item["text"])))
+text = best["text"]
+
+if text:
+    def normalize(s: str) -> str:
+        s = s.lower().replace(".", "")
+        s = re.sub(r"\b(laugh|laughs|laughing|laughter)\b", "haha", s)
+        s = re.sub(r"\b(uh|um|erm|er|ah|oh|hmm|hm|uhm|yyy|eee)\b", "", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+
+    def apply_redo(s: str):
+        redo = False
+        m = re.search(
+            r"\b(no\s+){2,}(?:actually\s+|i mean\s+|i'm\s+|rather\s+|wait\s+|make that\s+|use\s+)?(?P<rest>.+)$",
+            s,
+        )
+        if m and m.group("rest").strip():
+            return m.group("rest").strip(), True
+        m = re.search(
+            r"\b(nie\s+){2,}(?:właściwie\s+|to\s+znaczy\s+|w\s+sen\s*?sie\s+|raczej\s+|czekaj\s+|poczekaj\s+|użyj\s+)?(?P<rest>.+)$",
+            s,
+        )
+        if m and m.group("rest").strip():
+            return m.group("rest").strip(), True
+
+        markers = [
+            r"\bscratch that\b",
+            r"\bforget that\b",
+            r"\bnever mind\b",
+            r"\bnevermind\b",
+            r"\bno wait\b",
+            r"\bactually\b",
+            r"\bi mean\b",
+            r"\bmake that\b",
+            r"\bcorrection\b",
+            r"\bzapomnij( o tym)?\b",
+            r"\bnieważne\b",
+            r"\bto znaczy\b",
+            r"\bw sensie\b",
+            r"\bpoprawka\b",
+            r"\bwłaściwie\b",
+            r"\bczekaj\b",
+            r"\bpoczekaj\b",
+        ]
+        last = None
+        for pat in markers:
+            for match in re.finditer(pat, s):
+                last = match
+        if last:
+            rest = s[last.end() :].strip(" ,")
+            if rest:
+                return rest, True
+        return s, redo
+
+    def wrap_with(s: str, left: str, right: str) -> str:
+        return f"{left}{s}{right}"
+
+    text = normalize(text)
+    text, redo_applied = apply_redo(text)
+
+    wrap_applied = False
+    wrap_patterns = [
+        (
+            "()",
+            ("(", ")"),
+            ["parenthesis", "parentheses", "parens", "nawias", "nawiasy", "nawiasie", "nawiasach"],
+        ),
+        (
+            "[]",
+            ("[", "]"),
+            [
+                "brackets",
+                "square brackets",
+                "nawiasy kwadratowe",
+                "nawiasach kwadratowych",
+                "nawias kwadratowy",
+            ],
+        ),
+        (
+            "{}",
+            ("{", "}"),
+            ["braces", "curly braces", "klamry", "klamrach", "nawiasy klamrowe", "klamra"],
+        ),
+        (
+            "\"\"",
+            ("\"", "\""),
+            ["double quotes", "quotes", "cudzyslow", "cudzyslowy", "cudzysłów", "cudzysłowie", "cudzysłowach"],
+        ),
+        (
+            "''",
+            ("'", "'"),
+            ["single quotes", "apostrophes", "apostrof", "apostrofy", "apostrofach"],
+        ),
+    ]
+
+    for _label, (left, right), words in wrap_patterns:
+        word_re = "|".join(re.escape(w) for w in words)
+        m = re.search(rf"\b(put|wstaw|daj|umieść|umiesc|wrzuć|wrzuc)\s+(.*?)\s+(in|w)\s+({word_re})\b", text)
+        if m and m.group(1).strip():
+            text = wrap_with(m.group(2).strip(), left, right)
+            wrap_applied = True
+            break
+
+        m = re.search(rf"\b(in\s*side|inside|in|w)\s*({word_re})\b", text)
+        if m:
+            text = (text[:m.start()] + text[m.end() :]).strip(" ,")
+            text = wrap_with(text, left, right) if text else wrap_with("", left, right)
+            wrap_applied = True
+            break
+
+    if redo_applied or wrap_applied:
+        text = re.sub(r"^\s*use\s+(the\s+)?", "", text).strip()
+
+    if corrections_path.exists():
+        entries = []
+        for line in corrections_path.read_text(encoding="utf-8").splitlines():
+            if "\t" not in line:
+                continue
+            wrong, correct = line.split("\t", 1)
+            wrong = wrong.strip()
+            correct = correct.strip()
+            if wrong and correct:
+                entries.append((wrong, correct))
+
+        entries.sort(key=lambda item: (-len(item[0].split()), item[0].casefold()))
+        for wrong, correct in entries:
+            text = re.sub(rf"(?<!\w){re.escape(wrong)}(?!\w)", correct, text, flags=re.IGNORECASE)
+
+    if dict_path.exists():
+        preferred_terms = [ln.strip() for ln in dict_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        preferred_terms.sort(key=lambda item: (-len(item.split()), item.casefold()))
+        for term in preferred_terms:
+            text = re.sub(rf"(?<!\w){re.escape(term)}(?!\w)", term, text, flags=re.IGNORECASE)
+
+    text = text.strip()
+    txt_path.write_text(text, encoding="utf-8")
+else:
+    txt_path.write_text("", encoding="utf-8")
+PY
+    hide_indicator
+    flash_indicator "Whispr Flow" "Transcription failed. See $log_file" "error" 2600
+    return 1
+  fi
+
+  if [[ ! -s "$txt_file" ]]; then
+    hide_indicator
+    flash_indicator "Whispr Flow" "No speech detected." "error" 2200
+    return 1
+  fi
+
+  transcript_before_review="$(cat "$txt_file" 2>/dev/null || true)"
+  focused_window="$(capture_active_window)"
+
+  if [[ "${WHISPER_REVIEW:-1}" != "0" ]] && [[ -n "$transcript_before_review" ]]; then
+    hide_indicator
+    if reviewed_text="$(review_text_popup "$transcript_before_review")"; then
+      reviewed_text="${reviewed_text%$'\n'}"
+      printf '%s' "$reviewed_text" >"$txt_file"
+      learn_from_pair "$transcript_before_review" "$reviewed_text"
+    else
+      if [[ -s "$review_err" ]]; then
+        flash_indicator "Whispr Flow" "Review UI failed, using raw transcript." "error" 2600
+      else
+        flash_indicator "Whispr Flow" "Review cancelled." "error" 1800
+        return 1
+      fi
+    fi
+    refocus_window "$focused_window"
+    sleep 0.2
+  fi
+
+  final_text="$(cat "$txt_file" 2>/dev/null || true)"
+  if [[ -n "$final_text" ]] && run_voice_command "$final_text"; then
+    hide_indicator
+    return 0
+  fi
+
+  if ! wl-copy < "$txt_file"; then
+    flash_indicator "Whispr Flow" "Clipboard copy failed." "error" 2200
+  fi
+
+  paste_ok=0
+  typed_text="$(cat "$txt_file" 2>/dev/null || true)"
+  sleep 0.2  # give Hyprland time to give focus back
+
+  if [[ -n "$typed_text" ]] && command -v ydotool >/dev/null 2>&1; then
+    # ydotoold must be running (systemd user service or socket)
+    if ydotool type -d 6 -- "$typed_text" 2>/dev/null; then
+      paste_ok=1
+    fi
+  fi
+
+  if [[ $paste_ok -eq 0 ]] && [[ -n "$typed_text" ]] && command -v wtype >/dev/null 2>&1; then
+    for _ in 1 2 3; do
+      wtype -s 150 -d 2 -- "$typed_text" && { paste_ok=1; break; }
+    done
+  fi
+
+if [[ $paste_ok -eq 0 ]]; then
+  flash_indicator "Whispr Flow" "Typing failed - no focused text field?" "error" 2400
+fi 
+
+  # Learn from a corrected clipboard within 10 minutes.
+  ensure_learn_script
+  (
+    transcript="$(cat "$txt_file" 2>/dev/null || true)"
+    once_file="$state_dir/learn.once"
+    rm -f "$once_file"
+    TRANSCRIPT="$transcript" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" LEARN_SCRIPT="$learn_script" ONCE_FILE="$once_file" \
+      timeout 600s wl-paste --watch --type text/plain --no-newline bash -c '
+        clip=$(cat)
+        if [ -f "$ONCE_FILE" ]; then
+          exit 0
+        fi
+        [ -z "$clip" ] && exit 0
+        [ "$clip" = "$TRANSCRIPT" ] && exit 0
+        touch "$ONCE_FILE"
+        CLIP="$clip" whisper-python "$LEARN_SCRIPT"
+      ' >/dev/null 2>&1 || true
+  ) &
+
+  flash_indicator "Whispr Flow" "Pasted. Edits you make here can still be learned automatically." "success" 1800
+}
+
+start_recording() {
+  cleanup_stale_pid
+
+  if [[ -f "$pid_file" ]]; then
+    # Recording already running
+    return 0
+  fi
+
+  rm -f "$raw_file" "$wav_file" "$txt_file" "$backend_file" "$record_err"
+
+  {
+    echo "start_time: $(date -Is)"
+  } >"$record_log" 2>/dev/null || true
+
+  # Hard-pin Blue Yeti input; override with WHISPER_SOURCE if set.
+  source_name="${WHISPER_SOURCE:-}"
+  if [[ -z "${source_name:-}" ]]; then
+    source_name="$(get_default_source)"
+  fi
+  if [[ -z "${source_name:-}" ]]; then
+    source_name="alsa_input.usb-Generic_Blue_Microphones_2108BAB0EPP8-00.analog-stereo"
+  fi
+  ensure_source_unmuted "$source_name"
+  {
+    echo "source: $source_name"
+  } >>"$record_log" 2>/dev/null || true
+    show_indicator "Whispr Flow" "Listening... Release Pause to stop." "listening" 0
+  if command -v pw-record >/dev/null 2>&1; then
+    echo "pw-record" > "$backend_file"
+    if [[ -n "${source_name:-}" ]]; then
+      pw-record --rate 16000 --channels 1 --format s16 --target "$source_name" "$wav_file" 2>"$record_err" &
+    else
+      pw-record --rate 16000 --channels 1 --format s16 "$wav_file" 2>"$record_err" &
+    fi
+  elif command -v parec >/dev/null 2>&1; then
+    echo "parec" > "$backend_file"
+    if [[ -n "${source_name:-}" ]]; then
+      parec -d "$source_name" --format=s16le --rate=16000 --channels=1 >"$raw_file" 2>"$record_err" &
+    else
+      parec --format=s16le --rate=16000 --channels=1 >"$raw_file" 2>"$record_err" &
+    fi
+  else
+    echo "arecord" > "$backend_file"
+    arecord -q -f S16_LE -r 16000 -c 1 "$wav_file" 2>"$record_err" &
+  fi
+  echo $! > "$pid_file"
+}
+
+cleanup_stale_pid
+
+case "${1:-toggle}" in
+  start)
+    start_recording
+    ;;
+  stop)
+    stop_recording
+    ;;
+  learn)
+    ensure_learn_script
+    transcript="$(cat "$txt_file" 2>/dev/null || true)"
+    clip="$(wl-paste --no-newline 2>/dev/null || true)"
+    if [[ -z "$transcript" ]]; then
+      notify_whisper "Whisper" "No recent transcript to learn from."
+      exit 1
+    fi
+    if [[ -z "$clip" ]] || [[ "$clip" == "$transcript" ]]; then
+      notify_whisper "Whisper" "Copy your corrected text first, then run learn."
+      exit 1
+    fi
+    TRANSCRIPT="$transcript" CLIP="$clip" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" whisper-python "$learn_script"
+    notify_whisper "Whisper" "Learned from your corrected text."
+    ;;
+  toggle)
+    if [[ -f "$pid_file" ]]; then
+      stop_recording
+    else
+      start_recording
+    fi
+    ;;
+  *)
+    echo "Usage: $0 [start|stop|toggle|learn]" >&2
+    exit 2
+    ;;
+esac

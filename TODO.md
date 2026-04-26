@@ -1,0 +1,2 @@
+- [] Try to add Calendar widget from obsidian
+- [] Re-add JS npm global CLIs in a way that does not run during Home Manager activation/boot

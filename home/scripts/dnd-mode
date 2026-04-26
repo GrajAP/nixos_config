@@ -1,0 +1,3 @@
+[mode=dnd]
+default-timeout=0
+hide-if-readable=true

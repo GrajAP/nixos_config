@@ -1,0 +1,20 @@
+#!/bin/sh
+
+SERVICE="kanata-internalKeyboard"
+
+# Check if the service exists
+if ! systemctl list-units --type=service --all | grep -q "$SERVICE.service"; then
+  notify-send "Kanata" "Service '$SERVICE' not found." --urgency=critical
+  exit 1
+fi
+
+# Get the current status of the service
+STATUS=$(systemctl is-active "$SERVICE")
+
+if [ "$STATUS" = "active" ]; then
+  sudo systemctl stop "$SERVICE.service"
+  notify-send "Kanata" "Keyboard remapping disabled" --urgency=normal
+else
+  sudo systemctl start "$SERVICE.service"
+  notify-send "Kanata" "Keyboard remapping enabled" --urgency=normal
+fi
