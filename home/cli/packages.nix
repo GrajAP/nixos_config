@@ -67,9 +67,6 @@ in {
     yt-dlp
     catimg
 
-    # minecraft launcher (non-premium)
-    prismlauncher
-
     # man pages for tiktok attention span mfs
     tealdeer
 

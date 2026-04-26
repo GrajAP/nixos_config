@@ -25,7 +25,7 @@ in {
       [
         ''${mod},RETURN,exec,foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'exec tmux' ''
 
-        "${mod},SPACE,exec,anyrun"
+        "${mod},SPACE,exec,launcher"
         "${mod},F,exec,helium"
         "${mod},D,exec,discord"
         "${mod},C,killactive"
