@@ -18,6 +18,7 @@
         "launch-obsidian-tools"
         "helium"
         "auto-dnd"
+        "sleep 1 && makoctl mode -a dnd"
       ];
 
       gestures.workspace_swipe_forever = true;
@@ -36,7 +37,7 @@
       };
 
       decoration = {
-        rounding = 8;
+        rounding = 10;
         blur = {
           enabled = true;
           size = 3;

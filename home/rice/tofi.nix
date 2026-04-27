@@ -15,14 +15,10 @@
     ascii-input = false
     late-keyboard-init = true
     result-spacing = 6
-    corner-radius = 14
+    corner-radius = 10
     border-width = 2
-    padding-top = 14
-    padding-bottom = 14
-    padding-left = 18
-    padding-right = 14
-    selection-background-corner-radius = 10
-    selection-background-padding = 5,6
+    padding = 14,18
+    margin = 18
     min-input-width = 120
     background-color = ${config.lib.stylix.colors.withHashtag.base00}ee
     border-color = ${config.lib.stylix.colors.withHashtag.base0D}

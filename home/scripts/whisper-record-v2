@@ -34,7 +34,7 @@ ensure_ui_css() {
 window {
   background: #1e1e2e;
   border: 1px solid #45475a;
-  border-radius: 22px;
+  border-radius: 10px;
 }
 
 label {
@@ -47,14 +47,14 @@ scrolledwindow,
 viewport {
   background: #313244;
   color: #cdd6f4;
-  border-radius: 16px;
+  border-radius: 10px;
 }
 
 button {
   background: #313244;
   color: #cdd6f4;
   border: 1px solid #45475a;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 8px 14px;
 }
 CSS

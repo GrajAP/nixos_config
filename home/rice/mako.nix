@@ -13,7 +13,7 @@
       text-color = config.lib.stylix.colors.withHashtag.base05;
       border-color = config.lib.stylix.colors.withHashtag.base0D;
       border-size = 2;
-      border-radius = 14;
+      border-radius = 10;
       padding = "14,18";
       margin = "18";
       width = 360;
@@ -27,6 +27,8 @@
     extraConfig = ''
       [mode=dnd]
       default-timeout=0
+      invisible=true
+      on-notify=none
 
       [mode=dnd app-name=ferdium]
       invisible=1

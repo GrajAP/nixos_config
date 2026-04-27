@@ -18,10 +18,11 @@
     "$mkdir_cmd" -p "$NOTIFY_DIR"
 
     apply_mode() {
+      ${makoctlBin} mode -a dnd 2>/dev/null || true
       if [ -f "$MANUAL_STATE" ] || [ -f "$AUTO_STATE" ]; then
-        ${makoctlBin} set-mode dnd 2>/dev/null || true
+        ${makoctlBin} mode -s dnd 2>/dev/null || true
       else
-        ${makoctlBin} set-mode default 2>/dev/null || true
+        ${makoctlBin} mode -s default 2>/dev/null || true
       fi
     }
 
