@@ -150,6 +150,9 @@
         "DP-2,2560x1440@144,-1440x0,1,transform,1"
         "DP-2,addreserved,0,955,0,0"
       ];
+      extraConfig = ''
+        windowrule = match:class ^(tofi)$, no_border true, no_shadow true
+      '';
     };
   };
 }

@@ -1,8 +1,5 @@
 {pkgs, ...}: let
   json = pkgs.formats.json {};
-  # Temporarily disabled - stale store path causing pipewire to fail
-  # Will be fixed properly
-  /*
   pw_rnnoise_config = {
     "context.modules" = [
       {
@@ -36,12 +33,10 @@
       }
     ];
   };
-  */
 in {
-  # Re-enable once path issue is fixed
-  /*
+  home.packages = [pkgs.rnnoise-plugin];
+
   xdg.configFile."pipewire/pipewire.conf.d/99-input-denoising.conf" = {
     source = json.generate "99-input-denoising.conf" pw_rnnoise_config;
   };
-  */
 }
