@@ -10,7 +10,6 @@
     udev
     nemo
     steam
-    pi-coding-agent
     bun
     (pkgs.writeShellApplication {
       name = "install-js-clis";

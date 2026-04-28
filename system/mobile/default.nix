@@ -1,7 +1,7 @@
 {pkgs, ...}: let
   androidComposition = pkgs.androidenv.composeAndroidPackages {
     cmdLineToolsVersion = "11.0";
-    platformToolsVersion = "35.0.1";
+    platformToolsVersion = "35.0.2";
     buildToolsVersions = ["34.0.0"];
     platformVersions = ["34"];
     abiVersions = ["x86_64"];
