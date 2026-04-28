@@ -23,7 +23,7 @@ in {
     valgrind
     gprof2dot
     nodejs
-    pnpm
+    bun
     #    nodePackages.typescript
     watchman
     #   nodePackages.eas-cli # Expo Application Services CLI

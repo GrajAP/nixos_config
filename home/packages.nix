@@ -11,26 +11,25 @@
     nemo
     steam
     pi-coding-agent
-    nodejs
     bun
     (pkgs.writeShellApplication {
       name = "install-js-clis";
-      runtimeInputs = [pkgs.nodejs];
+      runtimeInputs = [pkgs.bun];
       text = ''
         set -euo pipefail
 
-        mkdir -p "$HOME/.npm-global"
-        npm install -g --prefix "$HOME/.npm-global" \
+        mkdir -p "$HOME/.bun-global"
+        bun install -g --prefix "$HOME/.bun-global" \
           @angular/cli \
           @expo/cli \
-          vite
+          vite \
           @react-native-community/cli \
           concurrently
       '';
     })
   ];
 
-  home.sessionVariables.PATH = "${config.home.homeDirectory}/.npm-global/bin:$PATH";
+  home.sessionVariables.PATH = "${config.home.homeDirectory}/.bun-global/bin:$PATH";
 
-  home.sessionPath = ["${config.home.homeDirectory}/.npm-global/bin"];
+  home.sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
 }

@@ -20,7 +20,7 @@
         prettier.prettier-vscode
         dbaeumer.vscode-eslint
         naumovs.color-highlight
-        mskelton.npm-outdated
+
         ms-vsliveshare.vsliveshare
         ms-vscode.live-server
         ms-ceintl.vscode-language-pack-pl

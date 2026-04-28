@@ -19,12 +19,7 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    ...
-  } @ inputs: let
-    system = "x86_64-linux";
+  outputs = {nixpkgs, ...} @ inputs: let
     sharedModules = [
       ./configuration.nix
       inputs.stylix.nixosModules.stylix
@@ -40,17 +35,5 @@
         ]
         ++ sharedModules;
     };
-
-    nixosConfigurations.grajpap-iso = nixpkgs.lib.nixosSystem {
-      specialArgs = {inherit inputs;};
-      modules =
-        [
-          ./hosts/grajpap/iso.nix
-        ]
-        ++ sharedModules;
-    };
-
-    packages.${system}.grajpap-iso =
-      self.nixosConfigurations.grajpap-iso.config.system.build.isoImage;
   };
 }
