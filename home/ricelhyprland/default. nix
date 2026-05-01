@@ -1,0 +1,15 @@
+{pkgs, ...}: {
+  systemd.user.services.easyeffects = {
+    Unit = {
+      Description = "EasyEffects audio processing";
+      PartOf = ["graphical-session.target"];
+    };
+    Service = {
+      ExecStart = "${pkgs.easyeffects}/bin/easyeffects --gapplication-service";
+      Restart = "on-failure";
+    };
+    Install = {
+      WantedBy = ["graphical-session.target"];
+    };
+  };
+}
