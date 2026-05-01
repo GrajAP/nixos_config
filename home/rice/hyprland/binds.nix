@@ -56,7 +56,6 @@ in {
 
         "${mod},Semicolon,exec,wlogout"
 
-        # new keybindings
         "${mod},B,exec,pkill -SIGUSR1 waybar"
         "${mod},E,exec,nemo"
 
@@ -71,7 +70,6 @@ in {
 
         "${mod},X,exec,wlogout"
 
-        #special workspaces
         "${mod},A,exec,toggle-special-dp2 social"
         "${modshift},A,exec,move-special-dp2 social"
         "${mod},W,exec,toggle-special-dp2 tools"
