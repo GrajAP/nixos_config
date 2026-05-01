@@ -16,7 +16,7 @@
         "spotify --disable-gpu &"
         "find ~/.config/obsidian -maxdepth 1 -type f -name 'obsidian-*.asar' -delete"
         "launch-obsidian-tools"
-        "helium"
+        "helium https://www.google.com/maps/@50.4141712,19.4116283,21z/data=!4m4!7m3!1m1!1s110110603404561891260!2e2?entry=ttu"
         "auto-dnd"
         "sleep 1 && makoctl mode -a dnd"
       ];

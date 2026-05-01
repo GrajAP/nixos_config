@@ -26,7 +26,5 @@
     selection-color = ${config.lib.stylix.colors.withHashtag.base05}
     selection-background = ${config.lib.stylix.colors.withHashtag.base0D}33
     drun-launch = true
-    math-backend = qalc
-    enable-calculation = true
   '';
 }
