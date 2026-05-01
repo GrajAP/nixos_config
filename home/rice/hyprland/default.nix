@@ -194,37 +194,6 @@ in {
       ''
     )
     (
-      writeShellScriptBin "hypr-cheatsheet"
-      ''
-        cat <<'EOF' | tofi --prompt-text "Hyprland Keys" >/dev/null
-        MOD+Return   terminal (foot + tmux)
-        MOD+Space    app launcher
-        MOD+?        show this helper
-        MOD+C        close active window
-        MOD+V        toggle floating
-        MOD+F11      fullscreen
-        MOD+H/J/K/L  move focus
-        MOD+Shift+H/L move window left/right
-        MOD+Shift+J/K move window next/prev workspace
-        MOD+Ctrl+H/J/K/L resize active window
-        MOD+1..0     go to workspace 1..10
-        MOD+Shift+1..0 move window to workspace 1..10
-        MOD+A/W/Z    toggle social/tools/scratchpad special workspace
-        MOD+Shift+A/W/Z move window to social/tools/scratchpad
-        MOD+O        toggle OBS special workspace
-        MOD+Shift+O  move window to OBS special workspace
-        MOD+S        screenshot to clipboard
-        MOD+Shift+S  screenshot to file
-        MOD+F10      toggle manual DND
-        Pause        hold for voice to text
-        MOD+N        restore notifications
-        MOD+Shift+N  dismiss all notifications
-        MOD+B        toggle waybar
-        MOD+X        logout menu
-        EOF
-      ''
-    )
-    (
       writeShellScriptBin "toggle-special-dp2"
       ''
         set -eu

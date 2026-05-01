@@ -24,20 +24,5 @@
       markup = true;
       format = "%s\\n%b";
     };
-    extraConfig = ''
-      [mode=dnd]
-      default-timeout=0
-      invisible=true
-      on-notify=none
-
-      [mode=dnd app-name=ferdium]
-      invisible=1
-
-      [mode=dnd app-name=signal-desktop]
-      invisible=1
-
-      [mode=dnd app-name=helium]
-      invisible=1
-    '';
   };
 }

@@ -34,7 +34,6 @@ in {
         "${mod},T,togglegroup,"
         "${modshift},G,changegroupactive,"
         "${mod},V,togglefloating,"
-        "${mod},F10,exec,toggle-notifications"
         "${mod},F11,fullscreen,"
 
         # workspace controls
@@ -56,7 +55,6 @@ in {
         ",PAUSE,exec,whisper-record-v2 start"
 
         "${mod},Semicolon,exec,wlogout"
-        "${modshift},slash,exec,hypr-cheatsheet"
 
         # new keybindings
         "${mod},B,exec,pkill -SIGUSR1 waybar"

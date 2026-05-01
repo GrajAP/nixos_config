@@ -16,9 +16,7 @@
         "spotify --disable-gpu &"
         "find ~/.config/obsidian -maxdepth 1 -type f -name 'obsidian-*.asar' -delete"
         "launch-obsidian-tools"
-        "helium https://www.google.com/maps/@50.4141712,19.4116283,21z/data=!4m4!7m3!1m1!1s110110603404561891260!2e2?entry=ttu"
-        "auto-dnd"
-        "sleep 1 && makoctl mode -a dnd"
+        "helium"
       ];
 
       gestures.workspace_swipe_forever = true;
@@ -74,9 +72,6 @@
         key_press_enables_dpms = true;
         disable_autoreload = true;
       };
-
-      # Hypridle settings
-      # See https://github.com/hyprwm/hypridle
 
       animations.enabled = true;
       animations.bezier = [
