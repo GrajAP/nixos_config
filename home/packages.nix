@@ -10,6 +10,7 @@
     udev
     nemo
     steam
+    pnpm
     bun
     (pkgs.writeShellApplication {
       name = "install-js-clis";
