@@ -5,7 +5,6 @@
 }: {
   programs.vscode = {
     enable = true;
-    package = pkgs.vscodium;
     profiles.default = {
       # ------------------------------------------------------------------
       # Extensions you need for Expo / React-Native development
