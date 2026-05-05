@@ -8,5 +8,6 @@
   imports = [
     ./wayland
     ./core
+    ./mobile
   ];
 }
