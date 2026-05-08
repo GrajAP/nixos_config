@@ -33,7 +33,7 @@ with pkgs; {
   agpl = "curl https://www.gnu.org/licenses/agpl-3.0.txt -o LICENSE";
   webcam = "ffplay /dev/video0";
   rebuild = "sh /etc/nixos/rebuild.sh";
-  edit = "codium /etc/nixos && exit";
+  edit = "code /etc/nixos && exit";
   sd30 = "sudo shutdown -P +30";
   sd60 = "sudo shutdown -P +60";
   g = "git";

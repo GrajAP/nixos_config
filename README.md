@@ -62,9 +62,6 @@ A NixOS configuration using flakes and home-manager.
 # Build the system
 sudo nixos-rebuild switch --flake .#grajpap
 
-# Build the ISO (for installation)
-nix build .#packages.x86_64-linux.grajpap-iso
-
 # Update the system
 sudo nixos-rebuild switch --upgrade --flake .#grajpap
 ```
