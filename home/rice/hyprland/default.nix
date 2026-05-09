@@ -104,6 +104,66 @@
       done
     '';
   };
+  obsidianCalendarWidget = pkgs.writeShellApplication {
+    name = "obsidian-calendar-widget";
+    runtimeInputs = with pkgs; [
+      bash
+      coreutils
+      electron
+      hyprland
+      jq
+      procps
+      ripgrep
+    ];
+    text = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      title='Obsidian Calendar Editor'
+      app_asar='/home/grajpap/dev/obsidian-calendar/out/Obsidian Calendar Editor-linux-x64/resources/app.asar'
+      existing_count="$(hyprctl -j clients | jq '[.[] | select(.title == "'"$title"'")] | length')"
+
+      if [[ ! -f "$app_asar" ]]; then
+        echo "Missing $app_asar. Build it with: npm run package" >&2
+        exit 1
+      fi
+
+      if (( existing_count > 1 )); then
+        hyprctl -j clients \
+          | jq -r '.[] | select(.title == "'"$title"'") | .pid' \
+          | sort -u \
+          | while read -r pid; do
+              [[ -n "$pid" ]] && kill "$pid" >/dev/null 2>&1 || true
+            done
+        sleep 1
+        existing_count=0
+      fi
+
+      if (( existing_count == 0 )); then
+        env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE electron "$app_asar" >/dev/null 2>&1 &
+      fi
+
+      for _ in $(seq 1 40); do
+        window_address="$(hyprctl -j clients | jq -r '.[] | select(.title == "'"$title"'") | .address' | head -n1)"
+        if [[ -n "''${window_address:-}" && "$window_address" != "null" ]]; then
+          hyprctl dispatch movetoworkspacesilent "6,address:$window_address" >/dev/null 2>&1 || true
+          is_floating="$(hyprctl -j clients | jq -r '.[] | select(.address == "'"$window_address"'") | .floating' | head -n1)"
+          if [[ "''${is_floating:-false}" != "true" && "''${is_floating:-0}" != "1" ]]; then
+            hyprctl dispatch setfloating "address:$window_address" >/dev/null 2>&1 || true
+            sleep 0.1
+          fi
+          hyprctl dispatch resizewindowpixel "exact 1416 1581,address:$window_address" >/dev/null 2>&1 || true
+          hyprctl dispatch movewindowpixel "exact -1428 12,address:$window_address" >/dev/null 2>&1 || true
+
+          exit 0
+        fi
+        sleep 0.25
+      done
+
+      echo "Obsidian Calendar Editor window did not appear in time" >&2
+      exit 1
+    '';
+  };
 in {
   imports = [./config.nix ./binds.nix];
   home.packages = with pkgs;
@@ -163,6 +223,7 @@ in {
         done
       '';
     })
+    obsidianCalendarWidget
     (writeShellScriptBin
       "launcher"
       ''
@@ -324,6 +385,21 @@ in {
     };
     Install = {
       WantedBy = ["graphical-session.target"];
+    };
+  };
+  systemd.user.services.obsidian-calendar-widget = {
+    Unit = {
+      Description = "Obsidian Calendar Editor widget";
+      After = ["hyprland-session.target"];
+      PartOf = ["hyprland-session.target"];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = lib.getExe obsidianCalendarWidget;
+      RemainAfterExit = true;
+    };
+    Install = {
+      WantedBy = ["hyprland-session.target"];
     };
   };
   systemd.user.targets.tray = {

@@ -132,14 +132,10 @@
         "workspace special:tools,match:class spotify"
         "workspace special:tools,match:class obsidian"
         "workspace special:tools,match:class Obsidian"
+        "workspace 6 silent,match:title ^(Obsidian Calendar Editor)$"
+        "size 1416 1581,match:title ^(Obsidian Calendar Editor)$"
+        "move -1428 12,match:title ^(Obsidian Calendar Editor)$"
       ];
-      # windowrulev2 = [
-      #   "float,title:^(Whispr Flow)$"
-      #   "center,title:^(Whispr Flow)$"
-      #   "noborder,title:^(Whispr Flow)$"
-      #   "noshadow,title:^(Whispr Flow)$"
-      #   "stayfocused,title:^(Whispr Flow)$"
-      # ];
       # Monitor config for dual displays
       monitor = [
         "DP-1,2560x1440@144,0x0,1"
@@ -148,6 +144,7 @@
       ];
       extraConfig = ''
         windowrule = match:class ^(tofi)$, no_border true, no_shadow true
+        windowrule = match:title ^(Obsidian Calendar Editor)$, workspace 6 silent, float on, size 1416 1581, move -1428 12, no_initial_focus on
       '';
     };
   };
