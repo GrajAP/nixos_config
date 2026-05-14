@@ -10,6 +10,7 @@
     udev
     nemo
     steam
+    postman
     pnpm
     bun
     (pkgs.writeShellApplication {
