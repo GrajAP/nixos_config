@@ -19,7 +19,7 @@
         "helium"
       ];
 
-      configType = "lua";
+      configType = "hyprlang";
 
       gestures.workspace_swipe_forever = true;
 
