@@ -27,28 +27,6 @@
     options = ["fmask=0077" "dmask=0077"];
   };
 
-  #fileSystems."/run/media/grajpap/Windows" = {
-  #  device = "/dev/disk/by-uuid/FC0084040083C3DC";
-  #  fsType = "ntfs3";
-  #  options = ["uid=1000" "gid=100" "dmask=022" "fmask=133"];
-  #};
-
-  #fileSystems."/run/media/grajpap/Hdd" = {
-  #  device = "/dev/disk/by-uuid/181ACB431ACB1C9E";
-  #  fsType = "ntfs3";
-  #  options = ["uid=1000" "gid=100" "dmask=022" "fmask=133"];
-  #};
-
-  #fileSystems."/run/media/grajpap/Storage" = {
-  #  device = "/dev/disk/by-uuid/D62C7B212C7AFC35";
-  #  fsType = "ntfs3";
-  #  options = ["uid=1000" "gid=100" "dmask=022" "fmask=133"];
-  #};
-  #fileSystems."/run/media/grajpap/Nvme128" = {
-  #  device = "/dev/disk/by-uuid/F852327652323A28";
-  #  fsType = "ntfs3";
-  #  options = ["uid=1000" "gid=100" "dmask=022" "fmask=133"];
-  #};
   swapDevices = [
     {device = "/dev/disk/by-uuid/03bff03d-086e-42ea-89a8-f921c2eabcd1";}
   ];
