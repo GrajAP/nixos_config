@@ -9,7 +9,7 @@
     extraSpecialArgs = {inherit inputs;};
     useUserPackages = true;
     users.grajpap = {
-      home.stateVersion = "24.11";
+      home.stateVersion = "26.05";
       imports = [
         ./home
       ];

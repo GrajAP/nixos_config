@@ -13,7 +13,6 @@
     };
   };
   gtk.gtk4.theme = config.gtk.theme;
-  home.stateVersion = "24.11";
   imports = [
     ./packages.nix
     ./cli

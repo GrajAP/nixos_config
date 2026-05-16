@@ -129,6 +129,6 @@
       randomizedDelaySec = "45min";
       allowReboot = false;
     };
-    stateVersion = "24.11"; # DONT TOUCH THIS
+    stateVersion = "26.05"; # DONT TOUCH THIS
   };
 }
