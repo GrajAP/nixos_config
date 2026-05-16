@@ -16,7 +16,8 @@
       gnugrep
       gnused
       gtk3
-      hyprland
+      rnnoise-plugin
+      easyeffects
       libnotify
       pango
       pipewire

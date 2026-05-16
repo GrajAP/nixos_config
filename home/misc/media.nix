@@ -3,6 +3,7 @@
     playerctl
     pavucontrol
     pulsemixer
+    qbittorrent
     imv
     davinci-resolve
     imv

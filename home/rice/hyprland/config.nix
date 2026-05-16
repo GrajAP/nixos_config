@@ -19,6 +19,8 @@
         "helium"
       ];
 
+      configType = "lua";
+
       gestures.workspace_swipe_forever = true;
 
       xwayland.force_zero_scaling = true;
