@@ -1,5 +1,6 @@
-{...}: let
+{config, ...}: let
   browser = ["helium.desktop"];
+  heliumProfilePath = "${config.home.homeDirectory}/.config/net.imput.helium/Default";
 
   associations = {
     "text/html" = browser;
@@ -28,7 +29,7 @@ in {
     Name=Helium
     GenericName=Web Browser
     Comment=Privacy-focused web browser
-    Exec=helium --profile-path="$HOME/.config/net.imput.helium/Default"
+    Exec=helium --profile-path="${heliumProfilePath}"
     Terminal=false
     Type=Application
     Categories=Network;WebBrowser;

@@ -26,7 +26,7 @@ in {
         ''${mod},RETURN,exec,foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'exec tmux' ''
 
         "${mod},SPACE,exec,launcher"
-        "${mod},F,exec,helium --profile-path=\"$HOME/.config/net.imput.helium/Default\""
+        "${mod},F,exec,helium --profile-path=\"${config.home.homeDirectory}/.config/net.imput.helium/Default\""
         "${mod},D,exec,discord"
         "${mod},C,killactive"
 
