@@ -23,6 +23,18 @@
     "x-scheme-handler/tg" = ["telegramdesktop.desktop"];
   };
 in {
+  xdg.configFile."applications/helium.desktop".text = ''
+    [Desktop Entry]
+    Name=Helium
+    GenericName=Web Browser
+    Comment=Privacy-focused web browser
+    Exec=helium --profile-path="$HOME/.config/net.imput.helium/Default"
+    Terminal=false
+    Type=Application
+    Categories=Network;WebBrowser;
+    MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+  '';
+
   xdg = {
     userDirs = {
       enable = true;

@@ -5,6 +5,7 @@
 }: {
   wayland.windowManager.hyprland = {
     enable = true;
+    configType = "hyprlang";
     settings = {
       exec-once = [
         "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
@@ -18,9 +19,6 @@
         "launch-obsidian-tools"
         "helium"
       ];
-
-      configType = "hyprlang";
-
       gestures.workspace_swipe_forever = true;
 
       xwayland.force_zero_scaling = true;
@@ -69,7 +67,6 @@
         disable_splash_rendering = true;
         force_default_wallpaper = 0;
         disable_hyprland_logo = true;
-        vfr = true;
         mouse_move_enables_dpms = true;
         key_press_enables_dpms = true;
         disable_autoreload = true;
@@ -91,7 +88,6 @@
       ];
 
       dwindle = {
-        pseudotile = false;
         preserve_split = "yes";
       };
       "$kw" = "dwindle:no_gaps_when_only";
