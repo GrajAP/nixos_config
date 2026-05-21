@@ -112,6 +112,7 @@
       ];
       windowgroup = [
         "social,class:discord"
+        "social,class:vesktop"
         "social,class:signal"
         "social,class:Ferdium"
         "tools,class:Spotify"
@@ -121,6 +122,7 @@
       ];
       windowrule = [
         "workspace special:social,match:class discord"
+        "workspace special:social,match:class vesktop"
         "workspace special:social,match:class signal"
         "workspace special:social,match:class Ferdium"
         "workspace special:obs,match:class obs"

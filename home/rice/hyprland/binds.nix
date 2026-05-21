@@ -28,6 +28,7 @@ in {
         "${mod},SPACE,exec,launcher"
         "${mod},F,exec,helium --profile-path=\"${config.home.homeDirectory}/.config/net.imput.helium/Default\""
         "${mod},D,exec,discord"
+        "${mod},D,exec,vesktop"
         "${mod},C,killactive"
 
         ",XF86Bluetooth, exec, bcn"
