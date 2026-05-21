@@ -74,6 +74,56 @@ in {
       package = pkgs.jre;
     };
 
+    nix-ld = {
+      enable = true;
+      # libraries = with pkgs; [
+      #   stdenv.cc.cc
+      #   glibc
+      #   zlib
+      #   openssl
+      #   curl
+      #   nss
+      #   nspr
+      #   atk
+      #   cups
+      #   dbus
+      #   expat
+      #   fontconfig
+      #   freetype
+      #   gdk-pixbuf
+      #   glib
+      #   gtk3
+      #   libdrm
+      #   libGL
+      #   libgbm
+      #   libnotify
+      #   libxkbcommon
+      #   libxml2
+      #   mesa
+      #   pango
+      #   libx11
+      #   libxcomposite
+      #   libxdamage
+      #   libxext
+      #   libxfixes
+      #   libxrandr
+      #   libxshmfence
+      #   libxcb
+      #   alsa-lib
+      #   at-spi2-atk
+      #   at-spi2-core
+      #   cairo
+      #   c-ares
+      #   icu
+      #   libuuid
+      #   minizip
+      #   snappy
+      #   udev
+      #   libxscrnsaver
+      #   libxtst
+      # ];
+    };
+
     bash.promptInit = ''eval "$(${pkgs.starship}/bin/starship init bash)"'';
   };
 
