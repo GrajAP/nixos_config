@@ -6,5 +6,7 @@
     easyeffects
     rnnoise-plugin
     rnnoise
+    flameshot
+    satty
   ];
 }
