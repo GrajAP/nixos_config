@@ -7,6 +7,5 @@
     rnnoise-plugin
     rnnoise
     flameshot
-    satty
   ];
 }

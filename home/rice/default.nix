@@ -5,5 +5,6 @@
     ./hyprland
     ./waybar
     ./mako.nix
+    ./satty.nix
   ];
 }

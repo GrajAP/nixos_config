@@ -47,7 +47,7 @@ in {
         "${mod},mouse_down,workspace,e+1"
         "${mod},mouse_up,workspace,e-1"
 
-        ",Print,exec, grim - | satty -"
+        ",Print,exec, grim -g \"$(slurp)\" - | satty --filename -"
         "${modshift},O,exec,move-special-dp2 obs"
         "${mod},Q,exec,katana-switch"
 
