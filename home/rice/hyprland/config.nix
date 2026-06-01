@@ -135,7 +135,6 @@
         "workspace 6 silent,match:title ^(Obsidian Calendar Editor)$"
         "size 1416 1581,match:title ^(Obsidian Calendar Editor)$"
         "move -1428 12,match:title ^(Obsidian Calendar Editor)$"
-        "noborder true, noshadow true,match:class ^(tofi)$"
         "workspace 6 silent, float on, size 1416 1581, move -1428 12, no_initial_focus on,match:title ^(Obsidian Calendar Editor)$"
       ];
       # Monitor config for dual displays
