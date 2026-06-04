@@ -12,7 +12,7 @@
       light = "Papirus-Dark";
     };
   };
-  gtk.gtk4.theme = config.gtk.theme;
+  gtk.gtk4.theme.name = config.gtk.theme.name;
   imports = [
     ./packages.nix
     ./cli

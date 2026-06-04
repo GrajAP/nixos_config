@@ -33,6 +33,8 @@ in {
     };
     image = wall;
 
+    targets.kmscon.enable = false;
+
     opacity = {
       applications = 1.0;
       terminal = 0.8;

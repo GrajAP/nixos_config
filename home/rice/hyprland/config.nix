@@ -136,6 +136,8 @@
         "size 1416 1581,match:title ^(Obsidian Calendar Editor)$"
         "move -1428 12,match:title ^(Obsidian Calendar Editor)$"
         "workspace 6 silent, float on, size 1416 1581, move -1428 12, no_initial_focus on,match:title ^(Obsidian Calendar Editor)$"
+        "fullscreen 1,match:class guitarix"
+        "fullscreen 1,match:class Guitarix"
       ];
       # Monitor config for dual displays
       monitor = [
