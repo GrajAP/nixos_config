@@ -152,11 +152,13 @@ in {
 
   services.timesyncd = {
     enable = true;
-    extraConfig = ''
-      PollIntervalMinSec=32
-      PollIntervalMaxSec=64
-      ConnectionRetrySec=5
-    '';
+    settings = {
+      Time = {
+        PollIntervalMinSec = 32;
+        PollIntervalMaxSec = 64;
+        ConnectionRetrySec = 5;
+      };
+    };
   };
 
   i18n = let
