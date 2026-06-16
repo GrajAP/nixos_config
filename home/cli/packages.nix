@@ -1,4 +1,8 @@
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   texlive = pkgs.texlive.combine {
     inherit
       (pkgs.texlive)
@@ -16,8 +20,7 @@ in {
     fastfetch
     texlive
     python3
-    gcc
-    gpp
+    clang
     gdb
     ddd
     valgrind
@@ -55,7 +58,6 @@ in {
 
     vdirsyncer
     #khal
-
     # neofetch but for cpu's
     cpufetch
 
