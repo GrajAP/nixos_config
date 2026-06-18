@@ -168,11 +168,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1781221322,
-        "narHash": "sha256-/z7MVyIn5HMzzsgX3AfvLGfj9ZigJiH5rjIavPMAPiM=",
+        "lastModified": 1781781078,
+        "narHash": "sha256-D+UYbqPJNNK2Li2mB8vmLPeOFaVic3WbTkPAVppmAy0=",
         "owner": "ominit",
         "repo": "helium-browser-flake",
-        "rev": "d089ffd6e6f3f038db6712bbfd8c9027364dbe45",
+        "rev": "734999df6483e04abb9817738930e9646caf460b",
         "type": "github"
       },
       "original": {
@@ -188,11 +188,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781719483,
-        "narHash": "sha256-MC6hWrek1hMewRRRHiAJ8z4sHEodzjizOefS/oHVrsU=",
+        "lastModified": 1781786753,
+        "narHash": "sha256-wQaAPqQ4XZPxPQVKlDfAgFtWirwsPf15HLf0aPniVKc=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "ea0bf49c9d2a9c8f5548d116d63a7a1a35d1193d",
+        "rev": "652f75468661f94b73361f8acbe0a84d4ac312be",
         "type": "github"
       },
       "original": {
