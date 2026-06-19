@@ -68,6 +68,7 @@
         force_default_wallpaper = 0;
         disable_hyprland_logo = true;
         mouse_move_enables_dpms = true;
+        enable_mouse_pincher = true;
         key_press_enables_dpms = true;
         disable_autoreload = true;
       };

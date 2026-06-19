@@ -84,6 +84,8 @@ in {
     bindm = [
       "${mod},mouse:272,movewindow"
       "${mod},mouse:273,resizewindow"
+      "${mod} mouse_down, exec, hyprctl dispatch pincher 1.1"
+      "${mod} mouse_up, exec, hyprctl dispatch pincher 0.9"
     ];
 
     bindr = [
