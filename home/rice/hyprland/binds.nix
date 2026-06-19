@@ -45,8 +45,8 @@ in {
         "${modshift},l,movewindow, r"
 
         # zoom controls
-        "${modshift},mouse_down,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.3')"
-        "${modshift},mouse_up,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.3) | if . < 1 then 1 else . end')"
+        "${modshift},mouse_down,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.5')"
+        "${modshift},mouse_up,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.5) | if . < 1 then 1 else . end')"
 
         ",Print,exec, grim -g \"$(slurp)\" - | satty --filename -"
         "${modshift},O,exec,move-special-dp2 obs"
