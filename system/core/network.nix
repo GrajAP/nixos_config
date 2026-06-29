@@ -52,6 +52,8 @@ in {
     enableOnBoot = false;
   };
 
+  services.tailscale.enable = true;
+
   # slows down boot time
   systemd.services.NetworkManager-wait-online.enable = false;
 }
