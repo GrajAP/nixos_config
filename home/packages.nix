@@ -7,5 +7,7 @@
     rnnoise-plugin
     rnnoise
     flameshot
+    krita
+    gimp
   ];
 }
