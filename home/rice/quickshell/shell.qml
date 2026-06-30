@@ -257,7 +257,7 @@ ShellRoot {
     if (widgetPage === "calendar") return 460;
     if (widgetPage === "network") return 430;
     if (widgetPage === "weather") return 390;
-    if (widgetPage === "tools") return 400;
+    if (widgetPage === "tools") return 300;
     return 420;
   }
   function widgetPreferredHeight() {
@@ -266,7 +266,7 @@ ShellRoot {
     if (widgetPage === "calendar") return 650;
     if (widgetPage === "network") return 560;
     if (widgetPage === "weather") return 500;
-    if (widgetPage === "tools") return 390;
+    if (widgetPage === "tools") return 230;
     if (widgetPage === "media") return 500;
     return 620;
   }
@@ -752,29 +752,30 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 42
+          Layout.preferredHeight: 36
           implicitWidth: 42
           implicitHeight: 36
-          ColumnLayout {
-            anchors.centerIn: parent
-            width: parent.width
-            spacing: 0
-            Text {
-              Layout.fillWidth: true
-              text: root.weatherGlyph()
-              color: Theme.text
-              font.family: Theme.font
-              font.pixelSize: 17
-              horizontalAlignment: Text.AlignHCenter
-            }
-            Text {
-              Layout.fillWidth: true
-              text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
-              color: Theme.text
-              font.family: Theme.font
-              font.pixelSize: 13
-              font.bold: true
-              horizontalAlignment: Text.AlignHCenter
-            }
+          Text {
+            id: barWeatherGlyph
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 0
+            text: root.weatherGlyph()
+            color: Theme.text
+            font.family: Theme.font
+            font.pixelSize: 17
+            horizontalAlignment: Text.AlignHCenter
+          }
+          Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: barWeatherGlyph.bottom
+            anchors.topMargin: -1
+            text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
+            color: Theme.text
+            font.family: Theme.font
+            font.pixelSize: 13
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
           }
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWidget("weather") }
         }
@@ -908,7 +909,7 @@ ShellRoot {
               cursorShape: Qt.PointingHandCursor
               onEntered: outputPicker.hovered = true
               onExited: outputPicker.hovered = false
-              onClicked: outputMenu.open()
+              onClicked: outputMenu.opened ? outputMenu.close() : outputMenu.open()
             }
             Menu {
               id: outputMenu
@@ -1001,7 +1002,7 @@ ShellRoot {
               cursorShape: Qt.PointingHandCursor
               onEntered: microphonePicker.hovered = true
               onExited: microphonePicker.hovered = false
-              onClicked: microphoneMenu.open()
+              onClicked: microphoneMenu.opened ? microphoneMenu.close() : microphoneMenu.open()
             }
             Menu {
               id: microphoneMenu
@@ -1354,17 +1355,17 @@ ShellRoot {
                 width: ListView.view.width
                 height: 44
                 radius: 10
-                color: isCurrentHour ? Theme.accent : root.weatherSurfaceForCode(modelData.weatherCode)
-                border.color: isCurrentHour ? Theme.accent : root.weatherColorForCode(modelData.weatherCode)
+                color: isCurrentHour ? Theme.accent : Theme.surface
+                border.color: isCurrentHour ? Theme.accent : Theme.border
                 border.width: isCurrentHour ? 0 : 1
                 RowLayout {
                   anchors.fill: parent
                   anchors.margins: 10
                   spacing: 10
                   Text { text: parent.parent.isCurrentHour ? "Now" : root.weatherHourLabel(parent.parent.modelData.time); color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isCurrentHour; Layout.preferredWidth: 46 }
-                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : root.weatherColorForCode(parent.parent.modelData.weatherCode); font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
                   Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : root.weatherColorForCode(parent.parent.modelData.weatherCode); font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
                 }
               }
               Text {
@@ -1383,7 +1384,7 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "tools"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
+          visible: root.widgetPage === "tools"; Layout.fillWidth: true; spacing: 14
           Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.font; font.bold: true }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
@@ -1399,22 +1400,6 @@ ShellRoot {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("save", false) }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            radius: 12
-            color: "transparent"
-            border.color: Theme.border
-            Text {
-              anchors.fill: parent
-              anchors.margins: 14
-              text: "Keys now call Quickshell IPC:\nPrint → edit screenshot\nSuper+S → copy screenshot\nSuper+Shift+S → save screenshot"
-              color: Theme.muted
-              font.family: Theme.font
-              wrapMode: Text.Wrap
-            }
           }
         }
 
