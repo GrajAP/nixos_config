@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: let
@@ -255,6 +256,11 @@ in {
   xdg.configFile."quickshell/shell.qml".source = shellConfig;
   xdg.configFile."quickshell/Theme.qml".source = themeConfig;
   xdg.configFile."quickshell/qmldir".source = qmldirConfig;
+
+  services.mako.enable = false;
+  home.activation.removeMakoNotificationAutostart = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    rm -f "${config.xdg.dataHome}/dbus-1/services/org.freedesktop.Notifications.service"
+  '';
 
   systemd.user.services.quickshell = {
     Unit = {

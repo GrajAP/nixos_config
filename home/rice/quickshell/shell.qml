@@ -975,12 +975,31 @@ ShellRoot {
     visible: root.notificationHistoryVisible
     focusable: true
     color: "transparent"
-    implicitWidth: 420; implicitHeight: 650
-    anchors { top: true; right: true; bottom: true }
-    margins { top: 18; right: 48; bottom: 18 }
+    anchors { top: true; left: true; right: true; bottom: true }
+    margins.right: 44
     exclusionMode: ExclusionMode.Ignore
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: mouse => {
+        const point = mapToItem(notificationPanel, mouse.x, mouse.y);
+        if (point.x < 0 || point.y < 0 || point.x > notificationPanel.width || point.y > notificationPanel.height)
+          root.notificationHistoryVisible = false;
+      }
+    }
+
     Rectangle {
-      anchors.fill: parent; radius: 16; color: Theme.background; border.color: Theme.accent; border.width: 2
+      id: notificationPanel
+      width: Math.min(420, parent.width - 20)
+      anchors {
+        top: parent.top
+        right: parent.right
+        bottom: parent.bottom
+        topMargin: 18
+        rightMargin: 10
+        bottomMargin: 18
+      }
+      radius: 16; color: Theme.background; border.color: Theme.accent; border.width: 2
       ColumnLayout {
         anchors.fill: parent; anchors.margins: 16; spacing: 10
         RowLayout {
