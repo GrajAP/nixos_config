@@ -213,6 +213,14 @@ ShellRoot {
       .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
       .slice(0, limit || 10);
   }
+  function nextEventSummary() {
+    const events = upcomingEvents(1);
+    if (events.length === 0) return "No upcoming events";
+    const event = events[0];
+    const date = Qt.formatDateTime(new Date(event.date + "T00:00:00"), "ddd, d MMM");
+    const time = event.allDay ? "all day" : (event.startTime || "");
+    return date + (time ? " · " + time : "") + "\n" + event.title;
+  }
   IpcHandler {
     target: "lock"
     function lock(): void { sessionLock.locked = true; }
@@ -428,11 +436,41 @@ ShellRoot {
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: "󰃭"
+          text: Qt.formatDateTime(clock.date, "HH\nmm")
+          horizontalAlignment: Text.AlignHCenter
+          lineHeight: 0.82
           color: Theme.text
           font.family: Theme.font
+          font.pixelSize: 11
+          font.bold: true
+          ToolTip.visible: clockMouse.containsMouse
+          ToolTip.delay: 350
+          ToolTip.text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy") + "\n" + root.nextEventSummary()
+          MouseArea {
+            id: clockMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openWidget("calendar")
+          }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: "󰃭"
+          color: root.upcomingEvents(1).length > 0 ? Theme.accent : Theme.text
+          font.family: Theme.font
           font.pixelSize: 17
-          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("calendar") }
+          ToolTip.visible: calendarMouse.containsMouse
+          ToolTip.delay: 350
+          ToolTip.text: root.nextEventSummary()
+          MouseArea {
+            id: calendarMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openWidget("calendar")
+          }
         }
 
         Text {
