@@ -133,6 +133,9 @@
       coreutils
       grim
       libnotify
+      (python3.withPackages (pythonPackages: with pythonPackages; [
+        pillow
+      ]))
       slurp
       wl-clipboard
     ];
@@ -169,6 +172,46 @@
         printf '%s\n' "$file"
       }
 
+      render_edited() {
+        local source="$1"
+        local strokes="''${2:-[]}"
+        local output="$state_dir/latest-screenshot-edited.png"
+        [[ -f "$source" ]] || { echo "missing file: $source" >> "$log_file"; exit 2; }
+        SOURCE="$source" STROKES="$strokes" OUTPUT="$output" python3 - <<'PY' 2>> "$log_file"
+      import json
+      import os
+      from PIL import Image, ImageDraw
+
+      source = os.environ["SOURCE"]
+      output = os.environ["OUTPUT"]
+      try:
+          strokes = json.loads(os.environ.get("STROKES", "[]"))
+      except json.JSONDecodeError:
+          strokes = []
+
+      image = Image.open(source).convert("RGBA")
+      draw = ImageDraw.Draw(image)
+      for stroke in strokes:
+          points = stroke.get("points", [])
+          if len(points) < 1:
+              continue
+          color = stroke.get("color", "#ff4d6d")
+          width = max(1, int(round(float(stroke.get("width", 4)))))
+          xy = [(float(point.get("x", 0)), float(point.get("y", 0))) for point in points]
+          if len(xy) == 1:
+              x, y = xy[0]
+              radius = width / 2
+              draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
+          else:
+              draw.line(xy, fill=color, width=width, joint="curve")
+              radius = width / 2
+              for x, y in (xy[0], xy[-1]):
+                  draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
+      image.save(output)
+      print(output)
+      PY
+      }
+
       case "$mode" in
         copy-file)
           copy_file "$target"
@@ -176,6 +219,17 @@
           ;;
         save-file)
           save_file "$target"
+          exit 0
+          ;;
+        copy-edited)
+          edited="$(render_edited "$target" "''${3:-[]}")"
+          copy_file "$edited"
+          printf '%s\n' "$edited"
+          exit 0
+          ;;
+        save-edited)
+          edited="$(render_edited "$target" "''${3:-[]}")"
+          save_file "$edited"
           exit 0
           ;;
       esac
@@ -205,7 +259,7 @@
           save_file "$tmp"
           ;;
         *)
-          echo "Usage: quickshell-screenshot [edit|copy|save|copy-file|save-file]" >&2
+          echo "Usage: quickshell-screenshot [edit|copy|save|copy-file|save-file|copy-edited|save-edited]" >&2
           exit 2
           ;;
       esac

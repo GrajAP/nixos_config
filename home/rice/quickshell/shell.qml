@@ -35,6 +35,10 @@ ShellRoot {
   property string toolStatusDetail: ""
   property string screenshotPath: ""
   property bool screenshotOpenAfterCapture: false
+  property var screenshotStrokes: []
+  property var screenshotCurrentStroke: null
+  property string screenshotInk: "#ff4d6d"
+  property int screenshotInkWidth: 5
   property bool widgetVisible: false
   property string widgetPage: "audio"
   property string networkStatus: "Loading…"
@@ -160,6 +164,8 @@ ShellRoot {
         const path = lines.length > 0 ? lines[lines.length - 1] : "";
         if (path.length > 0) {
           root.screenshotPath = path;
+          root.screenshotStrokes = [];
+          root.screenshotCurrentStroke = null;
           if (root.screenshotOpenAfterCapture) root.openWidget("screenshot");
         }
       }
@@ -214,6 +220,57 @@ ShellRoot {
     root.toolStatusDetail = mode === "edit" ? "Select an area for preview" : (mode === "copy" ? "Select an area to copy" : "Select an area to save");
     toolStatusTimer.stop();
     Qt.callLater(() => screenshotAction.exec(["@screenshotTool@", mode]));
+  }
+  function screenshotEditedArgs(action) {
+    return ["@screenshotTool@", action, root.screenshotPath, JSON.stringify(root.screenshotStrokes)];
+  }
+  function screenshotDisplayRect(canvas, image) {
+    const paintedWidth = image.paintedWidth || canvas.width;
+    const paintedHeight = image.paintedHeight || canvas.height;
+    return {
+      x: (canvas.width - paintedWidth) / 2,
+      y: (canvas.height - paintedHeight) / 2,
+      width: paintedWidth,
+      height: paintedHeight
+    };
+  }
+  function screenshotPointFromCanvas(mouse, canvas, image) {
+    if (root.screenshotPath.length === 0 || image.sourceSize.width <= 0 || image.sourceSize.height <= 0)
+      return null;
+    const rect = root.screenshotDisplayRect(canvas, image);
+    if (mouse.x < rect.x || mouse.y < rect.y || mouse.x > rect.x + rect.width || mouse.y > rect.y + rect.height)
+      return null;
+    return {
+      x: Math.max(0, Math.min(image.sourceSize.width, (mouse.x - rect.x) / rect.width * image.sourceSize.width)),
+      y: Math.max(0, Math.min(image.sourceSize.height, (mouse.y - rect.y) / rect.height * image.sourceSize.height))
+    };
+  }
+  function screenshotDrawStroke(context, stroke, canvas, image) {
+    if (!stroke || !stroke.points || stroke.points.length === 0 || image.sourceSize.width <= 0 || image.sourceSize.height <= 0)
+      return;
+    const rect = root.screenshotDisplayRect(canvas, image);
+    context.strokeStyle = stroke.color || root.screenshotInk;
+    context.fillStyle = stroke.color || root.screenshotInk;
+    context.lineWidth = Math.max(1, (stroke.width || root.screenshotInkWidth) * rect.width / image.sourceSize.width);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    for (let index = 0; index < stroke.points.length; index++) {
+      const point = stroke.points[index];
+      const x = rect.x + point.x / image.sourceSize.width * rect.width;
+      const y = rect.y + point.y / image.sourceSize.height * rect.height;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    if (stroke.points.length === 1) {
+      const point = stroke.points[0];
+      const x = rect.x + point.x / image.sourceSize.width * rect.width;
+      const y = rect.y + point.y / image.sourceSize.height * rect.height;
+      context.arc(x, y, context.lineWidth / 2, 0, Math.PI * 2);
+      context.fill();
+    } else {
+      context.stroke();
+    }
   }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
@@ -553,20 +610,6 @@ ShellRoot {
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: "󰃭"
-          color: root.upcomingEvents(1).length > 0 ? Theme.accent : Theme.text
-          font.family: Theme.font
-          font.pixelSize: 17
-          MouseArea {
-            id: calendarMouse
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.openWidget("calendar")
-          }
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
           text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
           color: Theme.text; font.family: Theme.font; font.pixelSize: 16
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
@@ -779,7 +822,7 @@ ShellRoot {
           Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.font; font.bold: true }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "󰄀  Select area and preview"; color: Theme.text; font.family: Theme.font }
+            Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
           }
           Rectangle {
@@ -830,11 +873,58 @@ ShellRoot {
             color: Theme.surface
             clip: true
             Image {
+              id: screenshotImage
               anchors.fill: parent
               anchors.margins: 10
               source: root.screenshotPath.length > 0 ? "file://" + root.screenshotPath : ""
               fillMode: Image.PreserveAspectFit
               cache: false
+              onStatusChanged: screenshotCanvas.requestPaint()
+            }
+            Canvas {
+              id: screenshotCanvas
+              anchors.fill: parent
+              anchors.margins: 10
+              visible: root.screenshotPath.length > 0
+              onPaint: {
+                const context = getContext("2d");
+                context.clearRect(0, 0, width, height);
+                for (const stroke of root.screenshotStrokes)
+                  root.screenshotDrawStroke(context, stroke, screenshotCanvas, screenshotImage);
+                root.screenshotDrawStroke(context, root.screenshotCurrentStroke, screenshotCanvas, screenshotImage);
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.CrossCursor
+                enabled: root.screenshotPath.length > 0
+                onPressed: mouse => {
+                  const point = root.screenshotPointFromCanvas(mouse, screenshotCanvas, screenshotImage);
+                  if (!point) return;
+                  root.screenshotCurrentStroke = {
+                    color: root.screenshotInk,
+                    width: root.screenshotInkWidth,
+                    points: [point]
+                  };
+                  screenshotCanvas.requestPaint();
+                }
+                onPositionChanged: mouse => {
+                  if (!root.screenshotCurrentStroke) return;
+                  const point = root.screenshotPointFromCanvas(mouse, screenshotCanvas, screenshotImage);
+                  if (!point) return;
+                  root.screenshotCurrentStroke.points.push(point);
+                  screenshotCanvas.requestPaint();
+                }
+                onReleased: {
+                  if (!root.screenshotCurrentStroke) return;
+                  root.screenshotStrokes = root.screenshotStrokes.concat([root.screenshotCurrentStroke]);
+                  root.screenshotCurrentStroke = null;
+                  screenshotCanvas.requestPaint();
+                }
+                onCanceled: {
+                  root.screenshotCurrentStroke = null;
+                  screenshotCanvas.requestPaint();
+                }
+              }
             }
             Text {
               visible: root.screenshotPath.length === 0
@@ -850,17 +940,48 @@ ShellRoot {
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(["@screenshotTool@", "copy-file", root.screenshotPath], "Screenshot", "Copied preview") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("copy-edited"), "Screenshot", "Copied edited image") }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(["@screenshotTool@", "save-file", root.screenshotPath], "Screenshot", "Saved preview") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("save-edited"), "Screenshot", "Saved edited image") }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Retake"; color: Theme.accent; font.family: Theme.font }
               MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
+            }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 36; radius: 9; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Undo"; color: Theme.text; font.family: Theme.font }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (root.screenshotStrokes.length > 0) {
+                    root.screenshotStrokes = root.screenshotStrokes.slice(0, root.screenshotStrokes.length - 1);
+                    screenshotCanvas.requestPaint();
+                  }
+                }
+              }
+            }
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 36; radius: 9; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Clear"; color: Theme.text; font.family: Theme.font }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.screenshotStrokes = [];
+                  root.screenshotCurrentStroke = null;
+                  screenshotCanvas.requestPaint();
+                }
+              }
             }
           }
         }
