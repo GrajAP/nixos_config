@@ -133,9 +133,10 @@
       coreutils
       grim
       libnotify
-      (python3.withPackages (pythonPackages: with pythonPackages; [
-        pillow
-      ]))
+      (python3.withPackages (pythonPackages:
+        with pythonPackages; [
+          pillow
+        ]))
       slurp
       wl-clipboard
     ];
