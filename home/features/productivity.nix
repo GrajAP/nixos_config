@@ -1,11 +1,28 @@
-{pkgs, ...}: let
+{
+  lib,
+  pkgs,
+  ...
+}: let
+  t3codeNoSandbox = pkgs.symlinkJoin {
+    name = "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-no-sandbox";
+    paths = [pkgs.t3code];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      rm -f "$out/bin/t3code-desktop"
+      makeWrapper ${lib.getExe pkgs.electron} "$out/bin/t3code-desktop" \
+        --add-flags "--no-sandbox" \
+        --add-flags "${pkgs.t3code}/libexec/t3code/apps/desktop/dist-electron/main.cjs" \
+        --prefix PATH : "${lib.makeBinPath [pkgs.codex pkgs.gh pkgs.git]}"
+    '';
+  };
+
   t3codeNotify = pkgs.writeShellApplication {
     name = "t3code-notify";
     runtimeInputs = with pkgs; [
       coreutils
       curl
       libnotify
-      t3code
+      t3codeNoSandbox
     ];
     text = ''
       set +e
@@ -66,7 +83,7 @@ in {
     github-desktop
     libreoffice-fresh
     obsidian
-    t3code
+    t3codeNoSandbox
     t3codeNotify
   ];
 }

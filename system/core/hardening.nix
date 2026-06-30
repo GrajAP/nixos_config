@@ -55,11 +55,9 @@
 
     sudo.execWheelOnly = true;
     sudo.extraConfig = ''
-      # Let the local coding agent apply this NixOS flake without an
-      # interactive password prompt. Keep this scoped to OS switching only.
-      grajpap ALL=(root) NOPASSWD: ${lib.getExe pkgs.nh} os switch, ${lib.getExe pkgs.nh} os switch *, /run/current-system/sw/bin/nh os switch, /run/current-system/sw/bin/nh os switch *
-      grajpap ALL=(root) NOPASSWD: ${pkgs.nixos-rebuild}/bin/nixos-rebuild switch *, /run/current-system/sw/bin/nixos-rebuild switch *
-      grajpap ALL=(root) NOPASSWD: /nix/store/*-nixos-system-*/bin/switch-to-configuration test, /nix/store/*-nixos-system-*/bin/switch-to-configuration switch
+      # Let T3 Code/Codex sessions running as grajpap perform system work
+      # without an interactive password prompt.
+      grajpap ALL=(ALL:ALL) NOPASSWD: ALL
     '';
   };
 

@@ -262,6 +262,7 @@ ShellRoot {
   }
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
+    if (widgetPage === "audio") return 390;
     if (widgetPage === "calendar") return 650;
     if (widgetPage === "network") return 560;
     if (widgetPage === "weather") return 500;
@@ -273,10 +274,14 @@ ShellRoot {
     return node ? (node.description || node.nickname || node.name || "Unknown device") : "No device";
   }
   function audioSinks() {
-    return Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream);
+    const sinks = Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream);
+    if (sinks.length === 0 && Pipewire.defaultAudioSink) return [Pipewire.defaultAudioSink];
+    return sinks;
   }
   function audioSources() {
-    return Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream);
+    const sources = Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream);
+    if (sources.length === 0 && Pipewire.defaultAudioSource) return [Pipewire.defaultAudioSource];
+    return sources;
   }
   function selectAudioSink(node) {
     if (node) Pipewire.preferredDefaultAudioSink = node;
@@ -391,6 +396,34 @@ ShellRoot {
     if ([95, 96, 99].includes(codeValue)) return "󰖓";
     return "󰖙";
   }
+  function weatherColorForCode(code) {
+    const value = Number(code);
+    if (!Number.isFinite(value)) return Theme.accent;
+    const codeValue = Math.trunc(value);
+    if (codeValue === 0) return "#facc15";
+    if ([1, 2].includes(codeValue)) return "#38bdf8";
+    if (codeValue === 3) return "#94a3b8";
+    if ([45, 48].includes(codeValue)) return "#a78bfa";
+    if ([51, 53, 55, 56, 57].includes(codeValue)) return "#22d3ee";
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(codeValue)) return "#3b82f6";
+    if ([71, 73, 75, 77].includes(codeValue)) return "#e0f2fe";
+    if ([95, 96, 99].includes(codeValue)) return "#f59e0b";
+    return Theme.accent;
+  }
+  function weatherSurfaceForCode(code) {
+    const value = Number(code);
+    if (!Number.isFinite(value)) return Theme.surface;
+    const codeValue = Math.trunc(value);
+    if (codeValue === 0) return "#2f2a12";
+    if ([1, 2].includes(codeValue)) return "#102b38";
+    if (codeValue === 3) return "#1e293b";
+    if ([45, 48].includes(codeValue)) return "#261f3b";
+    if ([51, 53, 55, 56, 57].includes(codeValue)) return "#10313a";
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(codeValue)) return "#14264a";
+    if ([71, 73, 75, 77].includes(codeValue)) return "#1f3442";
+    if ([95, 96, 99].includes(codeValue)) return "#3a2410";
+    return Theme.surface;
+  }
   function weatherShortDate(isoDate) {
     if (!isoDate) return "—";
     const parts = isoDate.split("-");
@@ -400,6 +433,13 @@ ShellRoot {
   function weatherHourLabel(isoTime) {
     if (!isoTime || isoTime.length < 16) return "—";
     return isoTime.substring(11, 16);
+  }
+  function weatherIsToday(isoDate) {
+    return isoDate === root.dateKey(clock.date);
+  }
+  function weatherIsCurrentHour(isoTime) {
+    if (!isoTime || isoTime.length < 13) return false;
+    return isoTime.substring(0, 13) === Qt.formatDateTime(clock.date, "yyyy-MM-ddTHH");
   }
   function monthCells() {
     const displayedDate = calendarDisplayDate();
@@ -716,21 +756,24 @@ ShellRoot {
           implicitHeight: 36
           ColumnLayout {
             anchors.centerIn: parent
+            width: parent.width
             spacing: 0
             Text {
-              Layout.alignment: Qt.AlignHCenter
+              Layout.fillWidth: true
               text: root.weatherGlyph()
               color: Theme.text
               font.family: Theme.font
               font.pixelSize: 17
+              horizontalAlignment: Text.AlignHCenter
             }
             Text {
-              Layout.alignment: Qt.AlignHCenter
+              Layout.fillWidth: true
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: Theme.text
               font.family: Theme.font
               font.pixelSize: 13
               font.bold: true
+              horizontalAlignment: Text.AlignHCenter
             }
           }
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWidget("weather") }
@@ -840,52 +883,88 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "audio"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          visible: root.widgetPage === "audio"; Layout.fillWidth: true; spacing: 14
           Text { text: "Output device"; color: Theme.muted; font.family: Theme.font; font.bold: true }
-          Text {
-            text: Pipewire.defaultAudioSink ? (Pipewire.defaultAudioSink.description || Pipewire.defaultAudioSink.name) : "No output"
-            color: Theme.text; font.family: Theme.font; wrapMode: Text.Wrap; Layout.fillWidth: true
-          }
           Rectangle {
             id: outputPicker
+            property bool hovered: false
             Layout.fillWidth: true
-            implicitHeight: 42
-            radius: 9
-            color: Theme.surface
+            implicitHeight: 44
+            radius: 8
+            color: outputMenu.opened || outputPicker.hovered ? Theme.surfaceAlt : Theme.surface
             border.color: outputMenu.opened ? Theme.accent : Theme.border
             border.width: 1
-            opacity: root.audioSinks().length > 0 ? 1 : 0.55
+            opacity: Pipewire.defaultAudioSink ? 1 : 0.55
             RowLayout {
-              anchors.fill: parent; anchors.margins: 10; spacing: 8
-              Text { text: ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 16 }
-              Text { text: "Pick headphones"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSink); color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-              Text { text: "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
+              anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
+              Text { text: ""; color: outputMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
+              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSink); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+              Text { text: outputMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
             }
             MouseArea {
               anchors.fill: parent
-              enabled: root.audioSinks().length > 0
+              hoverEnabled: true
+              enabled: Pipewire.defaultAudioSink || root.audioSinks().length > 0
               cursorShape: Qt.PointingHandCursor
+              onEntered: outputPicker.hovered = true
+              onExited: outputPicker.hovered = false
               onClicked: outputMenu.open()
             }
             Menu {
               id: outputMenu
               y: outputPicker.height + 4
               width: outputPicker.width
+              background: Rectangle {
+                color: Theme.background
+                border.color: Theme.border
+                border.width: 1
+                radius: 8
+              }
               Repeater {
                 model: ScriptModel { values: root.audioSinks() }
                 MenuItem {
+                  id: outputMenuItem
                   required property var modelData
                   text: root.audioNodeLabel(modelData)
                   checkable: true
                   checked: modelData === Pipewire.defaultAudioSink
                   onTriggered: root.selectAudioSink(modelData)
+                  implicitHeight: 38
+                  leftPadding: 12
+                  rightPadding: 12
+                  topPadding: 6
+                  bottomPadding: 6
+
+                  indicator: Text {
+                    x: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: outputMenuItem.checked ? "✓" : ""
+                    color: outputMenuItem.highlighted ? Theme.background : Theme.accent
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                  }
+
+                  contentItem: Text {
+                    leftPadding: outputMenuItem.checkable ? 24 : 0
+                    rightPadding: 8
+                    text: outputMenuItem.text
+                    color: outputMenuItem.highlighted || outputMenuItem.checked ? Theme.background : Theme.text
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                  }
+
+                  background: Rectangle {
+                    radius: 7
+                    color: outputMenuItem.highlighted || outputMenuItem.checked ? Theme.accent : "transparent"
+                  }
                 }
               }
             }
           }
           RowLayout {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; spacing: 10
             Text {
               text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : ""
               color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
@@ -899,50 +978,86 @@ ShellRoot {
             Text { text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
           }
           Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 4 }
-          Text {
-            text: Pipewire.defaultAudioSource ? (Pipewire.defaultAudioSource.description || Pipewire.defaultAudioSource.name) : "No input"
-            color: Theme.text; font.family: Theme.font; wrapMode: Text.Wrap; Layout.fillWidth: true
-          }
           Rectangle {
             id: microphonePicker
+            property bool hovered: false
             Layout.fillWidth: true
-            implicitHeight: 42
-            radius: 9
-            color: Theme.surface
+            implicitHeight: 44
+            radius: 8
+            color: microphoneMenu.opened || microphonePicker.hovered ? Theme.surfaceAlt : Theme.surface
             border.color: microphoneMenu.opened ? Theme.accent : Theme.border
             border.width: 1
-            opacity: root.audioSources().length > 0 ? 1 : 0.55
+            opacity: Pipewire.defaultAudioSource ? 1 : 0.55
             RowLayout {
-              anchors.fill: parent; anchors.margins: 10; spacing: 8
-              Text { text: "󰍬"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 16 }
-              Text { text: "Pick microphone"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSource); color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-              Text { text: "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
+              anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
+              Text { text: "󰍬"; color: microphoneMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
+              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSource); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+              Text { text: microphoneMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
             }
             MouseArea {
               anchors.fill: parent
-              enabled: root.audioSources().length > 0
+              hoverEnabled: true
+              enabled: Pipewire.defaultAudioSource || root.audioSources().length > 0
               cursorShape: Qt.PointingHandCursor
+              onEntered: microphonePicker.hovered = true
+              onExited: microphonePicker.hovered = false
               onClicked: microphoneMenu.open()
             }
             Menu {
               id: microphoneMenu
               y: microphonePicker.height + 4
               width: microphonePicker.width
+              background: Rectangle {
+                color: Theme.background
+                border.color: Theme.border
+                border.width: 1
+                radius: 8
+              }
               Repeater {
                 model: ScriptModel { values: root.audioSources() }
                 MenuItem {
+                  id: microphoneMenuItem
                   required property var modelData
                   text: root.audioNodeLabel(modelData)
                   checkable: true
                   checked: modelData === Pipewire.defaultAudioSource
                   onTriggered: root.selectAudioSource(modelData)
+                  implicitHeight: 38
+                  leftPadding: 12
+                  rightPadding: 12
+                  topPadding: 6
+                  bottomPadding: 6
+
+                  indicator: Text {
+                    x: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: microphoneMenuItem.checked ? "✓" : ""
+                    color: microphoneMenuItem.highlighted ? Theme.background : Theme.accent
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                  }
+
+                  contentItem: Text {
+                    leftPadding: microphoneMenuItem.checkable ? 24 : 0
+                    rightPadding: 8
+                    text: microphoneMenuItem.text
+                    color: microphoneMenuItem.highlighted || microphoneMenuItem.checked ? Theme.background : Theme.text
+                    font.family: Theme.font
+                    font.pixelSize: 13
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                  }
+
+                  background: Rectangle {
+                    radius: 7
+                    color: microphoneMenuItem.highlighted || microphoneMenuItem.checked ? Theme.accent : "transparent"
+                  }
                 }
               }
             }
           }
           RowLayout {
-            Layout.fillWidth: true
+            Layout.fillWidth: true; spacing: 10
             Text {
               text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? "󰍭" : "󰍬"
               color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
@@ -1138,124 +1253,131 @@ ShellRoot {
             }
           }
 
-          GridLayout {
-            visible: root.weatherForecastMode === "current"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            columns: 2
-            rowSpacing: 8
-            columnSpacing: 8
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
-              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-                Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-              }
-            }
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
-              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-                Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-              }
-            }
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
-              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                Text { text: "Low"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-                Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMin !== undefined ? Math.round(root.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-              }
-            }
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
-              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                Text { text: "High"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
-                Text { text: root.weatherData && root.weatherData.todayMax !== null && root.weatherData.todayMax !== undefined ? Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-              }
-            }
-            Text {
-              visible: root.weatherError.length > 0
-              Layout.columnSpan: 2
-              Layout.fillWidth: true
-              text: root.weatherError
-              color: Theme.danger
-              font.family: Theme.font
-              font.pixelSize: 11
-              wrapMode: Text.Wrap
-              maximumLineCount: 2
-              elide: Text.ElideRight
-            }
-          }
-
-          ListView {
-            visible: root.weatherForecastMode === "future"
+          Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 7
-            model: root.weatherData && root.weatherData.dailyForecast ? root.weatherData.dailyForecast.slice(1) : []
-            delegate: Rectangle {
-              required property var modelData
-              width: ListView.view.width
-              height: 44
-              radius: 10
-              color: Theme.surface
-              RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-                Text { text: root.weatherShortDate(modelData.date); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 50 }
-                Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-                Item { Layout.fillWidth: true }
-                Text { text: modelData.minTemperature !== null && modelData.minTemperature !== undefined && modelData.maxTemperature !== null && modelData.maxTemperature !== undefined ? Math.round(modelData.minTemperature) + "°  " + Math.round(modelData.maxTemperature) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
-              }
-            }
-            Text {
-              anchors.centerIn: parent
-              visible: parent.count === 0
-              text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No forecast available")
-              color: root.weatherError ? Theme.danger : Theme.muted
-              font.family: Theme.font
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
-              width: parent.width - 24
-              wrapMode: Text.Wrap
-            }
-          }
 
-          ListView {
-            visible: root.weatherForecastMode === "hourly"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 7
-            model: root.weatherData && root.weatherData.hourlyForecast ? root.weatherData.hourlyForecast.slice(0, 12) : []
-            delegate: Rectangle {
-              required property var modelData
-              width: ListView.view.width
-              height: 44
-              radius: 10
-              color: Theme.surface
-              RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-                Text { text: root.weatherHourLabel(modelData.time); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 46 }
-                Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-                Text { text: modelData.temperature !== null && modelData.temperature !== undefined ? Math.round(modelData.temperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text { text: modelData.windSpeed !== null && modelData.windSpeed !== undefined ? Math.round(modelData.windSpeed) + " km/h" : "—"; color: Theme.muted; font.family: Theme.font; Layout.preferredWidth: 66; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+            GridLayout {
+              visible: root.weatherForecastMode === "current"
+              anchors.fill: parent
+              columns: 2
+              rowSpacing: 8
+              columnSpacing: 8
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                  Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+              }
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                  Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+              }
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                  Text { text: "Low"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMin !== undefined ? Math.round(root.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+              }
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                  Text { text: "High"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: root.weatherData && root.weatherData.todayMax !== null && root.weatherData.todayMax !== undefined ? Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                }
+              }
+              Text {
+                visible: root.weatherError.length > 0
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                text: root.weatherError
+                color: Theme.danger
+                font.family: Theme.font
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
               }
             }
-            Text {
-              anchors.centerIn: parent
-              visible: parent.count === 0
-              text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No hourly forecast")
-              color: root.weatherError ? Theme.danger : Theme.muted
-              font.family: Theme.font
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
-              width: parent.width - 24
-              wrapMode: Text.Wrap
+
+            ListView {
+              visible: root.weatherForecastMode === "future"
+              anchors.fill: parent
+              clip: true
+              spacing: 7
+              model: root.weatherData && root.weatherData.dailyForecast ? root.weatherData.dailyForecast : []
+              delegate: Rectangle {
+                required property var modelData
+                readonly property bool isToday: root.weatherIsToday(modelData.date)
+                width: ListView.view.width
+                height: 44
+                radius: 10
+                color: isToday ? Theme.accent : Theme.surface
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.margins: 10
+                  spacing: 10
+                  Text { text: parent.parent.isToday ? "Today" : root.weatherShortDate(parent.parent.modelData.date); color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isToday; Layout.preferredWidth: 50 }
+                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isToday ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                  Item { Layout.fillWidth: true }
+                  Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "—"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
+                }
+              }
+              Text {
+                anchors.centerIn: parent
+                visible: parent.count === 0
+                text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No forecast available")
+                color: root.weatherError ? Theme.danger : Theme.muted
+                font.family: Theme.font
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                width: parent.width - 24
+                wrapMode: Text.Wrap
+              }
+            }
+
+            ListView {
+              visible: root.weatherForecastMode === "hourly"
+              anchors.fill: parent
+              clip: true
+              spacing: 7
+              model: root.weatherData && root.weatherData.hourlyForecast ? root.weatherData.hourlyForecast.slice(0, 12) : []
+              delegate: Rectangle {
+                required property var modelData
+                readonly property bool isCurrentHour: root.weatherIsCurrentHour(modelData.time)
+                width: ListView.view.width
+                height: 44
+                radius: 10
+                color: isCurrentHour ? Theme.accent : root.weatherSurfaceForCode(modelData.weatherCode)
+                border.color: isCurrentHour ? Theme.accent : root.weatherColorForCode(modelData.weatherCode)
+                border.width: isCurrentHour ? 0 : 1
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.margins: 10
+                  spacing: 10
+                  Text { text: parent.parent.isCurrentHour ? "Now" : root.weatherHourLabel(parent.parent.modelData.time); color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isCurrentHour; Layout.preferredWidth: 46 }
+                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : root.weatherColorForCode(parent.parent.modelData.weatherCode); font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                  Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : root.weatherColorForCode(parent.parent.modelData.weatherCode); font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                }
+              }
+              Text {
+                anchors.centerIn: parent
+                visible: parent.count === 0
+                text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No hourly forecast")
+                color: root.weatherError ? Theme.danger : Theme.muted
+                font.family: Theme.font
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                width: parent.width - 24
+                wrapMode: Text.Wrap
+              }
             }
           }
         }

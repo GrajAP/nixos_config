@@ -40,7 +40,7 @@ in {
 
   systemd.services.t3code-os-switch = {
     description = "Apply /etc/nixos for the local coding agent";
-    path = with pkgs; [git nix-output-monitor];
+    path = with pkgs; [git nix nix-output-monitor];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/etc/nixos";
