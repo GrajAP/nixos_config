@@ -21,7 +21,6 @@
     "image/*" = ["imv.desktop"];
     "application/json" = browser;
     "application/pdf" = ["org.pwmt.zathura.desktop.desktop"];
-    "x-scheme-handler/tg" = ["telegramdesktop.desktop"];
   };
 in {
   xdg.configFile."applications/helium.desktop".text = ''

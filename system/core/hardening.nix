@@ -1,6 +1,6 @@
 {pkgs, ...}:
-# this makes our system more secure
-# note that it might break some stuff, eg webcam
+# Workstation hardening. Keep these settings compatible with the hardware and
+# development workflows used by this host.
 {
   programs.proxychains = {
     enable = true;
@@ -49,19 +49,7 @@
       };
     };
 
-    sudo = {
-      extraRules = [
-        {
-          users = ["grajpap"];
-          commands = [
-            {
-              command = "ALL";
-              options = ["NOPASSWD"];
-            }
-          ];
-        }
-      ];
-    };
+    sudo.execWheelOnly = true;
   };
 
   boot.kernel.sysctl = {

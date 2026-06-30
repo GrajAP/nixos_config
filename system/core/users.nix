@@ -11,21 +11,14 @@
         isNormalUser = true;
         extraGroups = [
           "wheel"
-          "gitea"
           "docker"
           "systemd-journal"
-          "vboxusers"
           "audio"
           "plugdev"
           "storage"
-          "disk"
-          "wireshark"
           "video"
           "input"
-          "lp"
           "networkmanager"
-          "power"
-          "nix"
           "adbusers"
         ];
         uid = 1000;

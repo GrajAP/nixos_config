@@ -1,7 +1,7 @@
 {...}: {
   imports = [
     ./system.nix
-    ./schizo.nix
+    ./hardening.nix
     ./network.nix
     ./nix.nix
     ./users.nix

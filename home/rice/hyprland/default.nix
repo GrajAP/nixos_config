@@ -21,7 +21,9 @@
       poll_seconds=60
       idle_threshold=0
 
-      mkdir -p "''${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
+      runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
+      cancel_file="$runtime_dir/cancel"
+      mkdir -p "$runtime_dir"
 
       get_session_id() {
         if [[ -n "''${XDG_SESSION_ID:-}" ]]; then
@@ -78,15 +80,15 @@
             "Auto shutdown" \
             "System will shut down in 20 seconds unless password is provided."
 
-          hyprctl dispatch exec "foot -e sh -c 'read -t 20 -s -p \"Enter password to cancel shutdown: \" password; if [ -n \"\$password\" ]; then touch /tmp/cancel_auto_shutdown; fi'"
+          hyprctl dispatch exec "foot -e sh -c 'read -t 20 -s -p \"Press Enter to cancel shutdown: \"; touch \"$cancel_file\"'"
 
           deadline=$(( $(date +%s) + watch_seconds ))
           cancel=0
 
           while (( $(date +%s) < deadline )); do
-            if [ -f /tmp/cancel_auto_shutdown ]; then
+            if [ -f "$cancel_file" ]; then
               cancel=1
-              rm /tmp/cancel_auto_shutdown
+              rm -f "$cancel_file"
               break
             fi
             sleep 1
@@ -410,7 +412,7 @@ in {
   };
   systemd.user.services.auto-shutdown = {
     Unit = {
-      Description = "Power off at 05:00 when the session stays idle";
+      Description = "Power off at 00:01 after a 20-second cancellation window";
       After = ["hyprland-session.target"];
       PartOf = ["hyprland-session.target"];
     };

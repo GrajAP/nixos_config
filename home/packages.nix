@@ -8,6 +8,5 @@
     rnnoise
     flameshot
     krita
-    gimp
   ];
 }

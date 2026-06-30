@@ -5,12 +5,6 @@
     pulsemixer
     qbittorrent
     imv
-    davinci-resolve
-    imv
-    pavucontrol
-    pulsemixer
-    playerctl
-    vlc
   ];
   programs = {
     mpv = {

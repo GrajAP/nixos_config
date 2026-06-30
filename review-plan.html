@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NixOS configuration review &amp; improvement plan</title>
+  <style>
+    :root{--bg:#0d1117;--panel:#151b23;--panel2:#1b2330;--text:#e6edf3;--muted:#9da7b3;--blue:#79c0ff;--green:#56d364;--amber:#e3b341;--red:#ff7b72;--line:#30363d;--code:#202938}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,sans-serif}main{max-width:1100px;margin:auto;padding:42px 22px 90px}h1{font-size:clamp(2rem,6vw,4.5rem);line-height:1.02;margin:.2em 0}h2{margin-top:2.4em;border-bottom:1px solid var(--line);padding-bottom:.35em}h3{margin-bottom:.35em}.lede{font-size:1.2rem;color:var(--muted);max-width:800px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:15px}.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px}.card p:last-child{margin-bottom:0}.score{font-size:2rem;font-weight:750;color:var(--blue)}.tag{display:inline-block;border-radius:99px;padding:2px 9px;font-size:.78rem;font-weight:700;background:var(--panel2);margin-right:4px}.p0{color:var(--red)}.p1{color:var(--amber)}.p2{color:var(--green)}code{background:var(--code);padding:2px 5px;border-radius:4px}table{border-collapse:collapse;width:100%;display:block;overflow:auto}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 12px}th{color:var(--blue)}li{margin:.45em 0}.callout{border-left:4px solid var(--blue);background:var(--panel);padding:13px 17px;margin:18px 0}.warn{border-color:var(--amber)}.danger{border-color:var(--red)}.checklist{list-style:none;padding:0}.checklist li:before{content:'□';color:var(--blue);font-size:1.2em;margin-right:.55em}.small{font-size:.88rem;color:var(--muted)}a{color:var(--blue)}@media print{body{background:white;color:#111}.card,.callout{background:#f7f7f7}.small,.lede{color:#555}}
+  </style>
+</head>
+<body><main>
+  <p class="small">Prepared 2026-06-30 · repository review only · no configuration changed</p>
+  <h1>Your NixOS,<br>with fewer mystery drawers.</h1>
+  <p class="lede">The foundation is good: clear system/home separation, feature-oriented modules, Stylix, Home Manager, and a real personal workflow. The next step is not a rewrite. It is reducing accidental complexity, making features optional, and adding a dependable personal-information layer.</p>
+
+  <section class="grid">
+    <div class="card"><div class="score">Good</div><strong>Structure</strong><p>Host, system, home, theme, and feature boundaries are already understandable.</p></div>
+    <div class="card"><div class="score">Needs care</div><strong>Safety</strong><p>Passwordless unrestricted sudo and powerful group membership weaken the otherwise extensive hardening.</p></div>
+    <div class="card"><div class="score">Crowded</div><strong>Applications</strong><p>Several overlapping editors, media tools, chat clients, runtimes, and screen-capture paths are always installed.</p></div>
+    <div class="card"><div class="score">Missing</div><strong>Personal data</strong><p>Calendar/task syncing is half-started (<code>vdirsyncer</code>) but has no declared account, UI, or task workflow.</p></div>
+  </section>
+
+  <h2>Do first: correctness and risk</h2>
+  <table><thead><tr><th>Priority</th><th>Finding</th><th>Plan</th></tr></thead><tbody>
+    <tr><td><span class="tag p0">P0</span></td><td><code>security.sudo</code> grants user <code>grajpap</code> passwordless <code>ALL</code>.</td><td>Remove it, or whitelist only genuinely unattended commands. The mic LED helper should use a narrow system service/udev rule instead of broad sudo.</td></tr>
+    <tr><td><span class="tag p0">P0</span></td><td>The user is in <code>disk</code>, <code>input</code>, <code>docker</code>, <code>video</code>, and many other privileged groups.</td><td>Audit each group. Remove at least <code>disk</code> unless raw disk access is intentional; remember Docker is effectively root-equivalent. Prefer rootless Podman/Docker if practical.</td></tr>
+    <tr><td><span class="tag p0">P0</span></td><td>MIME typos: <code>mpv.dekstop</code> and <code>org.pwmt.zathura.desktop.desktop</code>.</td><td>Correct to actual desktop IDs, then verify with <code>xdg-mime query default …</code>. This likely explains inconsistent opening behavior.</td></tr>
+    <tr><td><span class="tag p1">P1</span></td><td>Two independent auto-shutdown implementations exist (system and Hyprland user script), with inconsistent time/cancel behavior.</td><td>Keep one implementation. Prefer a systemd timer plus a user notification/cancel interface; avoid global <code>/tmp</code> state.</td></tr>
+    <tr><td><span class="tag p1">P1</span></td><td><code>LC_ALL</code> in Zsh overrides the carefully configured Polish category locales.</td><td>Remove shell <code>LC_ALL</code>; let NixOS <code>i18n.extraLocaleSettings</code> do its job.</td></tr>
+    <tr><td><span class="tag p1">P1</span></td><td>Firewall ports 25565 and 8081 are globally open; SSH and Tailscale are always enabled; ping is disabled.</td><td>Document why each exposure exists. Bind development services to localhost/Tailscale and open ports only in opt-in modules. Consider allowing ICMP for sane diagnostics.</td></tr>
+    <tr><td><span class="tag p1">P1</span></td><td>Hardening conflicts with functionality: filesystems such as <code>squashfs</code>/<code>cifs</code> are blacklisted while AppImages/CIFS tools are installed; ICMP is disabled; ptrace scope may hinder debuggers.</td><td>Replace the copied hardening block with a short threat-modelled set. Test webcam, GDB, AppImage, containers, VPN, LAN and removable media after changes.</td></tr>
+    <tr><td><span class="tag p2">P2</span></td><td><code>nix flake check --no-build</code> evaluates successfully today.</td><td>Add formatting/lint/evaluation checks to a single <code>just check</code> or script; run before every switch.</td></tr>
+  </tbody></table>
+
+  <h2>Calendar, tasks, and phone sync</h2>
+  <div class="callout"><strong>Recommended architecture:</strong> use CalDAV as the durable sync layer. Pick one provider (existing Google account, Nextcloud, mailbox.org, Fastmail, etc.), sync desktop data with <code>vdirsyncer</code>, view/edit with <code>khal</code> or a GUI, and use the phone’s native calendar or DAVx⁵ on Android. Keep notes in Obsidian; do not force Obsidian to become the calendar database.</div>
+  <div class="grid">
+    <div class="card"><h3>Calendar</h3><p>Enable <code>khal</code> beside the already-installed <code>vdirsyncer</code>. Declare calendars, colors, and a user timer for periodic sync. Add <code>ikhal</code> for a quick terminal UI.</p></div>
+    <div class="card"><h3>Tasks</h3><p>Choose after a 7-day trial: <strong>Tasks.org + DAVx⁵</strong> for open CalDAV/VTODO, or <strong>Todoist</strong> for the smoother cross-platform product. Avoid maintaining two inboxes.</p></div>
+    <div class="card"><h3>Desktop glance</h3><p>Show the next event and overdue count in Waybar; clicking opens the chosen client. Notifications should come from one source only to avoid doubles.</p></div>
+    <div class="card"><h3>Secrets</h3><p>Do not put account passwords in Nix or Git. Add <code>sops-nix</code> or <code>agenix</code>, or read credentials from the keyring/password command.</p></div>
+  </div>
+  <p class="small">Decision rule: if shared calendars and mobile polish matter most, use your current cloud provider. If ownership matters most, use Nextcloud. CalDAV keeps the desktop configuration substantially the same either way.</p>
+
+  <h2>What should I use for painting?</h2>
+  <table><thead><tr><th>Need</th><th>Use</th><th>Config decision</th></tr></thead><tbody>
+    <tr><td>Drawing, digital painting, tablet, brushes, animation</td><td><strong>Krita</strong></td><td>Keep. Make it the default creative raster app.</td></tr>
+    <tr><td>Photo manipulation, compositing, odd file conversions</td><td><strong>GIMP</strong></td><td>Keep only if this work happens at least monthly; otherwise use it temporarily via <code>nix shell nixpkgs#gimp</code>.</td></tr>
+    <tr><td>Fast screenshot annotation</td><td><strong>Satty</strong> or Swappy</td><td>You currently have Flameshot, Satty/Swappy, Grimblast and a custom screenshot script. Pick one Wayland capture pipeline and delete the rest.</td></tr>
+    <tr><td>Vector logos/diagrams</td><td><strong>Inkscape</strong></td><td>Add only when a real vector task appears; Krita/GIMP are not substitutes.</td></tr>
+  </tbody></table>
+
+  <h2>Application diet: measure, then remove</h2>
+  <p>Nix cannot know which apps you use. Collect evidence for 30 days, then make decisions. Shell history can help for CLI tools; desktop use can be tracked locally with ActivityWatch if you accept the privacy tradeoff. Do not upload usage data.</p>
+  <table><thead><tr><th>Overlap to review</th><th>Likely choice</th></tr></thead><tbody>
+    <tr><td>Vesktop, Ferdium, Signal, Telegram association</td><td>Keep direct clients needed for calls/notifications; use Ferdium only if it replaces two or more web messengers.</td></tr>
+    <tr><td>VS Code modules named both <code>cursor.nix</code> and <code>vscode.nix</code>, plus Neovim, T3Code, Codex, OpenCode, Antigravity</td><td>Name modules after the actual program; choose one primary GUI editor and one terminal fallback. Move experiments into an optional module.</td></tr>
+    <tr><td>VLC and MPV</td><td>MPV is already deeply configured; remove VLC unless DVD/menu/GUI workflows require it.</td></tr>
+    <tr><td>Audacity, OBS, DaVinci Resolve, FFmpeg</td><td>These serve different jobs, but DaVinci is heavy. Put “studio” tools behind an option/profile.</td></tr>
+    <tr><td>Node.js, Bun (twice), pnpm, global Bun-installed CLIs</td><td>Keep runtimes per-project via dev shells; retain only one global package manager. Remove the insecure pnpm exception as soon as possible.</td></tr>
+    <tr><td>Steam, Heroic, Rare, Wine stack</td><td>Turn into <code>features.gaming.enable</code>; Rare may overlap with Heroic’s Epic support.</td></tr>
+    <tr><td>Nemo + GVFS/devmon/udiskie/udisks repeated across layers</td><td>Keep one automount path and one declaration per service.</td></tr>
+  </tbody></table>
+
+  <h2>Configuration cleanup</h2>
+  <ul class="checklist">
+    <li>Create typed options: <code>my.features.{gaming,android,studio,bass,voice,security}.enable</code>; host config chooses them.</li>
+    <li>Deduplicate packages: Bun, wget, imv, playerctl, pavucontrol and pulsemixer appear more than once; NTFS/GVFS/UDisks are declared in multiple places.</li>
+    <li>Move compilers, databases, Android SDK and JS tooling into project dev shells where possible. A workstation profile should not carry every project tool forever.</li>
+    <li>Move the hard-coded Obsidian calendar build path (<code>/home/grajpap/dev/…</code>) to an option or package the project as a flake input.</li>
+    <li>Replace hard-coded UID paths such as <code>/run/user/1000</code> with runtime environment values where possible.</li>
+    <li>Remove stale comments and dead blocks after verifying they are unused. Let <code>deadnix</code>, <code>statix</code>, and Alejandra run together.</li>
+    <li>Rename <code>schizo.nix</code> to <code>hardening.nix</code>; split kernel, AppArmor, sudo, and module blacklist concerns.</li>
+    <li>Refresh README commands and explain profiles, secrets, update/rollback, recovery, and why unusual hardening choices exist.</li>
+    <li>Enable automatic Nix GC with a conservative retention policy; check store size first and preserve rollback generations.</li>
+    <li>Review the custom Folly overlay and <code>makeModulesClosure</code> workaround on every update; delete when upstream no longer needs them.</li>
+  </ul>
+
+  <h2>Implementation sequence</h2>
+  <ol>
+    <li><strong>Snapshot:</strong> commit current intended changes, record <code>nh os info</code>, disk usage, enabled units, and installed closure size.</li>
+    <li><strong>Fix correctness:</strong> MIME IDs, locale override, duplicate packages/services, and the two shutdown implementations.</li>
+    <li><strong>Reduce risk:</strong> sudo/groups/open ports, then validate development, gaming, media and hardware workflows.</li>
+    <li><strong>Add personal sync:</strong> secrets mechanism → vdirsyncer account → khal/UI → phone → Waybar. Test create/edit/delete in both directions.</li>
+    <li><strong>Modularize:</strong> add feature options and move heavy stacks behind them or into dev shells.</li>
+    <li><strong>Observe for 30 days:</strong> keep a “candidate removal” list; uninstall apps with no observed use and an easy replacement path.</li>
+    <li><strong>Automate quality:</strong> one check command, CI evaluation, update cadence, and rollback notes.</li>
+  </ol>
+  <div class="callout warn"><strong>Safe rollout:</strong> make one thematic commit per phase. Run <code>nix flake check</code>, build first, then follow this repository’s instruction and run <code>nh os switch</code>. Keep the previous generation available until the relevant workflow has been tested.</div>
+
+  <h2>Definition of “clean”</h2>
+  <ul class="checklist">
+    <li>Every always-installed package has a known recurring job.</li>
+    <li>Heavy hobbies/toolchains can be toggled without editing package lists.</li>
+    <li>Calendar and tasks round-trip between desktop and phone, with one notification source.</li>
+    <li>No plaintext secrets are stored in the repository or Nix store.</li>
+    <li>No unrestricted passwordless sudo; privileged groups and firewall openings are justified.</li>
+    <li><code>nix flake check</code>, formatting, dead-code, and static analysis pass before switching.</li>
+    <li>The README can recover the machine and explain every non-obvious choice.</li>
+  </ul>
+  <p class="small">Review basis: all tracked Nix modules, scripts, README/TODO, package declarations, service settings, and a successful <code>nix flake check --no-build</code>. Existing modified file <code>home/features/productivity.nix</code> was left untouched.</p>
+</main></body></html>
