@@ -186,6 +186,10 @@ ShellRoot {
     toolStatusTimer.stop();
     toolAction.exec(command);
   }
+  function runWidgetTool(command, title, detail) {
+    root.widgetVisible = false;
+    Qt.callLater(() => root.runTool(command, title, detail));
+  }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
   }
@@ -469,16 +473,33 @@ ShellRoot {
           color: root.toolBusy ? Theme.accent : Theme.text
           font.family: Theme.font
           font.pixelSize: 17
-          ToolTip.visible: toolsMouse.containsMouse
-          ToolTip.delay: 350
-          ToolTip.text: "Tools\nScreenshots and voice typing"
           MouseArea {
             id: toolsMouse
             anchors.fill: parent
-            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: root.openWidget("tools")
           }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: "󰃭"
+          color: root.upcomingEvents(1).length > 0 ? Theme.accent : Theme.text
+          font.family: Theme.font
+          font.pixelSize: 17
+          MouseArea {
+            id: calendarMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openWidget("calendar")
+          }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
+          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
         }
 
         Text {
@@ -490,41 +511,12 @@ ShellRoot {
           font.family: Theme.font
           font.pixelSize: 11
           font.bold: true
-          ToolTip.visible: clockMouse.containsMouse
-          ToolTip.delay: 350
-          ToolTip.text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy") + "\n" + root.nextEventSummary()
           MouseArea {
             id: clockMouse
             anchors.fill: parent
-            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: root.openWidget("calendar")
           }
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "󰃭"
-          color: root.upcomingEvents(1).length > 0 ? Theme.accent : Theme.text
-          font.family: Theme.font
-          font.pixelSize: 17
-          ToolTip.visible: calendarMouse.containsMouse
-          ToolTip.delay: 350
-          ToolTip.text: root.nextEventSummary()
-          MouseArea {
-            id: calendarMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.openWidget("calendar")
-          }
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
-          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
-          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
         }
       }
     }
@@ -688,29 +680,29 @@ ShellRoot {
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit") }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰆏  Select area and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy") }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save") }
           }
 
           Text { text: "Voice to text"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 8 }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: root.toolBusy ? Theme.accent : Theme.surface
             Text { anchors.centerIn: parent; text: "󰍬  Start recording"; color: root.toolBusy ? Theme.background : Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@voiceTool@", "start"], "Voice to text", "Recording… press Stop or release Pause") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@voiceTool@", "start"], "Voice to text", "Recording… press Stop or release Pause") }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰓛  Stop and transcribe"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@voiceTool@", "stop"], "Voice to text", "Transcribing and typing…") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@voiceTool@", "stop"], "Voice to text", "Transcribing and typing…") }
           }
           Rectangle {
             Layout.fillWidth: true
