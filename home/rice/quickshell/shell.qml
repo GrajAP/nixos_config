@@ -586,7 +586,7 @@ ShellRoot {
           }
           Text { text: "Outputs"; color: Theme.muted; font.family: Theme.font; font.bold: true }
           ListView {
-            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
+            Layout.fillWidth: true; Layout.preferredHeight: 170; spacing: 6; clip: true
             model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream) }
             delegate: Rectangle {
               required property var modelData
@@ -594,6 +594,36 @@ ShellRoot {
               color: modelData === Pipewire.defaultAudioSink ? Theme.accent : Theme.surface
               Text { anchors.fill: parent; anchors.margins: 10; verticalAlignment: Text.AlignVCenter; text: parent.modelData.description || parent.modelData.nickname || parent.modelData.name; color: parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.text; font.family: Theme.font; elide: Text.ElideRight }
               MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Pipewire.preferredDefaultAudioSink = parent.modelData }
+            }
+          }
+          Text { text: "Microphones"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          Text {
+            text: Pipewire.defaultAudioSource ? (Pipewire.defaultAudioSource.description || Pipewire.defaultAudioSource.name) : "No input"
+            color: Theme.text; font.family: Theme.font; wrapMode: Text.Wrap; Layout.fillWidth: true
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? "󰍭" : "󰍬"
+              color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted }
+            }
+            Slider {
+              Layout.fillWidth: true; from: 0; to: 1.5
+              value: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Pipewire.defaultAudioSource.audio.volume : 0
+              onMoved: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.volume = value
+            }
+            Text { text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
+          }
+          ListView {
+            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
+            model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream) }
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width; height: 42; radius: 9
+              color: modelData === Pipewire.defaultAudioSource ? Theme.accent : Theme.surface
+              Text { anchors.fill: parent; anchors.margins: 10; verticalAlignment: Text.AlignVCenter; text: parent.modelData.description || parent.modelData.nickname || parent.modelData.name; color: parent.modelData === Pipewire.defaultAudioSource ? Theme.background : Theme.text; font.family: Theme.font; elide: Text.ElideRight }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Pipewire.preferredDefaultAudioSource = parent.modelData }
             }
           }
         }
@@ -694,6 +724,38 @@ ShellRoot {
           }
 
           Text { text: "Voice to text"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 8 }
+          Text {
+            Layout.fillWidth: true
+            text: Pipewire.defaultAudioSource ? "Mic: " + (Pipewire.defaultAudioSource.description || Pipewire.defaultAudioSource.name) : "Mic: no input"
+            color: Theme.text
+            font.family: Theme.font
+            wrapMode: Text.Wrap
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? "󰍭" : "󰍬"
+              color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted }
+            }
+            Slider {
+              Layout.fillWidth: true; from: 0; to: 1.5
+              value: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Pipewire.defaultAudioSource.audio.volume : 0
+              onMoved: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.volume = value
+            }
+            Text { text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
+          }
+          ListView {
+            Layout.fillWidth: true; Layout.preferredHeight: 126; spacing: 6; clip: true
+            model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream) }
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width; height: 38; radius: 9
+              color: modelData === Pipewire.defaultAudioSource ? Theme.accent : Theme.surface
+              Text { anchors.fill: parent; anchors.margins: 10; verticalAlignment: Text.AlignVCenter; text: parent.modelData.description || parent.modelData.nickname || parent.modelData.name; color: parent.modelData === Pipewire.defaultAudioSource ? Theme.background : Theme.text; font.family: Theme.font; elide: Text.ElideRight; font.pixelSize: 11 }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Pipewire.preferredDefaultAudioSource = parent.modelData }
+            }
+          }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: root.toolBusy ? Theme.accent : Theme.surface
             Text { anchors.centerIn: parent; text: "󰍬  Start recording"; color: root.toolBusy ? Theme.background : Theme.text; font.family: Theme.font }
