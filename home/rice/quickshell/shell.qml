@@ -31,6 +31,8 @@ ShellRoot {
   property string networkStatus: "Loading…"
   property bool wifiEnabled: true
   property var wifiNetworks: []
+  property var weatherData: null
+  property var calendarEvents: []
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || Mpris.players.values[0] || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
@@ -93,6 +95,33 @@ ShellRoot {
     stdout: StdioCollector { onStreamFinished: root.wifiEnabled = text.trim() === "enabled" }
   }
   Process {
+    id: weatherQuery
+    command: ["@weatherQuery@"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          root.weatherData = JSON.parse(text);
+        } catch (error) {
+          root.weatherData = null;
+        }
+      }
+    }
+  }
+  Process {
+    id: calendarQuery
+    command: ["@calendarQuery@"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          root.calendarEvents = payload.events || [];
+        } catch (error) {
+          root.calendarEvents = [];
+        }
+      }
+    }
+  }
+  Process {
     id: wifiScan
     command: ["nmcli", "-t", "-f", "IN-USE,SIGNAL,SSID", "device", "wifi", "list", "--rescan", "no"]
     stdout: StdioCollector {
@@ -103,12 +132,77 @@ ShellRoot {
     }
   }
   Process { id: networkAction; onExited: { networkQuery.running = true; wifiQuery.running = true; } }
-  Component.onCompleted: { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
+  Component.onCompleted: {
+    networkQuery.running = true;
+    wifiQuery.running = true;
+    wifiScan.running = true;
+    weatherQuery.running = true;
+    calendarQuery.running = true;
+  }
+  Timer {
+    interval: 15 * 60 * 1000
+    running: true
+    repeat: true
+    onTriggered: weatherQuery.running = true
+  }
 
   function openWidget(page) {
     widgetPage = page;
     widgetVisible = true;
     if (page === "network") { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
+    if (page === "weather") weatherQuery.running = true;
+    if (page === "calendar") calendarQuery.running = true;
+  }
+  function dateKey(date) {
+    return Qt.formatDateTime(date, "yyyy-MM-dd");
+  }
+  function weatherGlyph() {
+    const code = root.weatherData ? Number(root.weatherData.weatherCode) : NaN;
+    if (code === 0) return "󰖙";
+    if ([1, 2, 3].includes(code)) return "󰖐";
+    if ([45, 48].includes(code)) return "󰖑";
+    if ([51, 53, 55, 56, 57].includes(code)) return "󰖗";
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "󰖖";
+    if ([71, 73, 75, 77].includes(code)) return "󰼶";
+    if ([95, 96, 99].includes(code)) return "󰖓";
+    return "󰖙";
+  }
+  function monthCells() {
+    const year = clock.date.getFullYear();
+    const month = clock.date.getMonth();
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = dateKey(clock.date);
+    const counts = {};
+    for (const event of root.calendarEvents) {
+      counts[event.date] = (counts[event.date] || 0) + 1;
+    }
+    const cells = [];
+    for (let index = 0; index < 42; index++) {
+      const day = index - firstDay + 1;
+      if (day < 1 || day > daysInMonth) {
+        cells.push({ inMonth: false, day: 0, date: "", isToday: false, eventCount: 0 });
+        continue;
+      }
+      const cellDate = new Date(year, month, day);
+      const key = dateKey(cellDate);
+      cells.push({
+        inMonth: true,
+        day,
+        date: key,
+        isToday: key === today,
+        eventCount: counts[key] || 0
+      });
+    }
+    return cells;
+  }
+  function upcomingEvents(limit) {
+    const today = dateKey(clock.date);
+    return root.calendarEvents
+      .filter(event => event.date >= today)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+      .slice(0, limit || 6);
   }
   IpcHandler {
     target: "lock"
@@ -313,20 +407,25 @@ ShellRoot {
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
-          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
-          MouseArea { anchors.fill: parent; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
+          text: root.weatherData ? Math.round(root.weatherData.temperature) + "°" : root.weatherGlyph()
+          color: Theme.text; font.family: Theme.font; font.pixelSize: 14
+          MouseArea { anchors.fill: parent; onClicked: root.openWidget("weather") }
         }
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: Qt.formatDateTime(clock.date, "HH\nmm\ndd\nMM")
-          horizontalAlignment: Text.AlignHCenter
+          text: Qt.formatDateTime(clock.date, "dd")
           color: Theme.text
           font.family: Theme.font
-          font.pixelSize: 11
-          lineHeight: 0.9
-          MouseArea { anchors.fill: parent; onClicked: root.openWidget("clock") }
+          font.pixelSize: 16
+          MouseArea { anchors.fill: parent; onClicked: root.openWidget("calendar") }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
+          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
+          MouseArea { anchors.fill: parent; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
         }
       }
     }
@@ -337,7 +436,7 @@ ShellRoot {
     visible: root.widgetVisible
     focusable: true
     color: "transparent"
-    implicitWidth: 390; implicitHeight: 470
+    implicitWidth: 410; implicitHeight: 560
     anchors { right: true; bottom: true }
     margins { right: 54; bottom: 18 }
     exclusionMode: ExclusionMode.Ignore
@@ -348,7 +447,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Now playing", clock: "Calendar"})[root.widgetPage]
+            text: ({audio: "Audio", network: "Network", media: "Now playing", weather: "Weather", calendar: "Calendar"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; onClicked: root.widgetVisible = false } }
@@ -433,21 +532,93 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "clock"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
-          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "HH:mm:ss"); color: Theme.text; font.family: Theme.font; font.pixelSize: 42 }
-          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 14 }
+          visible: root.widgetPage === "weather"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? root.weatherGlyph() : "󰖙"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 62 }
+          Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? Math.round(root.weatherData.temperature) + "°C" : "Loading weather…"; color: Theme.text; font.family: Theme.font; font.pixelSize: 30; font.bold: true }
+          Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? root.weatherData.description : ""; color: Theme.muted; font.family: Theme.font; font.pixelSize: 14 }
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
+            Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
+            Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: "Today"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
+            Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMax !== null ? Math.round(root.weatherData.todayMin) + "° / " + Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "calendar"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy"); color: Theme.text; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
+          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "HH:mm:ss"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 13 }
           GridLayout {
             Layout.fillWidth: true; columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
-              model: ["M","T","W","T","F","S","S"]
-              Text { required property string modelData; text: modelData; color: Theme.accent; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+              model: ["M", "T", "W", "T", "F", "S", "S"]
+              Text {
+                required property string modelData
+                text: modelData
+                color: Theme.accent
+                font.family: Theme.font
+                font.bold: true
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+              }
             }
             Repeater {
-              model: new Date(clock.date.getFullYear(), clock.date.getMonth() + 1, 0).getDate()
+              model: root.monthCells()
               Rectangle {
-                required property int index; Layout.fillWidth: true; implicitHeight: 32; radius: 8
-                color: index + 1 === clock.date.getDate() ? Theme.accent : Theme.surface
-                Text { anchors.centerIn: parent; text: parent.index + 1; color: parent.color === Theme.accent ? Theme.background : Theme.text; font.family: Theme.font }
+                required property var modelData
+                Layout.fillWidth: true
+                implicitHeight: 34
+                radius: 8
+                color: !modelData.inMonth ? "transparent" : modelData.isToday ? Theme.accent : Theme.surface
+                border.color: modelData.eventCount > 0 && modelData.inMonth && !modelData.isToday ? Theme.accent : "transparent"
+                border.width: modelData.eventCount > 0 && modelData.inMonth && !modelData.isToday ? 1 : 0
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.inMonth ? modelData.day : ""
+                  color: modelData.isToday ? Theme.background : Theme.text
+                  font.family: Theme.font
+                }
+                Rectangle {
+                  visible: modelData.inMonth && modelData.eventCount > 0
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: 4
+                  implicitWidth: Math.min(18, 5 + modelData.eventCount * 4)
+                  implicitHeight: 4
+                  radius: 2
+                  color: modelData.isToday ? Theme.background : Theme.accent
+                }
+              }
+            }
+          }
+          Text { Layout.fillWidth: true; text: "Upcoming"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          ListView {
+            Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 6
+            model: root.upcomingEvents(6)
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width
+              implicitHeight: 44
+              radius: 9
+              color: Theme.surface
+              RowLayout {
+                anchors.fill: parent; anchors.margins: 10; spacing: 10
+                ColumnLayout {
+                  spacing: 0
+                  Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "dd"); color: Theme.accent; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
+                  Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "MMM"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
+                }
+                Text { text: modelData.title; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { visible: modelData.allDay; text: "all day"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
               }
             }
           }
