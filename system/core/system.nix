@@ -24,8 +24,31 @@ in {
       ) {
         return polkit.Result.YES;
       }
+
+      if (
+        action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "t3code-os-switch.service" &&
+        ["start", "restart"].indexOf(action.lookup("verb")) >= 0 &&
+        subject.active &&
+        subject.local &&
+        subject.user == "grajpap"
+      ) {
+        return polkit.Result.YES;
+      }
     });
   '';
+
+  systemd.services.t3code-os-switch = {
+    description = "Apply /etc/nixos for the local coding agent";
+    path = with pkgs; [git nix-output-monitor];
+    serviceConfig = {
+      Type = "oneshot";
+      WorkingDirectory = "/etc/nixos";
+    };
+    script = ''
+      exec ${lib.getExe pkgs.nh} os -e none switch /etc/nixos
+    '';
+  };
 
   services = {
     dbus = {

@@ -272,8 +272,14 @@ ShellRoot {
   function audioNodeLabel(node) {
     return node ? (node.description || node.nickname || node.name || "Unknown device") : "No device";
   }
+  function audioSinks() {
+    return Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream);
+  }
   function audioSources() {
     return Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream);
+  }
+  function selectAudioSink(node) {
+    if (node) Pipewire.preferredDefaultAudioSink = node;
   }
   function selectAudioSource(node) {
     if (node) Pipewire.preferredDefaultAudioSource = node;
@@ -840,6 +846,44 @@ ShellRoot {
             text: Pipewire.defaultAudioSink ? (Pipewire.defaultAudioSink.description || Pipewire.defaultAudioSink.name) : "No output"
             color: Theme.text; font.family: Theme.font; wrapMode: Text.Wrap; Layout.fillWidth: true
           }
+          Rectangle {
+            id: outputPicker
+            Layout.fillWidth: true
+            implicitHeight: 42
+            radius: 9
+            color: Theme.surface
+            border.color: outputMenu.opened ? Theme.accent : Theme.border
+            border.width: 1
+            opacity: root.audioSinks().length > 0 ? 1 : 0.55
+            RowLayout {
+              anchors.fill: parent; anchors.margins: 10; spacing: 8
+              Text { text: ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 16 }
+              Text { text: "Pick headphones"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSink); color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+              Text { text: "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
+            }
+            MouseArea {
+              anchors.fill: parent
+              enabled: root.audioSinks().length > 0
+              cursorShape: Qt.PointingHandCursor
+              onClicked: outputMenu.open()
+            }
+            Menu {
+              id: outputMenu
+              y: outputPicker.height + 4
+              width: outputPicker.width
+              Repeater {
+                model: ScriptModel { values: root.audioSinks() }
+                MenuItem {
+                  required property var modelData
+                  text: root.audioNodeLabel(modelData)
+                  checkable: true
+                  checked: modelData === Pipewire.defaultAudioSink
+                  onTriggered: root.selectAudioSink(modelData)
+                }
+              }
+            }
+          }
           RowLayout {
             Layout.fillWidth: true
             Text {
@@ -853,22 +897,6 @@ ShellRoot {
               onMoved: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.volume = value
             }
             Text { text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
-          }
-          ListView {
-            Layout.fillWidth: true; Layout.preferredHeight: 150; spacing: 6; clip: true
-            model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream) }
-            delegate: Rectangle {
-              required property var modelData
-              width: ListView.view.width; height: 42; radius: 9
-              color: modelData === Pipewire.defaultAudioSink ? Theme.accent : Theme.surface
-              RowLayout {
-                anchors.fill: parent; anchors.margins: 10; spacing: 8
-                Text { text: parent.parent.modelData === Pipewire.defaultAudioSink ? "✓" : " "; color: parent.parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.muted; font.family: Theme.font; font.bold: true }
-                Text { text: parent.parent.modelData.description || parent.parent.modelData.nickname || parent.parent.modelData.name; color: parent.parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text { text: parent.parent.modelData === Pipewire.defaultAudioSink ? "Selected" : "Use"; color: parent.parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 11 }
-              }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Pipewire.preferredDefaultAudioSink = parent.modelData }
-            }
           }
           Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 4 }
           Text {
@@ -926,22 +954,6 @@ ShellRoot {
               onMoved: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.volume = value
             }
             Text { text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
-          }
-          ListView {
-            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
-            model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream) }
-            delegate: Rectangle {
-              required property var modelData
-              width: ListView.view.width; height: 42; radius: 9
-              color: modelData === Pipewire.defaultAudioSource ? Theme.accent : Theme.surface
-              RowLayout {
-                anchors.fill: parent; anchors.margins: 10; spacing: 8
-                Text { text: parent.parent.modelData === Pipewire.defaultAudioSource ? "✓" : " "; color: parent.parent.modelData === Pipewire.defaultAudioSource ? Theme.background : Theme.muted; font.family: Theme.font; font.bold: true }
-                Text { text: parent.parent.modelData.description || parent.parent.modelData.nickname || parent.parent.modelData.name; color: parent.parent.modelData === Pipewire.defaultAudioSource ? Theme.background : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text { text: parent.parent.modelData === Pipewire.defaultAudioSource ? "Selected" : "Select"; color: parent.parent.modelData === Pipewire.defaultAudioSource ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 11 }
-              }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectAudioSource(parent.modelData) }
-            }
           }
         }
 
