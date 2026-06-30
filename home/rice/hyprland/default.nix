@@ -180,7 +180,6 @@ in {
     pamixer
     slurp
     grim
-    mako
     swappy
     grimblast
     hyprpicker
@@ -226,11 +225,6 @@ in {
       '';
     })
     obsidianCalendarWidget
-    (writeShellScriptBin
-      "launcher"
-      ''
-        exec tofi-drun
-      '')
     (writeShellScriptBin
       "pauseshot"
       ''

@@ -25,7 +25,7 @@ in {
       [
         ''${mod},RETURN,exec,foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'exec tmux' ''
 
-        "${mod},SPACE,exec,launcher"
+        "${mod},SPACE,global,quickshell:launcher"
         "${mod},F,exec,helium --profile-path=\"${config.home.homeDirectory}/.config/net.imput.helium/Default\""
         "${mod},D,exec,discord"
         "${mod},D,exec,vesktop"
@@ -55,21 +55,19 @@ in {
         "${mod},Period,exec, emote"
         ",PAUSE,exec,whisper-record-v2 start"
 
-        "${mod},Semicolon,exec,wlogout"
+        "${mod},Semicolon,global,quickshell:powerMenu"
 
-        "${mod},B,exec,pkill -SIGUSR1 waybar"
+        "${mod},B,global,quickshell:toggleBar"
         "${mod},E,exec,nemo"
 
         "${mod},G,exec,hyprctl dispatch lockactivegroup toggle"
         "${mod},M,exec,hyprctl dispatch toggleorientation"
-        "${mod},N,exec,makoctl restore"
-        "${modshift},N,exec,makoctl dismiss -a"
         "${mod},O,exec,toggle-obs-special"
         "${mod},S,exec,grimblast copy area"
         "${modshift},S,exec,grimblast save area ~/pics/$(date +'screenshot-%F-%H%M%S').png"
         "${mod},U,exec,hyprctl dispatch focusurgentorlast"
 
-        "${mod},X,exec,wlogout"
+        "${mod},X,global,quickshell:powerMenu"
 
         "${mod},A,exec,toggle-special-dp2 social"
         "${modshift},A,exec,move-special-dp2 social"
