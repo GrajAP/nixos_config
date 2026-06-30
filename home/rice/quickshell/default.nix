@@ -126,9 +126,93 @@
       PY
     '';
   };
+  screenshotTool = pkgs.writeShellApplication {
+    name = "quickshell-screenshot";
+    runtimeInputs = with pkgs; [
+      coreutils
+      grim
+      libnotify
+      satty
+      slurp
+      wl-clipboard
+    ];
+    text = ''
+      set -euo pipefail
+
+      mode="''${1:-edit}"
+      mkdir -p "$HOME/pics"
+
+      geometry="$(slurp)" || exit 130
+      [[ -n "$geometry" ]] || exit 130
+
+      case "$mode" in
+        edit)
+          grim -g "$geometry" - | satty --filename -
+          ;;
+        copy)
+          grim -g "$geometry" - | wl-copy --type image/png
+          notify-send "Screenshot" "Area copied to clipboard"
+          ;;
+        save)
+          file="$HOME/pics/screenshot-$(date +'%F-%H%M%S').png"
+          grim -g "$geometry" "$file"
+          wl-copy --type image/png < "$file"
+          notify-send "Screenshot" "Saved and copied: $(basename "$file")"
+          ;;
+        *)
+          echo "Usage: quickshell-screenshot [edit|copy|save]" >&2
+          exit 2
+          ;;
+      esac
+    '';
+  };
+  voiceTool = pkgs.writeShellApplication {
+    name = "quickshell-voice";
+    runtimeInputs = with pkgs; [
+      coreutils
+      libnotify
+    ];
+    text = ''
+      set -euo pipefail
+
+      action="''${1:-toggle}"
+      export PATH="/etc/profiles/per-user/grajpap/bin:$HOME/.nix-profile/bin:$PATH"
+      if ! command -v whisper-record-v2 >/dev/null 2>&1; then
+        notify-send "Voice to text" "whisper-record-v2 is not available in PATH"
+        exit 127
+      fi
+
+      exec whisper-record-v2 "$action"
+    '';
+  };
+  quickshellIpc = pkgs.writeShellApplication {
+    name = "quickshell-ipc";
+    runtimeInputs = with pkgs; [
+      coreutils
+      procps
+      quickshell
+      systemd
+    ];
+    text = ''
+      set -euo pipefail
+
+      pid="$(systemctl --user show --property MainPID --value quickshell.service 2>/dev/null || true)"
+      if [[ -z "$pid" || "$pid" == "0" ]]; then
+        pid="$(pgrep -u "$(id -u)" -x qs | head -n1 || true)"
+      fi
+      if [[ -z "$pid" ]]; then
+        echo "quickshell-ipc: quickshell.service is not running" >&2
+        exit 1
+      fi
+
+      exec qs ipc --pid "$pid" call "$@"
+    '';
+  };
   shellConfig = pkgs.replaceVars ./shell.qml {
     weatherQuery = "${weatherQuery}/bin/quickshell-weather-query";
     calendarQuery = "${calendarQuery}/bin/quickshell-calendar-query";
+    screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
+    voiceTool = "${voiceTool}/bin/quickshell-voice";
   };
   themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton
@@ -164,6 +248,7 @@
 in {
   home.packages = with pkgs; [
     quickshell
+    quickshellIpc
     networkmanagerapplet
   ];
 

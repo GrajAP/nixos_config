@@ -1,10 +1,35 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   mod = "SUPER";
   modshift = "${mod}SHIFT";
+  quickshellIpc = pkgs.writeShellApplication {
+    name = "quickshell-ipc";
+    runtimeInputs = with pkgs; [
+      coreutils
+      procps
+      quickshell
+      systemd
+    ];
+    text = ''
+      set -euo pipefail
+
+      pid="$(systemctl --user show --property MainPID --value quickshell.service 2>/dev/null || true)"
+      if [[ -z "$pid" || "$pid" == "0" ]]; then
+        pid="$(pgrep -u "$(id -u)" -x qs | head -n1 || true)"
+      fi
+      if [[ -z "$pid" ]]; then
+        echo "quickshell-ipc: quickshell.service is not running" >&2
+        exit 1
+      fi
+
+      exec qs ipc --pid "$pid" call "$@"
+    '';
+  };
+  ipc = "${quickshellIpc}/bin/quickshell-ipc";
   # binds $mod + [shift +] {1..10} to [move to] workspace {1..10} (stolen from fufie)
 
   workspaces = builtins.concatLists (builtins.genList (
@@ -48,12 +73,12 @@ in {
         "${modshift},mouse_down,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.5')"
         "${modshift},mouse_up,exec,hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.5) | if . < 1 then 1 else . end')"
 
-        ",Print,exec, grim -g \"$(slurp)\" - | satty --filename -"
+        ",Print,exec,${ipc} tools screenshotEdit"
         "${modshift},O,exec,move-special-dp2 obs"
         "${mod},Q,exec,katana-switch"
 
         "${mod},Period,exec, emote"
-        ",PAUSE,exec,whisper-record-v2 start"
+        ",PAUSE,exec,${ipc} tools voiceStart"
 
         "${mod},Semicolon,global,quickshell:powerMenu"
 
@@ -63,10 +88,10 @@ in {
         "${mod},G,exec,hyprctl dispatch lockactivegroup toggle"
         "${mod},M,exec,hyprctl dispatch toggleorientation"
         "${mod},N,global,quickshell:notifications"
-        "${modshift},N,exec,qs ipc call notifications clear"
+        "${modshift},N,exec,${ipc} notifications clear"
         "${mod},O,exec,toggle-obs-special"
-        "${mod},S,exec,grimblast copy area"
-        "${modshift},S,exec,grimblast save area ~/pics/$(date +'screenshot-%F-%H%M%S').png"
+        "${mod},S,exec,${ipc} tools screenshotCopy"
+        "${modshift},S,exec,${ipc} tools screenshotSave"
         "${mod},U,exec,hyprctl dispatch focusurgentorlast"
 
         "${mod},X,global,quickshell:powerMenu"
@@ -88,7 +113,7 @@ in {
     ];
 
     bindr = [
-      ",PAUSE,exec,whisper-record-v2 stop"
+      ",PAUSE,exec,${ipc} tools voiceStop"
     ];
 
     binde = [
@@ -98,13 +123,13 @@ in {
       "${mod},L,movefocus,r"
 
       #/ volume controls
-      ",XF86AudioRaiseVolume, exec, pamixer -i 5 && qs ipc call osd volume"
-      ",XF86AudioLowerVolume, exec, pamixer -d 5 && qs ipc call osd volume"
-      ",XF86AudioMute, exec, pamixer -t && qs ipc call osd volume"
+      ",XF86AudioRaiseVolume, exec, pamixer -i 5 && ${ipc} osd volume"
+      ",XF86AudioLowerVolume, exec, pamixer -d 5 && ${ipc} osd volume"
+      ",XF86AudioMute, exec, pamixer -t && ${ipc} osd volume"
       ",XF86AudioMicMute, exec, micmute"
 
-      ",XF86MonBrightnessUp, exec, brightnessctl set 10%+ && qs ipc call osd brightness"
-      ",XF86MonBrightnessDown, exec, brightnessctl set 10%- && qs ipc call osd brightness"
+      ",XF86MonBrightnessUp, exec, brightnessctl set 10%+ && ${ipc} osd brightness"
+      ",XF86MonBrightnessDown, exec, brightnessctl set 10%- && ${ipc} osd brightness"
 
       "${mod} Control_L, H, resizeactive, -80 0"
       "${mod} Control_L, J, resizeactive, 0 80"

@@ -28,6 +28,10 @@ ShellRoot {
   property bool osdVisible: false
   property string osdKind: "volume"
   property real osdValue: 0
+  property bool toolStatusVisible: false
+  property bool toolBusy: false
+  property string toolStatusTitle: ""
+  property string toolStatusDetail: ""
   property bool widgetVisible: false
   property string widgetPage: "audio"
   property string networkStatus: "Loading…"
@@ -69,7 +73,16 @@ ShellRoot {
     }
     function brightness(): void { brightnessQuery.running = true; }
   }
+  IpcHandler {
+    target: "tools"
+    function screenshotEdit(): void { root.runTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit"); }
+    function screenshotCopy(): void { root.runTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy"); }
+    function screenshotSave(): void { root.runTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save"); }
+    function voiceStart(): void { root.runTool(["@voiceTool@", "start"], "Voice to text", "Recording… release Pause to transcribe"); }
+    function voiceStop(): void { root.runTool(["@voiceTool@", "stop"], "Voice to text", "Transcribing and typing…"); }
+  }
   Timer { id: osdTimer; interval: 1200; onTriggered: root.osdVisible = false }
+  Timer { id: toolStatusTimer; interval: 1800; onTriggered: root.toolStatusVisible = root.toolBusy }
   Process {
     id: brightnessQuery
     command: ["brightnessctl", "-m"]
@@ -136,6 +149,14 @@ ShellRoot {
     }
   }
   Process { id: networkAction; onExited: { networkQuery.running = true; wifiQuery.running = true; } }
+  Process {
+    id: toolAction
+    onExited: {
+      root.toolBusy = false;
+      if (root.toolStatusDetail.length === 0) root.toolStatusDetail = "Done";
+      toolStatusTimer.restart();
+    }
+  }
   Component.onCompleted: {
     networkQuery.running = true;
     wifiQuery.running = true;
@@ -156,6 +177,14 @@ ShellRoot {
     if (page === "network") { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
     if (page === "weather") weatherQuery.running = true;
     if (page === "calendar") calendarQuery.running = true;
+  }
+  function runTool(command, title, detail) {
+    root.toolBusy = true;
+    root.toolStatusVisible = true;
+    root.toolStatusTitle = title;
+    root.toolStatusDetail = detail;
+    toolStatusTimer.stop();
+    toolAction.exec(command);
   }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
@@ -436,6 +465,24 @@ ShellRoot {
 
         Text {
           Layout.alignment: Qt.AlignHCenter
+          text: "󰄀"
+          color: root.toolBusy ? Theme.accent : Theme.text
+          font.family: Theme.font
+          font.pixelSize: 17
+          ToolTip.visible: toolsMouse.containsMouse
+          ToolTip.delay: 350
+          ToolTip.text: "Tools\nScreenshots and voice typing"
+          MouseArea {
+            id: toolsMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openWidget("tools")
+          }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
           text: Qt.formatDateTime(clock.date, "HH\nmm")
           horizontalAlignment: Text.AlignHCenter
           lineHeight: 0.82
@@ -519,7 +566,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar"})[root.widgetPage]
+            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.widgetVisible = false } }
@@ -632,6 +679,53 @@ ShellRoot {
             Layout.fillWidth: true
             Text { text: "Today"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
             Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMax !== null ? Math.round(root.weatherData.todayMin) + "° / " + Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "tools"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
+          Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit") }
+          }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "󰆏  Select area and copy"; color: Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy") }
+          }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save") }
+          }
+
+          Text { text: "Voice to text"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 8 }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: root.toolBusy ? Theme.accent : Theme.surface
+            Text { anchors.centerIn: parent; text: "󰍬  Start recording"; color: root.toolBusy ? Theme.background : Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@voiceTool@", "start"], "Voice to text", "Recording… press Stop or release Pause") }
+          }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "󰓛  Stop and transcribe"; color: Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runTool(["@voiceTool@", "stop"], "Voice to text", "Transcribing and typing…") }
+          }
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: 12
+            color: "transparent"
+            border.color: Theme.surface
+            Text {
+              anchors.fill: parent
+              anchors.margins: 14
+              text: "Keys now call Quickshell IPC:\nPrint → edit screenshot\nSuper+S → copy screenshot\nSuper+Shift+S → save screenshot\nPause hold → voice recording"
+              color: Theme.muted
+              font.family: Theme.font
+              wrapMode: Text.Wrap
+            }
           }
         }
 
@@ -844,6 +938,40 @@ ShellRoot {
   }
 
   PanelWindow {
+    visible: root.toolStatusVisible
+    color: "transparent"
+    implicitWidth: 330
+    implicitHeight: 78
+    anchors { bottom: true }
+    margins.bottom: 144
+    exclusionMode: ExclusionMode.Ignore
+    Rectangle {
+      anchors.fill: parent
+      radius: 14
+      color: Theme.background
+      border.color: root.toolBusy ? Theme.accent : Theme.surface
+      border.width: 2
+      RowLayout {
+        anchors.fill: parent
+        anchors.margins: 14
+        spacing: 12
+        Text {
+          text: root.toolStatusTitle === "Voice to text" ? "󰍬" : "󰄀"
+          color: Theme.accent
+          font.family: Theme.font
+          font.pixelSize: 24
+        }
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 2
+          Text { text: root.toolStatusTitle; color: Theme.text; font.family: Theme.font; font.bold: true }
+          Text { text: root.toolStatusDetail; color: Theme.muted; font.family: Theme.font; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
+        }
+      }
+    }
+  }
+
+  PanelWindow {
     visible: root.notificationHistoryVisible
     focusable: true
     color: "transparent"
@@ -970,8 +1098,8 @@ ShellRoot {
         anchors.fill: parent; anchors.margins: 18; spacing: 12
         Repeater {
           model: [
-            { icon: "󰌾", label: "Lock", command: ["qs", "ipc", "call", "lock", "lock"] },
-            { icon: "󰤄", label: "Suspend", command: ["sh", "-c", "qs ipc call lock lock && sleep 0.3 && systemctl suspend"] },
+            { icon: "󰌾", label: "Lock", command: [] },
+            { icon: "󰤄", label: "Suspend", command: ["sh", "-c", "sleep 0.3 && systemctl suspend"] },
             { icon: "󰜉", label: "Reboot", command: ["systemctl", "reboot"] },
             { icon: "󰐥", label: "Power", command: ["systemctl", "poweroff"] }
           ]
@@ -984,7 +1112,17 @@ ShellRoot {
               Text { text: parent.parent.modelData.icon; color: Theme.text; font.family: Theme.font; font.pixelSize: 28; Layout.alignment: Qt.AlignHCenter }
               Text { text: parent.parent.modelData.label; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
             }
-            MouseArea { id: powerMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.powerVisible = false; Quickshell.execDetached(parent.modelData.command); } }
+            MouseArea {
+              id: powerMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.powerVisible = false;
+                if (parent.modelData.label === "Lock" || parent.modelData.label === "Suspend") sessionLock.locked = true;
+                if (parent.modelData.command.length > 0) Quickshell.execDetached(parent.modelData.command);
+              }
+            }
           }
         }
       }

@@ -4,6 +4,29 @@
   inputs,
   ...
 }: let
+  quickshellIpc = pkgs.writeShellApplication {
+    name = "quickshell-ipc";
+    runtimeInputs = with pkgs; [
+      coreutils
+      procps
+      quickshell
+      systemd
+    ];
+    text = ''
+      set -euo pipefail
+
+      pid="$(systemctl --user show --property MainPID --value quickshell.service 2>/dev/null || true)"
+      if [[ -z "$pid" || "$pid" == "0" ]]; then
+        pid="$(pgrep -u "$(id -u)" -x qs | head -n1 || true)"
+      fi
+      if [[ -z "$pid" ]]; then
+        echo "quickshell-ipc: quickshell.service is not running" >&2
+        exit 1
+      fi
+
+      exec qs ipc --pid "$pid" call "$@"
+    '';
+  };
   autoShutdown = pkgs.writeShellApplication {
     name = "auto-shutdown";
     runtimeInputs = with pkgs; [
@@ -180,9 +203,6 @@ in {
     pamixer
     slurp
     grim
-    swappy
-    grimblast
-    hyprpicker
     wl-clip-persist
     wl-clipboard
     wtype
@@ -225,16 +245,6 @@ in {
       '';
     })
     obsidianCalendarWidget
-    (writeShellScriptBin
-      "pauseshot"
-      ''
-        ${hyprpicker}/bin/hyprpicker -r -z &
-        picker_proc=$!
-
-        ${grimblast}/bin/grimblast save area - | tee ~/pics/$(date +'screenshot-%F').png | wl-copy
-
-        kill $picker_proc
-      '')
     (
       writeShellScriptBin "micmute"
       ''
@@ -328,8 +338,8 @@ in {
       systemdTarget = "hyprland-session.target";
       settings = {
         general = {
-          lock_cmd = "${pkgs.quickshell}/bin/qs ipc call lock lock";
-          before_sleep_cmd = "${pkgs.quickshell}/bin/qs ipc call lock lock";
+          lock_cmd = "${quickshellIpc}/bin/quickshell-ipc lock lock";
+          before_sleep_cmd = "${quickshellIpc}/bin/quickshell-ipc lock lock";
           after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
           ignore_dbus_inhibit = false;
           ignore_systemd_inhibit = false;
