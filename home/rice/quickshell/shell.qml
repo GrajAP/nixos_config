@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Notifications
+import Quickshell.Services.Mpris
 import Quickshell.Services.Pam
 import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
@@ -25,7 +26,14 @@ ShellRoot {
   property bool osdVisible: false
   property string osdKind: "volume"
   property real osdValue: 0
+  property bool widgetVisible: false
+  property string widgetPage: "audio"
+  property string networkStatus: "Loading…"
+  property bool wifiEnabled: true
+  property var wifiNetworks: []
+  readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || Mpris.players.values[0] || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+  SystemClock { id: clock; precision: SystemClock.Seconds }
 
   GlobalShortcut {
     name: "launcher"
@@ -68,6 +76,39 @@ ShellRoot {
         osdTimer.restart();
       }
     }
+  }
+  Process {
+    id: networkQuery
+    command: ["nmcli", "-t", "-f", "TYPE,STATE,CONNECTION", "device"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const connected = text.split("\n").find(line => line.includes(":connected:"));
+        root.networkStatus = connected ? connected.split(":").slice(2).join(":") : "Disconnected";
+      }
+    }
+  }
+  Process {
+    id: wifiQuery
+    command: ["nmcli", "radio", "wifi"]
+    stdout: StdioCollector { onStreamFinished: root.wifiEnabled = text.trim() === "enabled" }
+  }
+  Process {
+    id: wifiScan
+    command: ["nmcli", "-t", "-f", "IN-USE,SIGNAL,SSID", "device", "wifi", "list", "--rescan", "no"]
+    stdout: StdioCollector {
+      onStreamFinished: root.wifiNetworks = text.trim().split("\n").filter(line => line.length > 0).map(line => {
+        const fields = line.split(":");
+        return { active: fields[0] === "*", signal: Number(fields[1]), ssid: fields.slice(2).join(":") };
+      }).filter((network, index, all) => network.ssid && all.findIndex(item => item.ssid === network.ssid) === index).slice(0, 12)
+    }
+  }
+  Process { id: networkAction; onExited: { networkQuery.running = true; wifiQuery.running = true; } }
+  Component.onCompleted: { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
+
+  function openWidget(page) {
+    widgetPage = page;
+    widgetVisible = true;
+    if (page === "network") { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
   }
   IpcHandler {
     target: "lock"
@@ -171,7 +212,7 @@ ShellRoot {
     onPressed: root.barVisible = !root.barVisible
   }
 
-  PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
+  PwObjectTracker { objects: Pipewire.nodes.values.filter(node => node.audio !== null) }
 
   Variants {
     model: Quickshell.screens
@@ -181,9 +222,9 @@ ShellRoot {
       screen: modelData
       visible: root.barVisible && modelData.name === "DP-1"
       color: Theme.background
-      implicitWidth: 34
+      implicitWidth: 44
       anchors { top: true; right: true; bottom: true }
-      exclusiveZone: visible ? 34 : 0
+      exclusiveZone: visible ? 44 : 0
 
       ColumnLayout {
         anchors.fill: parent
@@ -194,20 +235,22 @@ ShellRoot {
           model: 10
           Rectangle {
             required property int index
+            readonly property int workspaceId: index + 1
+            readonly property var workspace: Hyprland.workspaces.values.find(candidate => candidate.id === workspaceId)
             Layout.fillWidth: true
-            implicitHeight: 29
+            implicitHeight: 34
             radius: 7
-            color: Hyprland.workspaces.values[index] && Hyprland.workspaces.values[index].active ? Theme.accent : "transparent"
+            color: workspace && workspace.active ? Theme.accent : "transparent"
             Text {
               anchors.centerIn: parent
-              text: root.numerals[parent.index + 1]
+              text: root.numerals[parent.workspaceId]
               color: parent.color === Theme.accent ? Theme.background : Theme.text
               font.family: Theme.font
               font.pixelSize: 14
             }
             MouseArea {
               anchors.fill: parent
-              onClicked: Hyprland.dispatch("workspace " + (parent.index + 1))
+              onClicked: Hyprland.dispatch("workspace " + parent.workspaceId)
             }
           }
         }
@@ -243,7 +286,7 @@ ShellRoot {
           font.pixelSize: 16
           MouseArea {
             anchors.fill: parent
-            onClicked: Quickshell.execDetached(["pavucontrol"])
+            onClicked: root.openWidget("audio")
             onWheel: wheel => {
               if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio)
                 Pipewire.defaultAudioSink.audio.volume = Math.max(0, Math.min(1.5, Pipewire.defaultAudioSink.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05)));
@@ -257,10 +300,24 @@ ShellRoot {
           color: Theme.text
           font.family: Theme.font
           font.pixelSize: 15
-          MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["nm-connection-editor"]) }
+          MouseArea { anchors.fill: parent; onClicked: root.openWidget("network") }
         }
 
-        SystemClock { id: clock; precision: SystemClock.Seconds }
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"
+          color: root.mediaPlayer ? Theme.text : Theme.muted
+          font.family: Theme.font; font.pixelSize: 16
+          MouseArea { anchors.fill: parent; onClicked: root.openWidget("media") }
+        }
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
+          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
+          MouseArea { anchors.fill: parent; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
+        }
+
         Text {
           Layout.alignment: Qt.AlignHCenter
           text: Qt.formatDateTime(clock.date, "HH\nmm\ndd\nMM")
@@ -269,9 +326,139 @@ ShellRoot {
           font.family: Theme.font
           font.pixelSize: 11
           lineHeight: 0.9
-          MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["obsidian"]) }
+          MouseArea { anchors.fill: parent; onClicked: root.openWidget("clock") }
         }
       }
+    }
+  }
+
+  PanelWindow {
+    id: widgetWindow
+    visible: root.widgetVisible
+    focusable: true
+    color: "transparent"
+    implicitWidth: 390; implicitHeight: 470
+    anchors { right: true; bottom: true }
+    margins { right: 54; bottom: 18 }
+    exclusionMode: ExclusionMode.Ignore
+    Rectangle {
+      anchors.fill: parent; radius: 16; color: Theme.background; border.color: Theme.accent; border.width: 2
+      ColumnLayout {
+        anchors.fill: parent; anchors.margins: 18; spacing: 12
+        RowLayout {
+          Layout.fillWidth: true
+          Text {
+            text: ({audio: "Audio", network: "Network", media: "Now playing", clock: "Calendar"})[root.widgetPage]
+            color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
+          }
+          Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; onClicked: root.widgetVisible = false } }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "audio"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          Text {
+            text: Pipewire.defaultAudioSink ? (Pipewire.defaultAudioSink.description || Pipewire.defaultAudioSink.name) : "No output"
+            color: Theme.text; font.family: Theme.font; wrapMode: Text.Wrap; Layout.fillWidth: true
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : ""
+              color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+              MouseArea { anchors.fill: parent; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
+            }
+            Slider {
+              Layout.fillWidth: true; from: 0; to: 1.5
+              value: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Pipewire.defaultAudioSink.audio.volume : 0
+              onMoved: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.volume = value
+            }
+            Text { text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
+          }
+          Text { text: "Outputs"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          ListView {
+            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
+            model: ScriptModel { values: Pipewire.nodes.values.filter(node => node.audio && node.isSink && !node.isStream) }
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width; height: 42; radius: 9
+              color: modelData === Pipewire.defaultAudioSink ? Theme.accent : Theme.surface
+              Text { anchors.fill: parent; anchors.margins: 10; verticalAlignment: Text.AlignVCenter; text: parent.modelData.description || parent.modelData.nickname || parent.modelData.name; color: parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.text; font.family: Theme.font; elide: Text.ElideRight }
+              MouseArea { anchors.fill: parent; onClicked: Pipewire.preferredDefaultAudioSink = parent.modelData }
+            }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "network"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
+          Text { text: "󰤨  " + root.networkStatus; color: Theme.text; font.family: Theme.font; font.pixelSize: 16 }
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: "Wi-Fi"; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true }
+            Switch { checked: root.wifiEnabled; onToggled: networkAction.exec(["nmcli", "radio", "wifi", checked ? "on" : "off"]) }
+          }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "Rescan and refresh"; color: Theme.accent; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; onClicked: { networkAction.exec(["nmcli", "device", "wifi", "rescan"]); wifiScan.running = true; } }
+          }
+          ListView {
+            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
+            model: root.wifiNetworks
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width; height: 42; radius: 9
+              color: modelData.active ? Theme.accent : Theme.surface
+              RowLayout {
+                anchors.fill: parent; anchors.margins: 10
+                Text { text: parent.parent.modelData.signal > 70 ? "󰤨" : parent.parent.modelData.signal > 40 ? "󰤥" : "󰤟"; color: parent.parent.modelData.active ? Theme.background : Theme.text; font.family: Theme.font }
+                Text { text: parent.parent.modelData.ssid; color: parent.parent.modelData.active ? Theme.background : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { text: parent.parent.modelData.signal + "%"; color: parent.parent.modelData.active ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
+              }
+              MouseArea { anchors.fill: parent; onClicked: if (!parent.modelData.active) networkAction.exec(["nmcli", "connection", "up", "id", parent.modelData.ssid]) }
+            }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "media"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
+          Image { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 220; Layout.preferredHeight: 220; fillMode: Image.PreserveAspectCrop; source: root.mediaPlayer ? root.mediaPlayer.trackArtUrl : "" }
+          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "No media player"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
+          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? root.mediaPlayer.trackArtist : ""; color: Theme.muted; font.family: Theme.font }
+          RowLayout {
+            Layout.alignment: Qt.AlignHCenter; spacing: 28
+            Text { text: "󰒮"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoPrevious) root.mediaPlayer.previous() } }
+            Text { text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 30; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canTogglePlaying) root.mediaPlayer.togglePlaying() } }
+            Text { text: "󰒭"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoNext) root.mediaPlayer.next() } }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "clock"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "HH:mm:ss"); color: Theme.text; font.family: Theme.font; font.pixelSize: 42 }
+          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 14 }
+          GridLayout {
+            Layout.fillWidth: true; columns: 7; rowSpacing: 8; columnSpacing: 8
+            Repeater {
+              model: ["M","T","W","T","F","S","S"]
+              Text { required property string modelData; text: modelData; color: Theme.accent; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+            }
+            Repeater {
+              model: new Date(clock.date.getFullYear(), clock.date.getMonth() + 1, 0).getDate()
+              Rectangle {
+                required property int index; Layout.fillWidth: true; implicitHeight: 32; radius: 8
+                color: index + 1 === clock.date.getDate() ? Theme.accent : Theme.surface
+                Text { anchors.centerIn: parent; text: parent.index + 1; color: parent.color === Theme.accent ? Theme.background : Theme.text; font.family: Theme.font }
+              }
+            }
+          }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
+            Text { anchors.centerIn: parent; text: "Open Obsidian"; color: Theme.accent; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["obsidian"]) }
+          }
+        }
+      }
+      Keys.onEscapePressed: root.widgetVisible = false
     }
   }
 
