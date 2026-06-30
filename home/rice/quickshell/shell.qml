@@ -433,8 +433,8 @@ ShellRoot {
           Layout.fillWidth: true
           implicitHeight: 30
           radius: 7
-          color: root.trayExpanded ? Theme.bgAlt : "transparent"
-          border.color: root.trayExpanded ? Theme.border : "transparent"
+          color: root.trayExpanded ? Theme.surface : "transparent"
+          border.color: root.trayExpanded ? Theme.accent : "transparent"
           Text {
             anchors.centerIn: parent
             text: root.trayExpanded ? "󰅀" : "󰅂"
@@ -511,10 +511,29 @@ ShellRoot {
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("media") }
         }
 
-        Text {
+        Item {
           Layout.alignment: Qt.AlignHCenter
-          text: root.weatherGlyph()
-          color: Theme.text; font.family: Theme.font; font.pixelSize: 17
+          implicitWidth: 32
+          implicitHeight: 31
+          ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 0
+            Text {
+              Layout.alignment: Qt.AlignHCenter
+              text: root.weatherGlyph()
+              color: Theme.text
+              font.family: Theme.font
+              font.pixelSize: 17
+            }
+            Text {
+              Layout.alignment: Qt.AlignHCenter
+              text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
+              color: Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 10
+              font.bold: true
+            }
+          }
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("weather") }
         }
 
