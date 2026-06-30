@@ -39,71 +39,47 @@
       #!/usr/bin/env bash
       set -euo pipefail
 
-      target_minute="00:01"
-      watch_seconds=20
+      default_targets="00:00 01:00 02:00 03:00 04:00 05:00 06:00"
+      watch_seconds=$((5 * 60))
       poll_seconds=60
-      idle_threshold=0
 
       runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
       cancel_file="$runtime_dir/cancel"
+      custom_target_file="$runtime_dir/custom-target"
+      last_trigger_file="$runtime_dir/last-trigger"
+      pending_file="$runtime_dir/pending"
       mkdir -p "$runtime_dir"
 
-      get_session_id() {
-        if [[ -n "''${XDG_SESSION_ID:-}" ]]; then
-          printf '%s\n' "$XDG_SESSION_ID"
-          return 0
+      custom_target() {
+        if [[ -r "$custom_target_file" ]]; then
+          head -n1 "$custom_target_file" | awk '/^([01][0-9]|2[0-3]):[0-5][0-9]$/ { print; exit }'
         fi
-
-        loginctl list-sessions --no-legend 2>/dev/null | awk -v user="$USER" '$3 == user { print $1; exit }'
       }
 
-      idle_seconds() {
-        local session_id="$1"
-        local idle_hint idle_since_usec now_usec
-
-        idle_hint="$(loginctl show-session "$session_id" -p IdleHint --value 2>/dev/null || true)"
-        if [[ "$idle_hint" != "yes" ]]; then
-          echo 0
-          return 0
-        fi
-
-        idle_since_usec="$(loginctl show-session "$session_id" -p IdleSinceHintUSec --value 2>/dev/null || echo 0)"
-        if [[ ! "$idle_since_usec" =~ ^[0-9]+$ ]] || (( idle_since_usec <= 0 )); then
-          echo 0
-          return 0
-        fi
-
-        now_usec=$(( $(date +%s) * 1000000 ))
-        if (( now_usec <= idle_since_usec )); then
-          echo 0
-          return 0
-        fi
-
-        echo $(( (now_usec - idle_since_usec) / 1000000 ))
+      should_trigger() {
+        local now_minute="$1"
+        local target
+        for target in $default_targets "$(custom_target)"; do
+          [[ -n "$target" ]] || continue
+          if [[ "$now_minute" == "$target" ]]; then
+            return 0
+          fi
+        done
+        return 1
       }
 
       while true; do
+        today="$(date +%F)"
         now_minute="$(date +%H:%M)"
+        trigger_id="$today $now_minute"
 
-        if [[ "$now_minute" == "$target_minute" ]]; then
-
-          session_id="$(get_session_id || true)"
-          if [[ -z "''${session_id:-}" ]]; then
-            sleep "$poll_seconds"
-            continue
-          fi
-
-          idle_time=$(idle_seconds "$session_id")
-          if (( idle_time < idle_threshold )); then
-            sleep "$poll_seconds"
-            continue
-          fi
-
+        if should_trigger "$now_minute" && [[ "$(cat "$last_trigger_file" 2>/dev/null || true)" != "$trigger_id" ]]; then
+          printf '%s\n' "$trigger_id" > "$last_trigger_file"
+          printf '%s\n' "$now_minute" > "$pending_file"
+          rm -f "$cancel_file"
           notify-send -u critical -t $((watch_seconds * 1000)) \
             "Auto shutdown" \
-            "System will shut down in 20 seconds unless password is provided."
-
-          hyprctl dispatch exec "foot -e sh -c 'read -t 20 -s -p \"Press Enter to cancel shutdown: \"; touch \"$cancel_file\"'"
+            "System will power off in 5 minutes. Open Tools -> Shutdown timer to cancel."
 
           deadline=$(( $(date +%s) + watch_seconds ))
           cancel=0
@@ -117,12 +93,18 @@
             sleep 1
           done
 
+          rm -f "$pending_file"
+          if [[ "$(custom_target)" == "$now_minute" ]]; then
+            rm -f "$custom_target_file"
+          fi
+
           if (( cancel == 0 )); then
-            notify-send -u critical -t 3000 "Auto shutdown" "No password provided. Logging out and shutting down."
-            loginctl terminate-session "$session_id"
+            notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
             systemctl poweroff
             exit 0
           fi
+
+          notify-send -u normal -t 2500 "Auto shutdown" "Shutdown cancelled."
         fi
 
         sleep "$poll_seconds"
@@ -415,7 +397,7 @@ in {
   };
   systemd.user.services.auto-shutdown = {
     Unit = {
-      Description = "Power off at 00:01 after a 20-second cancellation window";
+      Description = "Power off overnight unless cancelled from the Quickshell widget";
       After = ["hyprland-session.target"];
       PartOf = ["hyprland-session.target"];
     };

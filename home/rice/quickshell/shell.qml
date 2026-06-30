@@ -49,6 +49,9 @@ ShellRoot {
   property string weatherForecastMode: "current"
   property string weatherError: ""
   property string weatherLastUpdated: ""
+  property int shutdownHour: 0
+  property int shutdownMinute: 0
+  property string shutdownStatus: ""
   property string networkStatus: "Loading…"
   property bool wifiEnabled: true
   property var wifiNetworks: []
@@ -257,7 +260,8 @@ ShellRoot {
     if (widgetPage === "calendar") return 460;
     if (widgetPage === "network") return 430;
     if (widgetPage === "weather") return 390;
-    if (widgetPage === "tools") return 300;
+    if (widgetPage === "tools") return 340;
+    if (widgetPage === "shutdown") return 390;
     return 420;
   }
   function widgetPreferredHeight() {
@@ -266,7 +270,8 @@ ShellRoot {
     if (widgetPage === "calendar") return 650;
     if (widgetPage === "network") return 560;
     if (widgetPage === "weather") return 500;
-    if (widgetPage === "tools") return 230;
+    if (widgetPage === "tools") return 370;
+    if (widgetPage === "shutdown") return 400;
     if (widgetPage === "media") return 500;
     return 620;
   }
@@ -325,6 +330,26 @@ ShellRoot {
   }
   function screenshotEditedArgs(action) {
     return ["@screenshotTool@", action, root.screenshotPath, JSON.stringify(root.screenshotStrokes)];
+  }
+  function pad2(value) {
+    const text = String(Math.max(0, Math.min(99, Math.round(value))));
+    return text.length < 2 ? "0" + text : text;
+  }
+  function shutdownTimeLabel() {
+    return root.pad2(root.shutdownHour) + ":" + root.pad2(root.shutdownMinute);
+  }
+  function setShutdownTime(hour, minute) {
+    root.shutdownHour = (Math.round(hour) + 24) % 24;
+    root.shutdownMinute = (Math.round(minute) + 60) % 60;
+  }
+  function scheduleShutdown() {
+    const target = root.shutdownTimeLabel();
+    Quickshell.execDetached(["sh", "-c", "runtime_dir=\"${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown\"; mkdir -p \"$runtime_dir\"; printf '%s\\n' '" + target + "' > \"$runtime_dir/custom-target\"; rm -f \"$runtime_dir/cancel\"; notify-send -u normal 'Auto shutdown' 'Custom shutdown check set for " + target + ".'"]);
+    root.shutdownStatus = "Custom check set for " + target;
+  }
+  function cancelShutdown() {
+    Quickshell.execDetached(["sh", "-c", "runtime_dir=\"${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown\"; mkdir -p \"$runtime_dir\"; touch \"$runtime_dir/cancel\"; rm -f \"$runtime_dir/custom-target\" \"$runtime_dir/pending\"; sudo shutdown -c >/dev/null 2>&1 || true; notify-send -u normal 'Auto shutdown' 'Shutdown cancelled.'"]);
+    root.shutdownStatus = "Shutdown cancelled";
   }
   function screenshotDisplayRect(canvas, image) {
     const paintedWidth = image.paintedWidth || canvas.width;
@@ -759,6 +784,7 @@ ShellRoot {
           Text {
             id: barWeatherGlyph
             anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: -2
             y: 0
             text: root.weatherGlyph()
             color: Theme.text
@@ -768,6 +794,7 @@ ShellRoot {
           }
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: 2
             anchors.top: barWeatherGlyph.bottom
             anchors.topMargin: -1
             text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
@@ -877,7 +904,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools", screenshot: "Screenshot"})[root.widgetPage]
+            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
@@ -1400,6 +1427,177 @@ ShellRoot {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("save", false) }
+          }
+          Text { text: "Power"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 4 }
+          Rectangle {
+            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: shutdownToolMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+            Text { anchors.centerIn: parent; text: "󰐥  Shutdown timer"; color: Theme.text; font.family: Theme.font }
+            MouseArea {
+              id: shutdownToolMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openWidget("shutdown")
+            }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "shutdown"; Layout.fillWidth: true; spacing: 14
+          Text { text: "Time"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 86
+            radius: 10
+            color: Theme.surface
+            RowLayout {
+              anchors.fill: parent
+              anchors.margins: 12
+              spacing: 12
+              Rectangle {
+                Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 8
+                color: minusHourMouse.containsMouse ? Theme.surfaceAlt : Theme.background
+                border.color: Theme.border
+                Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
+                MouseArea {
+                  id: minusHourMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.setShutdownTime(root.shutdownHour - 1, root.shutdownMinute)
+                }
+              }
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                Text {
+                  Layout.fillWidth: true
+                  horizontalAlignment: Text.AlignHCenter
+                  text: root.shutdownTimeLabel()
+                  color: Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 28
+                  font.bold: true
+                }
+                Text {
+                  Layout.fillWidth: true
+                  horizontalAlignment: Text.AlignHCenter
+                  text: "custom shutdown check"
+                  color: Theme.muted
+                  font.family: Theme.font
+                  font.pixelSize: 11
+                }
+              }
+              Rectangle {
+                Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 8
+                color: plusHourMouse.containsMouse ? Theme.surfaceAlt : Theme.background
+                border.color: Theme.border
+                Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
+                MouseArea {
+                  id: plusHourMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.setShutdownTime(root.shutdownHour + 1, root.shutdownMinute)
+                }
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 42; radius: 9; color: Theme.surface
+              RowLayout {
+                anchors.fill: parent; anchors.margins: 6; spacing: 8
+                Rectangle {
+                  Layout.preferredWidth: 32; Layout.fillHeight: true; radius: 7; color: minuteDownMouse.containsMouse ? Theme.surfaceAlt : Theme.background; border.color: Theme.border
+                  Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 18 }
+                  MouseArea { id: minuteDownMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(root.shutdownHour, root.shutdownMinute - 5) }
+                }
+                Text { Layout.fillWidth: true; text: "Minute"; color: Theme.text; font.family: Theme.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                Rectangle {
+                  Layout.preferredWidth: 32; Layout.fillHeight: true; radius: 7; color: minuteUpMouse.containsMouse ? Theme.surfaceAlt : Theme.background; border.color: Theme.border
+                  Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 18 }
+                  MouseArea { id: minuteUpMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(root.shutdownHour, root.shutdownMinute + 5) }
+                }
+              }
+            }
+          }
+
+          Text { text: "Hourly checks"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+              model: [0, 1, 2, 3, 4, 5, 6]
+              delegate: Rectangle {
+                required property int modelData
+                Layout.fillWidth: true
+                Layout.preferredHeight: 34
+                radius: 8
+                color: root.shutdownHour === modelData && root.shutdownMinute === 0 ? Theme.accent : Theme.surface
+                Text {
+                  anchors.centerIn: parent
+                  text: root.pad2(parent.modelData)
+                  color: root.shutdownHour === parent.modelData && root.shutdownMinute === 0 ? Theme.background : Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 12
+                  font.bold: root.shutdownHour === parent.modelData && root.shutdownMinute === 0
+                }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(parent.modelData, 0) }
+              }
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: "00:00-06:00 run automatically. Each check gives 5 minutes to cancel here."
+            color: Theme.muted
+            font.family: Theme.font
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
+              color: scheduleShutdownMouse.containsMouse ? Theme.accent : Theme.surface
+              Text { anchors.centerIn: parent; text: "󰐥  Schedule"; color: scheduleShutdownMouse.containsMouse ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true }
+              MouseArea {
+                id: scheduleShutdownMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.scheduleShutdown()
+              }
+            }
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
+              color: cancelShutdownMouse.containsMouse ? Theme.danger : Theme.surface
+              Text { anchors.centerIn: parent; text: "󰜺  Cancel"; color: cancelShutdownMouse.containsMouse ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true }
+              MouseArea {
+                id: cancelShutdownMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.cancelShutdown()
+              }
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: root.shutdownStatus
+            visible: root.shutdownStatus.length > 0
+            color: Theme.muted
+            font.family: Theme.font
+            font.pixelSize: 12
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
           }
         }
 
