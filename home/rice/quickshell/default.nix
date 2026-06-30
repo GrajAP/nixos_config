@@ -133,7 +133,6 @@
       coreutils
       grim
       libnotify
-      satty
       slurp
       wl-clipboard
     ];
@@ -141,27 +140,72 @@
       set -euo pipefail
 
       mode="''${1:-edit}"
+      target="''${2:-}"
       mkdir -p "$HOME/pics"
+      state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/quickshell-tools"
+      mkdir -p "$state_dir"
+      log_file="$state_dir/screenshot.log"
+      {
+        echo "--- $(date --iso-8601=seconds) mode=$mode ---"
+        echo "WAYLAND_DISPLAY=''${WAYLAND_DISPLAY:-}"
+        echo "XDG_CURRENT_DESKTOP=''${XDG_CURRENT_DESKTOP:-}"
+      } >> "$log_file"
 
-      geometry="$(slurp)" || exit 130
+      copy_file() {
+        local file="$1"
+        [[ -f "$file" ]] || { echo "missing file: $file" >> "$log_file"; exit 2; }
+        wl-copy -t image/png < "$file" 2>> "$log_file"
+        notify-send "Screenshot" "Copied to clipboard"
+      }
+
+      save_file() {
+        local source="$1"
+        [[ -f "$source" ]] || { echo "missing file: $source" >> "$log_file"; exit 2; }
+        local file
+        file="$HOME/pics/screenshot-$(date +'%F-%H%M%S').png"
+        cp "$source" "$file"
+        wl-copy -t image/png < "$file" 2>> "$log_file"
+        notify-send "Screenshot" "Saved and copied: $(basename "$file")"
+        printf '%s\n' "$file"
+      }
+
+      case "$mode" in
+        copy-file)
+          copy_file "$target"
+          exit 0
+          ;;
+        save-file)
+          save_file "$target"
+          exit 0
+          ;;
+      esac
+
+      sleep 0.15
+      geometry="$(slurp -b 00000066 -c 7aa2f7ff -s 7aa2f733)" || {
+        status=$?
+        echo "slurp failed: $status" >> "$log_file"
+        exit "$status"
+      }
       [[ -n "$geometry" ]] || exit 130
+      echo "geometry=$geometry" >> "$log_file"
+
+      tmp="$state_dir/latest-screenshot.png"
 
       case "$mode" in
         edit)
-          grim -g "$geometry" - | satty --filename -
+          grim -g "$geometry" "$tmp" 2>> "$log_file"
+          printf '%s\n' "$tmp"
           ;;
         copy)
-          grim -g "$geometry" - | wl-copy --type image/png
-          notify-send "Screenshot" "Area copied to clipboard"
+          grim -g "$geometry" "$tmp" 2>> "$log_file"
+          copy_file "$tmp"
           ;;
         save)
-          file="$HOME/pics/screenshot-$(date +'%F-%H%M%S').png"
-          grim -g "$geometry" "$file"
-          wl-copy --type image/png < "$file"
-          notify-send "Screenshot" "Saved and copied: $(basename "$file")"
+          grim -g "$geometry" "$tmp" 2>> "$log_file"
+          save_file "$tmp"
           ;;
         *)
-          echo "Usage: quickshell-screenshot [edit|copy|save]" >&2
+          echo "Usage: quickshell-screenshot [edit|copy|save|copy-file|save-file]" >&2
           exit 2
           ;;
       esac

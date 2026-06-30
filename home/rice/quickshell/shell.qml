@@ -32,6 +32,8 @@ ShellRoot {
   property bool toolBusy: false
   property string toolStatusTitle: ""
   property string toolStatusDetail: ""
+  property string screenshotPath: ""
+  property bool screenshotOpenAfterCapture: false
   property bool widgetVisible: false
   property string widgetPage: "audio"
   property string networkStatus: "Loading…"
@@ -75,9 +77,9 @@ ShellRoot {
   }
   IpcHandler {
     target: "tools"
-    function screenshotEdit(): void { root.runTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit"); }
-    function screenshotCopy(): void { root.runTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy"); }
-    function screenshotSave(): void { root.runTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save"); }
+    function screenshotEdit(): void { root.captureScreenshot("edit", true); }
+    function screenshotCopy(): void { root.captureScreenshot("copy", false); }
+    function screenshotSave(): void { root.captureScreenshot("save", false); }
     function voiceStart(): void { root.runTool(["@voiceTool@", "start"], "Voice to text", "Recording… release Pause to transcribe"); }
     function voiceStop(): void { root.runTool(["@voiceTool@", "stop"], "Voice to text", "Transcribing and typing…"); }
   }
@@ -150,11 +152,21 @@ ShellRoot {
   }
   Process { id: networkAction; onExited: { networkQuery.running = true; wifiQuery.running = true; } }
   Process {
-    id: toolAction
+    id: screenshotAction
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const lines = text.trim().split("\n").filter(line => line.length > 0);
+        const path = lines.length > 0 ? lines[lines.length - 1] : "";
+        if (path.length > 0) {
+          root.screenshotPath = path;
+          if (root.screenshotOpenAfterCapture) root.openWidget("screenshot");
+        }
+      }
+    }
     onExited: {
       root.toolBusy = false;
-      if (root.toolStatusDetail.length === 0) root.toolStatusDetail = "Done";
       toolStatusTimer.restart();
+      root.screenshotOpenAfterCapture = false;
     }
   }
   Component.onCompleted: {
@@ -184,11 +196,23 @@ ShellRoot {
     root.toolStatusTitle = title;
     root.toolStatusDetail = detail;
     toolStatusTimer.stop();
-    toolAction.exec(command);
+    Quickshell.execDetached(command);
+    root.toolBusy = false;
+    toolStatusTimer.restart();
   }
   function runWidgetTool(command, title, detail) {
     root.widgetVisible = false;
     Qt.callLater(() => root.runTool(command, title, detail));
+  }
+  function captureScreenshot(mode, openAfter) {
+    root.widgetVisible = false;
+    root.screenshotOpenAfterCapture = openAfter;
+    root.toolBusy = true;
+    root.toolStatusVisible = true;
+    root.toolStatusTitle = "Screenshot";
+    root.toolStatusDetail = mode === "edit" ? "Select an area for preview" : (mode === "copy" ? "Select an area to copy" : "Select an area to save");
+    toolStatusTimer.stop();
+    Qt.callLater(() => screenshotAction.exec(["@screenshotTool@", mode]));
   }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
@@ -558,7 +582,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools"})[root.widgetPage]
+            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools", screenshot: "Screenshot"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.widgetVisible = false } }
@@ -709,18 +733,18 @@ ShellRoot {
           Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.font; font.bold: true }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "edit"], "Screenshot", "Select an area to edit") }
+            Text { anchors.centerIn: parent; text: "󰄀  Select area and preview"; color: Theme.text; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰆏  Select area and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "copy"], "Screenshot", "Select an area to copy") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("copy", false) }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runWidgetTool(["@screenshotTool@", "save"], "Screenshot", "Select an area to save") }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("save", false) }
           }
 
           Text { text: "Voice to text"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 8 }
@@ -779,6 +803,50 @@ ShellRoot {
               color: Theme.muted
               font.family: Theme.font
               wrapMode: Text.Wrap
+            }
+          }
+        }
+
+        ColumnLayout {
+          visible: root.widgetPage === "screenshot"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            radius: 12
+            color: Theme.surface
+            clip: true
+            Image {
+              anchors.fill: parent
+              anchors.margins: 10
+              source: root.screenshotPath.length > 0 ? "file://" + root.screenshotPath : ""
+              fillMode: Image.PreserveAspectFit
+              cache: false
+            }
+            Text {
+              visible: root.screenshotPath.length === 0
+              anchors.centerIn: parent
+              text: "No screenshot yet"
+              color: Theme.muted
+              font.family: Theme.font
+            }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(["@screenshotTool@", "copy-file", root.screenshotPath], "Screenshot", "Copied preview") }
+            }
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(["@screenshotTool@", "save-file", root.screenshotPath], "Screenshot", "Saved preview") }
+            }
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Retake"; color: Theme.accent; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
             }
           }
         }
