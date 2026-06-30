@@ -28,7 +28,7 @@
       packages = [pkgs.apparmor-profiles];
     };
     pam = {
-      services.hyprlock.text = "auth include login";
+      services.quickshell.text = "auth include login";
       loginLimits = [
         {
           domain = "@wheel";

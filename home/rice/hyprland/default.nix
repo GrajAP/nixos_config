@@ -328,8 +328,8 @@ in {
       systemdTarget = "hyprland-session.target";
       settings = {
         general = {
-          lock_cmd = "${pkgs.procps}/bin/pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock";
-          before_sleep_cmd = "${pkgs.systemd}/bin/loginctl lock-session";
+          lock_cmd = "${pkgs.quickshell}/bin/qs ipc call lock lock";
+          before_sleep_cmd = "${pkgs.quickshell}/bin/qs ipc call lock lock";
           after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
           ignore_dbus_inhibit = false;
           ignore_systemd_inhibit = false;

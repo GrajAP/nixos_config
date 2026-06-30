@@ -62,6 +62,8 @@ in {
 
         "${mod},G,exec,hyprctl dispatch lockactivegroup toggle"
         "${mod},M,exec,hyprctl dispatch toggleorientation"
+        "${mod},N,global,quickshell:notifications"
+        "${modshift},N,exec,qs ipc call notifications clear"
         "${mod},O,exec,toggle-obs-special"
         "${mod},S,exec,grimblast copy area"
         "${modshift},S,exec,grimblast save area ~/pics/$(date +'screenshot-%F-%H%M%S').png"
@@ -96,13 +98,13 @@ in {
       "${mod},L,movefocus,r"
 
       #/ volume controls
-      ",XF86AudioRaiseVolume, exec, pamixer -i 5"
-      ",XF86AudioLowerVolume, exec, pamixer -d 5"
-      ",XF86AudioMute, exec, pamixer -t"
+      ",XF86AudioRaiseVolume, exec, pamixer -i 5 && qs ipc call osd volume"
+      ",XF86AudioLowerVolume, exec, pamixer -d 5 && qs ipc call osd volume"
+      ",XF86AudioMute, exec, pamixer -t && qs ipc call osd volume"
       ",XF86AudioMicMute, exec, micmute"
 
-      ",XF86MonBrightnessUp, exec, brightnessctl set 10%+"
-      ",XF86MonBrightnessDown, exec, brightnessctl set 10%-"
+      ",XF86MonBrightnessUp, exec, brightnessctl set 10%+ && qs ipc call osd brightness"
+      ",XF86MonBrightnessDown, exec, brightnessctl set 10%- && qs ipc call osd brightness"
 
       "${mod} Control_L, H, resizeactive, -80 0"
       "${mod} Control_L, J, resizeactive, 0 80"
