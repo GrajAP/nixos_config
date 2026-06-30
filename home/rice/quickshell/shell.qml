@@ -35,6 +35,8 @@ ShellRoot {
   property var wifiNetworks: []
   property var weatherData: null
   property var calendarEvents: []
+  property int calendarMonthOffset: 0
+  property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
@@ -158,6 +160,9 @@ ShellRoot {
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
   }
+  function calendarDisplayDate() {
+    return new Date(clock.date.getFullYear(), clock.date.getMonth() + root.calendarMonthOffset, 1);
+  }
   function weatherGlyph() {
     const code = root.weatherData ? Number(root.weatherData.weatherCode) : NaN;
     if (code === 0) return "󰖙";
@@ -170,8 +175,9 @@ ShellRoot {
     return "󰖙";
   }
   function monthCells() {
-    const year = clock.date.getFullYear();
-    const month = clock.date.getMonth();
+    const displayedDate = calendarDisplayDate();
+    const year = displayedDate.getFullYear();
+    const month = displayedDate.getMonth();
     const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = dateKey(clock.date);
@@ -183,7 +189,7 @@ ShellRoot {
     for (let index = 0; index < 42; index++) {
       const day = index - firstDay + 1;
       if (day < 1 || day > daysInMonth) {
-        cells.push({ inMonth: false, day: 0, date: "", isToday: false, eventCount: 0 });
+        cells.push({ inMonth: false, day: 0, date: "", isToday: false, isSelected: false, eventCount: 0 });
         continue;
       }
       const cellDate = new Date(year, month, day);
@@ -193,18 +199,19 @@ ShellRoot {
         day,
         date: key,
         isToday: key === today,
+        isSelected: key === root.calendarSelectedDate,
         eventCount: counts[key] || 0
       });
     }
     return cells;
   }
-  function upcomingEvents(limit) {
-    const today = dateKey(clock.date);
+  function upcomingEvents(limit, fromDate) {
+    const firstDate = fromDate || dateKey(clock.date);
     return root.calendarEvents
-      .filter(event => event.date >= today)
+      .filter(event => event.date >= firstDate)
       .slice()
       .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
-      .slice(0, limit || 6);
+      .slice(0, limit || 10);
   }
   IpcHandler {
     target: "lock"
@@ -348,6 +355,7 @@ ShellRoot {
             }
             MouseArea {
               anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
               onClicked: Hyprland.dispatch("workspace " + parent.modelData.id)
             }
           }
@@ -364,6 +372,7 @@ ShellRoot {
             source: modelData.icon
             MouseArea {
               anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
               onClicked: mouse => {
                 if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
@@ -384,6 +393,7 @@ ShellRoot {
           font.pixelSize: 16
           MouseArea {
             anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
             onClicked: root.openWidget("audio")
             onWheel: wheel => {
               if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio)
@@ -398,7 +408,7 @@ ShellRoot {
           color: Theme.text
           font.family: Theme.font
           font.pixelSize: 15
-          MouseArea { anchors.fill: parent; onClicked: root.openWidget("network") }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("network") }
         }
 
         Text {
@@ -406,14 +416,14 @@ ShellRoot {
           text: ""
           color: root.mediaPlayer ? Theme.text : Theme.muted
           font.family: Theme.font; font.pixelSize: 17
-          MouseArea { anchors.fill: parent; onClicked: root.openWidget("media") }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("media") }
         }
 
         Text {
           Layout.alignment: Qt.AlignHCenter
           text: root.weatherGlyph()
           color: Theme.text; font.family: Theme.font; font.pixelSize: 17
-          MouseArea { anchors.fill: parent; onClicked: root.openWidget("weather") }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("weather") }
         }
 
         Text {
@@ -422,14 +432,14 @@ ShellRoot {
           color: Theme.text
           font.family: Theme.font
           font.pixelSize: 17
-          MouseArea { anchors.fill: parent; onClicked: root.openWidget("calendar") }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openWidget("calendar") }
         }
 
         Text {
           Layout.alignment: Qt.AlignHCenter
           text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
           color: Theme.text; font.family: Theme.font; font.pixelSize: 16
-          MouseArea { anchors.fill: parent; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationHistoryVisible = !root.notificationHistoryVisible }
         }
       }
     }
@@ -455,7 +465,8 @@ ShellRoot {
 
     Rectangle {
       id: widgetPanel
-      width: 410; height: 560
+      width: Math.min(460, parent.width - 20)
+      height: Math.min(720, parent.height - 36)
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       anchors.rightMargin: 10
@@ -473,7 +484,7 @@ ShellRoot {
             text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
-          Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; onClicked: root.widgetVisible = false } }
+          Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.widgetVisible = false } }
         }
 
         ColumnLayout {
@@ -487,7 +498,7 @@ ShellRoot {
             Text {
               text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : ""
               color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
-              MouseArea { anchors.fill: parent; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
             }
             Slider {
               Layout.fillWidth: true; from: 0; to: 1.5
@@ -505,7 +516,7 @@ ShellRoot {
               width: ListView.view.width; height: 42; radius: 9
               color: modelData === Pipewire.defaultAudioSink ? Theme.accent : Theme.surface
               Text { anchors.fill: parent; anchors.margins: 10; verticalAlignment: Text.AlignVCenter; text: parent.modelData.description || parent.modelData.nickname || parent.modelData.name; color: parent.modelData === Pipewire.defaultAudioSink ? Theme.background : Theme.text; font.family: Theme.font; elide: Text.ElideRight }
-              MouseArea { anchors.fill: parent; onClicked: Pipewire.preferredDefaultAudioSink = parent.modelData }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Pipewire.preferredDefaultAudioSink = parent.modelData }
             }
           }
         }
@@ -521,7 +532,7 @@ ShellRoot {
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "Rescan and refresh"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; onClicked: { networkAction.exec(["nmcli", "device", "wifi", "rescan"]); wifiScan.running = true; } }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { networkAction.exec(["nmcli", "device", "wifi", "rescan"]); wifiScan.running = true; } }
           }
           ListView {
             Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
@@ -536,7 +547,7 @@ ShellRoot {
                 Text { text: parent.parent.modelData.ssid; color: parent.parent.modelData.active ? Theme.background : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
                 Text { text: parent.parent.modelData.signal + "%"; color: parent.parent.modelData.active ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
               }
-              MouseArea { anchors.fill: parent; onClicked: if (!parent.modelData.active) networkAction.exec(["nmcli", "connection", "up", "id", parent.modelData.ssid]) }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (!parent.modelData.active) networkAction.exec(["nmcli", "connection", "up", "id", parent.modelData.ssid]) }
             }
           }
         }
@@ -549,9 +560,9 @@ ShellRoot {
           Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? root.mediaPlayer.trackArtist : ""; color: Theme.muted; font.family: Theme.font }
           RowLayout {
             visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; spacing: 28
-            Text { text: "󰒮"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoPrevious) root.mediaPlayer.previous() } }
-            Text { text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 30; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canTogglePlaying) root.mediaPlayer.togglePlaying() } }
-            Text { text: "󰒭"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoNext) root.mediaPlayer.next() } }
+            Text { text: "󰒮"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoPrevious) root.mediaPlayer.previous() } }
+            Text { text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 30; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canTogglePlaying) root.mediaPlayer.togglePlaying() } }
+            Text { text: "󰒭"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoNext) root.mediaPlayer.next() } }
           }
           Rectangle {
             visible: root.mediaPlayer === null
@@ -560,7 +571,7 @@ ShellRoot {
             radius: 8
             color: Theme.surface
             Text { anchors.centerIn: parent; text: "  Open Spotify"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["spotify"]) }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["spotify"]) }
           }
         }
 
@@ -588,8 +599,62 @@ ShellRoot {
 
         ColumnLayout {
           visible: root.widgetPage === "calendar"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
-          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "dddd, d MMMM yyyy"); color: Theme.text; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
-          Text { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDateTime(clock.date, "HH:mm:ss"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 13 }
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: "‹"
+              color: Theme.text
+              font.pixelSize: 28
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.calendarMonthOffset--
+              }
+            }
+            Text {
+              Layout.fillWidth: true
+              horizontalAlignment: Text.AlignHCenter
+              text: Qt.formatDateTime(root.calendarDisplayDate(), "MMMM yyyy")
+              color: Theme.text
+              font.family: Theme.font
+              font.pixelSize: 18
+              font.bold: true
+            }
+            Text {
+              text: "›"
+              color: Theme.text
+              font.pixelSize: 28
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.calendarMonthOffset++
+              }
+            }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Text {
+              text: Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "dddd, d MMMM")
+              color: Theme.muted
+              font.family: Theme.font
+              Layout.fillWidth: true
+            }
+            Rectangle {
+              implicitWidth: 70
+              implicitHeight: 28
+              radius: 7
+              color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Today"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 11 }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.calendarMonthOffset = 0;
+                  root.calendarSelectedDate = root.dateKey(clock.date);
+                }
+              }
+            }
+          }
           GridLayout {
             Layout.fillWidth: true; columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
@@ -611,13 +676,13 @@ ShellRoot {
                 Layout.fillWidth: true
                 implicitHeight: 34
                 radius: 8
-                color: !modelData.inMonth ? "transparent" : modelData.isToday ? Theme.accent : Theme.surface
-                border.color: modelData.eventCount > 0 && modelData.inMonth && !modelData.isToday ? Theme.accent : "transparent"
-                border.width: modelData.eventCount > 0 && modelData.inMonth && !modelData.isToday ? 1 : 0
+                color: !modelData.inMonth ? "transparent" : modelData.isSelected ? Theme.accent : Theme.surface
+                border.color: modelData.inMonth && (modelData.isToday || modelData.eventCount > 0) && !modelData.isSelected ? Theme.accent : "transparent"
+                border.width: modelData.inMonth && (modelData.isToday || modelData.eventCount > 0) && !modelData.isSelected ? 1 : 0
                 Text {
                   anchors.centerIn: parent
                   text: modelData.inMonth ? modelData.day : ""
-                  color: modelData.isToday ? Theme.background : Theme.text
+                  color: modelData.isSelected ? Theme.background : Theme.text
                   font.family: Theme.font
                 }
                 Rectangle {
@@ -628,19 +693,31 @@ ShellRoot {
                   implicitWidth: Math.min(18, 5 + modelData.eventCount * 4)
                   implicitHeight: 4
                   radius: 2
-                  color: modelData.isToday ? Theme.background : Theme.accent
+                  color: modelData.isSelected ? Theme.background : Theme.accent
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: modelData.inMonth
+                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onClicked: root.calendarSelectedDate = modelData.date
                 }
               }
             }
           }
-          Text { Layout.fillWidth: true; text: "Upcoming"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          Text {
+            Layout.fillWidth: true
+            text: "Events from " + Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "d MMMM")
+            color: Theme.muted
+            font.family: Theme.font
+            font.bold: true
+          }
           ListView {
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 6
-            model: root.upcomingEvents(6)
+            model: root.upcomingEvents(10, root.calendarSelectedDate)
             delegate: Rectangle {
               required property var modelData
               width: ListView.view.width
-              implicitHeight: 44
+              implicitHeight: 50
               radius: 9
               color: Theme.surface
               RowLayout {
@@ -651,14 +728,19 @@ ShellRoot {
                   Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "MMM"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
                 }
                 Text { text: modelData.title; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text { visible: modelData.allDay; text: "all day"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
+                Text {
+                  text: modelData.allDay ? "all day" : (modelData.startTime || "")
+                  color: Theme.muted
+                  font.family: Theme.font
+                  font.pixelSize: 10
+                }
               }
             }
           }
           Rectangle {
             Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
             Text { anchors.centerIn: parent; text: "Open Obsidian"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["obsidian"]) }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["obsidian"]) }
           }
         }
       }
@@ -691,7 +773,7 @@ ShellRoot {
         }
         Text {
           text: "×"; color: Theme.muted; font.pixelSize: 22
-          MouseArea { anchors.fill: parent; onClicked: root.notificationPopupVisible = false }
+          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationPopupVisible = false }
         }
       }
     }
@@ -740,7 +822,7 @@ ShellRoot {
           Text { text: "Notifications"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true }
           Text {
             text: "Clear"; color: Theme.accent; font.family: Theme.font
-            MouseArea { anchors.fill: parent; onClicked: { const copy = notificationServer.trackedNotifications.values.slice(); for (const n of copy) n.dismiss(); } }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const copy = notificationServer.trackedNotifications.values.slice(); for (const n of copy) n.dismiss(); } }
           }
         }
         ListView {
@@ -756,7 +838,7 @@ ShellRoot {
               RowLayout {
                 Layout.fillWidth: true
                 Text { text: parent.parent.parent.modelData.appName; color: Theme.accent; font.family: Theme.font; font.pixelSize: 10; Layout.fillWidth: true }
-                Text { text: "×"; color: Theme.muted; font.pixelSize: 18; MouseArea { anchors.fill: parent; onClicked: parent.parent.parent.parent.modelData.dismiss() } }
+                Text { text: "×"; color: Theme.muted; font.pixelSize: 18; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.parent.parent.parent.modelData.dismiss() } }
               }
               Text { Layout.fillWidth: true; text: parent.parent.modelData.summary; color: Theme.text; font.family: Theme.font; font.bold: true; wrapMode: Text.Wrap }
               Text { Layout.fillWidth: true; text: parent.parent.modelData.body; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; textFormat: Text.StyledText }
@@ -768,7 +850,7 @@ ShellRoot {
                     required property var modelData
                     implicitWidth: actionText.implicitWidth + 18; implicitHeight: 28; radius: 7; color: Theme.background
                     Text { id: actionText; anchors.centerIn: parent; text: parent.modelData.text; color: Theme.accent; font.family: Theme.font; font.pixelSize: 10 }
-                    MouseArea { anchors.fill: parent; onClicked: parent.modelData.invoke() }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.modelData.invoke() }
                   }
                 }
               }
@@ -829,7 +911,7 @@ ShellRoot {
                 Text { text: appRow.modelData.genericName; color: Theme.muted; font.family: Theme.font; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
               }
             }
-            MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; onClicked: appRow.launch() }
+            MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: appRow.launch() }
           }
         }
       }
@@ -864,7 +946,7 @@ ShellRoot {
               Text { text: parent.parent.modelData.icon; color: Theme.text; font.family: Theme.font; font.pixelSize: 28; Layout.alignment: Qt.AlignHCenter }
               Text { text: parent.parent.modelData.label; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
             }
-            MouseArea { id: powerMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { root.powerVisible = false; Quickshell.execDetached(parent.modelData.command); } }
+            MouseArea { id: powerMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.powerVisible = false; Quickshell.execDetached(parent.modelData.command); } }
           }
         }
       }
