@@ -194,7 +194,6 @@ in {
   home.packages = with pkgs;
   with inputs.hyprcontrib.packages.${pkgs.stdenv.hostPlatform.system}; [
     libnotify
-    swaybg
     emote
     wireplumber
     nwg-look

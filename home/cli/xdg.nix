@@ -17,10 +17,10 @@
     "application/x-extension-xht" = browser;
 
     "audio/*" = ["mpv.desktop"];
-    "video/*" = ["mpv.dekstop"];
+    "video/*" = ["mpv.desktop"];
     "image/*" = ["imv.desktop"];
     "application/json" = browser;
-    "application/pdf" = ["org.pwmt.zathura.desktop.desktop"];
+    "application/pdf" = ["org.pwmt.zathura-pdf-mupdf.desktop"];
   };
 in {
   xdg.configFile."applications/helium.desktop".text = ''

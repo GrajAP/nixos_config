@@ -139,11 +139,6 @@ hide_indicator() {
   fi
   rm -f "$indicator_pid_file"
 
-  local notification_id
-  notification_id="$(cat "$notification_id_file" 2>/dev/null || true)"
-  if [[ -n "${notification_id:-}" ]] && command -v makoctl >/dev/null 2>&1; then
-    makoctl dismiss -n "$notification_id" >/dev/null 2>&1 || true
-  fi
   rm -f "$notification_id_file"
 }
 

@@ -1,25 +1,6 @@
-{
-  pkgs,
-  lib,
-  ...
-}: let
+{pkgs, ...}: let
   wall = ./nix-black-4k.png;
-  mkService = lib.recursiveUpdate {
-    Unit.PartOf = ["graphical-session.target"];
-    Unit.After = ["graphical-session.target"];
-    Install.WantedBy = ["graphical-session.target"];
-  };
 in {
-  home-manager.users.grajpap.systemd.user.services = {
-    swaybg = mkService {
-      Unit.Description = "Wallpaper chooser";
-      Service = {
-        ExecStart = "${lib.getExe pkgs.swaybg} -i ${wall}";
-        Restart = "always";
-      };
-    };
-  };
-
   stylix = {
     enable = true;
     autoEnable = true;

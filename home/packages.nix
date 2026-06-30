@@ -6,7 +6,7 @@
     easyeffects
     rnnoise-plugin
     rnnoise
-    flameshot
     krita
+    zathura
   ];
 }
