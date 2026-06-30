@@ -35,7 +35,7 @@ ShellRoot {
   property var wifiNetworks: []
   property var weatherData: null
   property var calendarEvents: []
-  readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || Mpris.players.values[0] || null
+  readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
 
@@ -328,25 +328,27 @@ ShellRoot {
         spacing: 7
 
         Repeater {
-          model: 10
+          model: ScriptModel {
+            values: Hyprland.workspaces.values
+              .filter(workspace => workspace.id > 0)
+              .sort((a, b) => a.id - b.id)
+          }
           Rectangle {
-            required property int index
-            readonly property int workspaceId: index + 1
-            readonly property var workspace: Hyprland.workspaces.values.find(candidate => candidate.id === workspaceId)
+            required property var modelData
             Layout.fillWidth: true
             implicitHeight: 34
             radius: 7
-            color: workspace && workspace.active ? Theme.accent : "transparent"
+            color: modelData.active ? Theme.accent : "transparent"
             Text {
               anchors.centerIn: parent
-              text: root.numerals[parent.workspaceId]
+              text: root.numerals[parent.modelData.id] || parent.modelData.id
               color: parent.color === Theme.accent ? Theme.background : Theme.text
               font.family: Theme.font
               font.pixelSize: 14
             }
             MouseArea {
               anchors.fill: parent
-              onClicked: Hyprland.dispatch("workspace " + parent.workspaceId)
+              onClicked: Hyprland.dispatch("workspace " + parent.modelData.id)
             }
           }
         }
@@ -401,25 +403,25 @@ ShellRoot {
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"
+          text: ""
           color: root.mediaPlayer ? Theme.text : Theme.muted
-          font.family: Theme.font; font.pixelSize: 16
+          font.family: Theme.font; font.pixelSize: 17
           MouseArea { anchors.fill: parent; onClicked: root.openWidget("media") }
         }
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: root.weatherData ? Math.round(root.weatherData.temperature) + "°" : root.weatherGlyph()
-          color: Theme.text; font.family: Theme.font; font.pixelSize: 14
+          text: root.weatherGlyph()
+          color: Theme.text; font.family: Theme.font; font.pixelSize: 17
           MouseArea { anchors.fill: parent; onClicked: root.openWidget("weather") }
         }
 
         Text {
           Layout.alignment: Qt.AlignHCenter
-          text: Qt.formatDateTime(clock.date, "dd")
+          text: "󰃭"
           color: Theme.text
           font.family: Theme.font
-          font.pixelSize: 16
+          font.pixelSize: 17
           MouseArea { anchors.fill: parent; onClicked: root.openWidget("calendar") }
         }
 
@@ -438,18 +440,37 @@ ShellRoot {
     visible: root.widgetVisible
     focusable: true
     color: "transparent"
-    implicitWidth: 410; implicitHeight: 560
-    anchors { right: true; bottom: true }
-    margins { right: 54; bottom: 18 }
+    anchors { top: true; left: true; right: true; bottom: true }
+    margins.right: 44
     exclusionMode: ExclusionMode.Ignore
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: mouse => {
+        const point = mapToItem(widgetPanel, mouse.x, mouse.y);
+        if (point.x < 0 || point.y < 0 || point.x > widgetPanel.width || point.y > widgetPanel.height)
+          root.widgetVisible = false;
+      }
+    }
+
     Rectangle {
-      anchors.fill: parent; radius: 16; color: Theme.background; border.color: Theme.accent; border.width: 2
+      id: widgetPanel
+      width: 410; height: 560
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.rightMargin: 10
+      anchors.bottomMargin: 18
+      radius: 16
+      color: Theme.background
+      border.color: Theme.accent
+      border.width: 2
+      focus: root.widgetVisible
       ColumnLayout {
         anchors.fill: parent; anchors.margins: 18; spacing: 12
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Now playing", weather: "Weather", calendar: "Calendar"})[root.widgetPage]
+            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar"})[root.widgetPage]
             color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; onClicked: root.widgetVisible = false } }
@@ -522,14 +543,24 @@ ShellRoot {
 
         ColumnLayout {
           visible: root.widgetPage === "media"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
-          Image { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 220; Layout.preferredHeight: 220; fillMode: Image.PreserveAspectCrop; source: root.mediaPlayer ? root.mediaPlayer.trackArtUrl : "" }
-          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "No media player"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
+          Image { visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 220; Layout.preferredHeight: 220; fillMode: Image.PreserveAspectCrop; source: root.mediaPlayer ? root.mediaPlayer.trackArtUrl : "" }
+          Text { visible: root.mediaPlayer === null; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 70; text: ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 82 }
+          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "Spotify is not running"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
           Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? root.mediaPlayer.trackArtist : ""; color: Theme.muted; font.family: Theme.font }
           RowLayout {
-            Layout.alignment: Qt.AlignHCenter; spacing: 28
+            visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; spacing: 28
             Text { text: "󰒮"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoPrevious) root.mediaPlayer.previous() } }
             Text { text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 30; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canTogglePlaying) root.mediaPlayer.togglePlaying() } }
             Text { text: "󰒭"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoNext) root.mediaPlayer.next() } }
+          }
+          Rectangle {
+            visible: root.mediaPlayer === null
+            Layout.fillWidth: true
+            Layout.preferredHeight: 42
+            radius: 8
+            color: Theme.surface
+            Text { anchors.centerIn: parent; text: "  Open Spotify"; color: Theme.accent; font.family: Theme.font }
+            MouseArea { anchors.fill: parent; onClicked: Quickshell.execDetached(["spotify"]) }
           }
         }
 
