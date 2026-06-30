@@ -75,7 +75,6 @@
 
       python3 - <<'PY'
       import json
-      import os
       from datetime import date
       from pathlib import Path
 
@@ -127,17 +126,11 @@
       PY
     '';
   };
-in {
-  home.packages = with pkgs; [
-    quickshell
-    networkmanagerapplet
-  ];
-
-  xdg.configFile."quickshell/shell.qml".source = pkgs.replaceVars ./shell.qml {
+  shellConfig = pkgs.replaceVars ./shell.qml {
     weatherQuery = "${weatherQuery}/bin/quickshell-weather-query";
     calendarQuery = "${calendarQuery}/bin/quickshell-calendar-query";
   };
-  xdg.configFile."quickshell/Theme.qml".text = ''
+  themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton
     import QtQuick
 
@@ -151,9 +144,32 @@ in {
       readonly property string font: "JetBrainsMono Nerd Font"
     }
   '';
-  xdg.configFile."quickshell/qmldir".text = ''
+  qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
   '';
+  quickshellConfig = pkgs.linkFarm "quickshell-config" [
+    {
+      name = "shell.qml";
+      path = shellConfig;
+    }
+    {
+      name = "Theme.qml";
+      path = themeConfig;
+    }
+    {
+      name = "qmldir";
+      path = qmldirConfig;
+    }
+  ];
+in {
+  home.packages = with pkgs; [
+    quickshell
+    networkmanagerapplet
+  ];
+
+  xdg.configFile."quickshell/shell.qml".source = shellConfig;
+  xdg.configFile."quickshell/Theme.qml".source = themeConfig;
+  xdg.configFile."quickshell/qmldir".source = qmldirConfig;
 
   systemd.user.services.quickshell = {
     Unit = {
@@ -162,7 +178,7 @@ in {
       PartOf = ["hyprland-session.target"];
     };
     Service = {
-      ExecStart = "${pkgs.quickshell}/bin/qs -c ${config.xdg.configHome}/quickshell";
+      ExecStart = "${pkgs.quickshell}/bin/qs -p ${quickshellConfig}";
       Restart = "on-failure";
       RestartSec = 2;
       Environment = ["QS_NO_RELOAD_POPUP=1"];
