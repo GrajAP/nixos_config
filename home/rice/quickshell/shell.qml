@@ -28,6 +28,7 @@ ShellRoot {
   property bool osdVisible: false
   property string osdKind: "volume"
   property real osdValue: 0
+  property bool trayExpanded: false
   property bool toolStatusVisible: false
   property bool toolBusy: false
   property string toolStatusTitle: ""
@@ -428,22 +429,48 @@ ShellRoot {
 
         Item { Layout.fillHeight: true }
 
-        Repeater {
-          model: SystemTray.items
-          IconImage {
-            required property var modelData
-            Layout.alignment: Qt.AlignHCenter
-            implicitSize: 20
-            source: modelData.icon
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-              onClicked: mouse => {
-                if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
-                  parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
-                else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
-                else parent.modelData.activate();
+        Rectangle {
+          Layout.fillWidth: true
+          implicitHeight: 30
+          radius: 7
+          color: root.trayExpanded ? Theme.bgAlt : "transparent"
+          border.color: root.trayExpanded ? Theme.border : "transparent"
+          Text {
+            anchors.centerIn: parent
+            text: root.trayExpanded ? "󰅀" : "󰅂"
+            color: Theme.text
+            font.family: Theme.font
+            font.pixelSize: 16
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.trayExpanded = !root.trayExpanded
+          }
+        }
+
+        ColumnLayout {
+          visible: root.trayExpanded
+          Layout.fillWidth: true
+          spacing: 7
+
+          Repeater {
+            model: SystemTray.items
+            IconImage {
+              required property var modelData
+              Layout.alignment: Qt.AlignHCenter
+              implicitSize: 20
+              source: modelData.icon
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                onClicked: mouse => {
+                  if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
+                    parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
+                  else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
+                  else parent.modelData.activate();
+                }
               }
             }
           }
