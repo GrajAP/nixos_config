@@ -42,10 +42,13 @@ ShellRoot {
   property string screenshotInk: "#ff4d6d"
   property var screenshotInkColors: ["#ff4d6d", "#f59e0b", "#facc15", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ffffff", "#111827"]
   property int screenshotInkWidth: 5
+  property int widgetMotionMs: 220
   property bool widgetVisible: false
   property bool widgetWindowShown: false
   property string widgetPage: "audio"
   property string weatherForecastMode: "current"
+  property string weatherError: ""
+  property string weatherLastUpdated: ""
   property string networkStatus: "Loading…"
   property bool wifiEnabled: true
   property var wifiNetworks: []
@@ -104,7 +107,7 @@ ShellRoot {
   }
   Timer {
     id: widgetCloseTimer
-    interval: 150
+    interval: root.widgetMotionMs + 30
     repeat: false
     onTriggered: if (!root.widgetVisible) root.widgetWindowShown = false
   }
@@ -142,9 +145,18 @@ ShellRoot {
     stdout: StdioCollector {
       onStreamFinished: {
         try {
-          root.weatherData = JSON.parse(text);
+          const payload = JSON.parse(text);
+          if (payload && payload.error) {
+            root.weatherData = null;
+            root.weatherError = payload.message || payload.description || "Weather unavailable";
+          } else {
+            root.weatherData = payload;
+            root.weatherError = "";
+            root.weatherLastUpdated = Qt.formatDateTime(clock.date, "HH:mm");
+          }
         } catch (error) {
           root.weatherData = null;
+          root.weatherError = "Could not read weather data";
         }
       }
     }
@@ -252,7 +264,7 @@ ShellRoot {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "calendar") return 650;
     if (widgetPage === "network") return 560;
-    if (widgetPage === "weather") return weatherForecastMode === "current" ? 350 : 470;
+    if (widgetPage === "weather") return 500;
     if (widgetPage === "tools") return 390;
     if (widgetPage === "media") return 500;
     return 620;
@@ -797,14 +809,19 @@ ShellRoot {
       color: Theme.background
       border.color: Theme.border
       border.width: 1
+      clip: true
       focus: root.widgetVisible
       opacity: root.widgetVisible ? 1 : 0
-      scale: root.widgetVisible ? 1 : 0.96
+      scale: root.widgetVisible ? 1 : 0.92
       transformOrigin: Item.BottomRight
-      Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-      Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-      Behavior on width { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-      Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+      transform: Translate {
+        y: root.widgetVisible ? 0 : 18
+        Behavior on y { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      }
+      Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on scale { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       ColumnLayout {
         anchors.fill: parent; anchors.margins: 18; spacing: 12
         RowLayout {
@@ -983,132 +1000,250 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "weather"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+          visible: root.widgetPage === "weather"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          spacing: 10
+          clip: true
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 118
+            radius: 12
+            color: Theme.surfaceAlt
+            border.color: Theme.border
+            border.width: 1
+            clip: true
+            RowLayout {
+              anchors.fill: parent
+              anchors.margins: 14
+              spacing: 14
+              Text {
+                text: root.weatherData ? root.weatherGlyph() : "󰖙"
+                color: root.weatherData ? Theme.accent : Theme.muted
+                font.family: Theme.font
+                font.pixelSize: 52
+                Layout.preferredWidth: 58
+                horizontalAlignment: Text.AlignHCenter
+              }
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                Text {
+                  text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : (weatherQuery.running ? "Loading" : "No data")
+                  color: Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 36
+                  font.bold: true
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+                Text {
+                  text: root.weatherData ? root.weatherData.description : (root.weatherError || "Warsaw forecast")
+                  color: root.weatherError ? Theme.danger : Theme.muted
+                  font.family: Theme.font
+                  font.pixelSize: 13
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+                Text {
+                  text: root.weatherData && root.weatherLastUpdated ? "Updated " + root.weatherLastUpdated : "Open-Meteo"
+                  color: Theme.muted
+                  font.family: Theme.font
+                  font.pixelSize: 11
+                  elide: Text.ElideRight
+                  Layout.fillWidth: true
+                }
+              }
+              Rectangle {
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
+                radius: 8
+                color: weatherQuery.running ? Theme.accent : Theme.surface
+                scale: refreshMouse.containsMouse ? 1.06 : 1
+                Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Text {
+                  anchors.centerIn: parent
+                  text: "󰑐"
+                  color: weatherQuery.running ? Theme.background : Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 15
+                }
+                RotationAnimation on rotation {
+                  running: weatherQuery.running
+                  loops: Animation.Infinite
+                  from: 0
+                  to: 360
+                  duration: 900
+                }
+                MouseArea {
+                  id: refreshMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: if (!weatherQuery.running) weatherQuery.running = true
+                }
+              }
+            }
+          }
+
           RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: 6
             Repeater {
               model: [
-                { id: "current", label: "Current" },
-                { id: "future", label: "Future" },
+                { id: "current", label: "Now" },
+                { id: "future", label: "Daily" },
                 { id: "hourly", label: "Hourly" },
               ]
               delegate: Rectangle {
+                id: weatherTab
                 required property var modelData
                 Layout.fillWidth: true
-                implicitHeight: 34
+                Layout.preferredHeight: 32
                 radius: 8
                 color: root.weatherForecastMode === modelData.id ? Theme.accent : Theme.surface
+                scale: tabMouse.containsMouse || root.weatherForecastMode === modelData.id ? 1 : 0.98
+                Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                 Text {
                   anchors.centerIn: parent
                   text: modelData.label
                   color: root.weatherForecastMode === modelData.id ? Theme.background : Theme.text
                   font.family: Theme.font
-                  font.pixelSize: 13
+                  font.pixelSize: 12
+                  font.bold: root.weatherForecastMode === modelData.id
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.weatherForecastMode = modelData.id }
+                MouseArea {
+                  id: tabMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.weatherForecastMode = modelData.id
+                }
               }
             }
           }
 
-          ColumnLayout {
+          GridLayout {
             visible: root.weatherForecastMode === "current"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 12
-            Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? root.weatherGlyph() : "󰖙"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 58 }
-            Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? Math.round(root.weatherData.temperature) + " °C" : "Loading weather…"; color: Theme.text; font.family: Theme.font; font.pixelSize: 42; font.bold: true }
-            Text { Layout.alignment: Qt.AlignHCenter; text: root.weatherData ? root.weatherData.description : ""; color: Theme.muted; font.family: Theme.font; font.pixelSize: 14 }
-            RowLayout {
-              Layout.fillWidth: true
-              Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
-              Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font }
+            columns: 2
+            rowSpacing: 8
+            columnSpacing: 8
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+              }
             }
-            RowLayout {
-              Layout.fillWidth: true
-              Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
-              Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font }
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+              }
             }
-            RowLayout {
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                Text { text: "Low"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMin !== undefined ? Math.round(root.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+              }
+            }
+            Rectangle {
+              Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+              ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
+                Text { text: "High"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                Text { text: root.weatherData && root.weatherData.todayMax !== null && root.weatherData.todayMax !== undefined ? Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+              }
+            }
+            Text {
+              visible: root.weatherError.length > 0
+              Layout.columnSpan: 2
               Layout.fillWidth: true
-              Text { text: "Today"; color: Theme.muted; font.family: Theme.font; Layout.fillWidth: true }
-              Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMax !== null ? Math.round(root.weatherData.todayMin) + "° / " + Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font }
+              text: root.weatherError
+              color: Theme.danger
+              font.family: Theme.font
+              font.pixelSize: 11
+              wrapMode: Text.Wrap
+              maximumLineCount: 2
+              elide: Text.ElideRight
             }
           }
 
-          ColumnLayout {
+          ListView {
             visible: root.weatherForecastMode === "future"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 10
-            Text { text: "Future forecast"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 16 }
-            Text {
-              visible: !root.weatherData || !root.weatherData.dailyForecast || root.weatherData.dailyForecast.length <= 1
-              text: "No future forecast available"
-              color: Theme.muted
-              font.family: Theme.font
-            }
-            ListView {
-              visible: root.weatherData && root.weatherData.dailyForecast && root.weatherData.dailyForecast.length > 1
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              clip: true
-              spacing: 8
-              model: root.weatherData && root.weatherData.dailyForecast ? root.weatherData.dailyForecast.slice(1) : []
-              delegate: Rectangle {
-                required property var modelData
-                width: ListView.view.width
-                height: 40
-                radius: 8
-                color: Theme.surface
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 10
-                  Text { text: root.weatherShortDate(modelData.date); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 52 }
-                  Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.text; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 30 }
-                  Item { Layout.fillWidth: true }
-                  Text { text: modelData.minTemperature !== null && modelData.minTemperature !== undefined && modelData.maxTemperature !== null && modelData.maxTemperature !== undefined ? Math.round(modelData.minTemperature) + "° / " + Math.round(modelData.maxTemperature) + "°" : "—"; color: Theme.text; font.family: Theme.font }
-                }
+            clip: true
+            spacing: 7
+            model: root.weatherData && root.weatherData.dailyForecast ? root.weatherData.dailyForecast.slice(1) : []
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width
+              height: 44
+              radius: 10
+              color: Theme.surface
+              RowLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+                Text { text: root.weatherShortDate(modelData.date); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 50 }
+                Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                Item { Layout.fillWidth: true }
+                Text { text: modelData.minTemperature !== null && modelData.minTemperature !== undefined && modelData.maxTemperature !== null && modelData.maxTemperature !== undefined ? Math.round(modelData.minTemperature) + "°  " + Math.round(modelData.maxTemperature) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
               }
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: parent.count === 0
+              text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No forecast available")
+              color: root.weatherError ? Theme.danger : Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+              width: parent.width - 24
+              wrapMode: Text.Wrap
             }
           }
 
-          ColumnLayout {
+          ListView {
             visible: root.weatherForecastMode === "hourly"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 10
-            Text { text: "Hourly forecast"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 16 }
-            Text {
-              visible: !root.weatherData || !root.weatherData.hourlyForecast || root.weatherData.hourlyForecast.length === 0
-              text: "No hourly forecast available"
-              color: Theme.muted
-              font.family: Theme.font
-            }
-            ListView {
-              visible: root.weatherData && root.weatherData.hourlyForecast && root.weatherData.hourlyForecast.length > 0
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              clip: true
-              spacing: 8
-              model: root.weatherData && root.weatherData.hourlyForecast ? root.weatherData.hourlyForecast : []
-              delegate: Rectangle {
-                required property var modelData
-                width: ListView.view.width
-                height: 40
-                radius: 8
-                color: Theme.surface
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 10
-                  Text { text: root.weatherHourLabel(modelData.time); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 52 }
-                  Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.text; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 30 }
-                  Text { text: modelData.temperature !== null && modelData.temperature !== undefined ? Math.round(modelData.temperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true }
-                  Text { text: modelData.windSpeed !== null && modelData.windSpeed !== undefined ? Math.round(modelData.windSpeed) + " km/h" : "—"; color: Theme.muted; font.family: Theme.font; Layout.preferredWidth: 68; horizontalAlignment: Text.AlignRight }
-                }
+            clip: true
+            spacing: 7
+            model: root.weatherData && root.weatherData.hourlyForecast ? root.weatherData.hourlyForecast.slice(0, 12) : []
+            delegate: Rectangle {
+              required property var modelData
+              width: ListView.view.width
+              height: 44
+              radius: 10
+              color: Theme.surface
+              RowLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+                Text { text: root.weatherHourLabel(modelData.time); color: Theme.text; font.family: Theme.font; Layout.preferredWidth: 46 }
+                Text { text: root.weatherGlyphForCode(modelData.weatherCode); color: Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                Text { text: modelData.temperature !== null && modelData.temperature !== undefined ? Math.round(modelData.temperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { text: modelData.windSpeed !== null && modelData.windSpeed !== undefined ? Math.round(modelData.windSpeed) + " km/h" : "—"; color: Theme.muted; font.family: Theme.font; Layout.preferredWidth: 66; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
               }
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: parent.count === 0
+              text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No hourly forecast")
+              color: root.weatherError ? Theme.danger : Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+              width: parent.width - 24
+              wrapMode: Text.Wrap
             }
           }
         }

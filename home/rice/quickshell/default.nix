@@ -14,6 +14,7 @@
       import json
       from datetime import datetime
       from urllib.parse import urlencode
+      from urllib.error import HTTPError, URLError
       from urllib.request import urlopen
 
       def describe(code: int) -> str:
@@ -47,15 +48,27 @@
           "timezone": "Europe/Warsaw",
           "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day",
           "daily": "weather_code,temperature_2m_max,temperature_2m_min",
-          "hourly": "time,temperature_2m,weather_code,wind_speed_10m",
+          "hourly": "temperature_2m,weather_code,wind_speed_10m",
           "forecast_days": "7",
           "temperature_unit": "celsius",
           "wind_speed_unit": "kmh",
       }
 
       url = "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
-      with urlopen(url, timeout=5) as response:
-          payload = json.load(response)
+      try:
+          with urlopen(url, timeout=5) as response:
+              payload = json.load(response)
+      except HTTPError as error:
+          try:
+              details = json.load(error)
+              reason = details.get("reason") or details.get("error") or str(error)
+          except Exception:
+              reason = str(error)
+          print(json.dumps({"error": True, "description": "Weather unavailable", "message": str(reason)}))
+          raise SystemExit(0)
+      except (OSError, URLError) as error:
+          print(json.dumps({"error": True, "description": "Weather unavailable", "message": str(error)}))
+          raise SystemExit(0)
 
       current = payload.get("current", {})
       daily = payload.get("daily", {})
