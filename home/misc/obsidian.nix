@@ -1,18 +1,9 @@
-{
-  pkgs,
-  lib,
-  ...
-}: {
+{pkgs, ...}: {
   home.sessionVariables = {
     ELECTRON_OVERRIDE_DIST_PATH = "${pkgs.obsidian}/lib/obsidian/resources";
   };
 
   home.file = {
-    "dev/obsidian-calendar/node_modules/electron/dist/electron" = {
-      source = lib.getExe pkgs.electron;
-      force = true;
-    };
-
     ".config/obsidian/obsidian.json" = {
       text = builtins.toJSON {
         vaults = {

@@ -29,6 +29,7 @@
             "/dev/input/by-path/pci-0000:09:00.3-usb-0:1.2:1.1-event-kbd"
             "/dev/input/by-path/pci-0000:09:00.3-usb-0:2:1.2-event-kbd"
           ];
+          extraArgs = ["--nodelay"];
           extraDefCfg = "process-unmapped-keys yes";
           config = ''
 

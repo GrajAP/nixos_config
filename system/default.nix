@@ -6,5 +6,6 @@
     ./wayland
     ./core
     ./mobile
+    ./sync
   ];
 }

@@ -161,7 +161,6 @@ in {
     cifs-utils
     appimage-run
     starship
-    ntfs3g
     wine
     wine64
     winetricks

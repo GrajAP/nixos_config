@@ -8,7 +8,6 @@
     postman
     antigravity
     pnpm
-    openrgb
     bun
     (pkgs.writeShellApplication {
       name = "install-js-clis";

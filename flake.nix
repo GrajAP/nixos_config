@@ -28,14 +28,13 @@
       inputs.home-manager.nixosModules.home-manager
       inputs.spicetify-nix.nixosModules.default
     ];
+    mkHost = extraModules:
+      nixpkgs.lib.nixosSystem {
+        specialArgs = {inherit inputs;};
+        modules = [(import ./hosts/grajpap)] ++ sharedModules ++ extraModules;
+      };
   in {
-    nixosConfigurations.grajpap = nixpkgs.lib.nixosSystem {
-      specialArgs = {inherit inputs;};
-      modules =
-        [
-          (import ./hosts/grajpap)
-        ]
-        ++ sharedModules;
-    };
+    nixosConfigurations.grajpap = mkHost [];
+    nixosConfigurations.grajpap-staging = mkHost [./hosts/grajpap/staging.nix];
   };
 }

@@ -45,22 +45,17 @@
 
       runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
       cancel_file="$runtime_dir/cancel"
-      custom_target_file="$runtime_dir/custom-target"
+      custom_deadline_file="$runtime_dir/custom-deadline"
       last_trigger_file="$runtime_dir/last-trigger"
       pending_file="$runtime_dir/pending"
+      pending_deadline_file="$runtime_dir/pending-deadline"
       mkdir -p "$runtime_dir"
-
-      custom_target() {
-        if [[ -r "$custom_target_file" ]]; then
-          head -n1 "$custom_target_file" | awk '/^([01][0-9]|2[0-3]):[0-5][0-9]$/ { print; exit }'
-        fi
-      }
+      rm -f "$runtime_dir/custom-target"
 
       should_trigger() {
         local now_minute="$1"
         local target
-        for target in $default_targets "$(custom_target)"; do
-          [[ -n "$target" ]] || continue
+        for target in $default_targets; do
           if [[ "$now_minute" == "$target" ]]; then
             return 0
           fi
@@ -68,7 +63,43 @@
         return 1
       }
 
+      read_deadline() {
+        if [[ -r "$custom_deadline_file" ]]; then
+          head -n1 "$custom_deadline_file" | awk '/^[0-9]+$/ { print; exit }'
+        fi
+      }
+
+      handle_custom_deadline() {
+        local deadline now remaining label
+        deadline="$(read_deadline)"
+        if [[ -z "$deadline" ]]; then
+          return 1
+        fi
+
+        now="$(date +%s)"
+        if [ -f "$cancel_file" ]; then
+          rm -f "$cancel_file" "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
+          notify-send -u normal -t 2500 "Auto shutdown" "Shutdown timer cancelled."
+          return 0
+        fi
+
+        if (( now < deadline )); then
+          remaining=$((deadline - now))
+          label="in $(( (remaining + 59) / 60 )) min"
+          printf '%s\n' "$label" > "$pending_file"
+          printf '%s\n' "$deadline" > "$pending_deadline_file"
+          return 0
+        fi
+
+        rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
+        notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
+        systemctl poweroff
+        exit 0
+      }
+
       while true; do
+        handle_custom_deadline && { sleep 1; continue; }
+
         today="$(date +%F)"
         now_minute="$(date +%H:%M)"
         trigger_id="$today $now_minute"
@@ -76,14 +107,14 @@
         if should_trigger "$now_minute" && [[ "$(cat "$last_trigger_file" 2>/dev/null || true)" != "$trigger_id" ]]; then
           printf '%s\n' "$trigger_id" > "$last_trigger_file"
           printf '%s\n' "$now_minute" > "$pending_file"
+          deadline=$(( $(date +%s) + watch_seconds ))
+          printf '%s\n' "$deadline" > "$pending_deadline_file"
           rm -f "$cancel_file"
           notify-send -u critical -t $((watch_seconds * 1000)) \
             "Auto shutdown" \
-            "System will power off in 5 minutes. Open Tools -> Shutdown timer to cancel."
+            "System will power off in 5 minutes. Open the shutdown widget to cancel."
 
-          deadline=$(( $(date +%s) + watch_seconds ))
           cancel=0
-
           while (( $(date +%s) < deadline )); do
             if [ -f "$cancel_file" ]; then
               cancel=1
@@ -93,10 +124,7 @@
             sleep 1
           done
 
-          rm -f "$pending_file"
-          if [[ "$(custom_target)" == "$now_minute" ]]; then
-            rm -f "$custom_target_file"
-          fi
+          rm -f "$pending_file" "$pending_deadline_file"
 
           if (( cancel == 0 )); then
             notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
@@ -111,64 +139,38 @@
       done
     '';
   };
-  obsidianCalendarWidget = pkgs.writeShellApplication {
-    name = "obsidian-calendar-widget";
+  ensureDp2Monitor = pkgs.writeShellApplication {
+    name = "ensure-dp-2-monitor";
     runtimeInputs = with pkgs; [
-      bash
       coreutils
-      electron
       hyprland
-      jq
-      procps
       ripgrep
     ];
     text = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
+      set -eu
 
-      title='Obsidian Calendar Editor'
-      app_asar='/home/grajpap/dev/obsidian-calendar/out/Obsidian Calendar Editor-linux-x64/resources/app.asar'
-      existing_count="$(hyprctl -j clients | jq '[.[] | select(.title == "'"$title"'")] | length')"
-
-      if [[ ! -f "$app_asar" ]]; then
-        echo "Missing $app_asar. Build it with: npm run package" >&2
-        exit 1
-      fi
-
-      if (( existing_count > 1 )); then
-        hyprctl -j clients \
-          | jq -r '.[] | select(.title == "'"$title"'") | .pid' \
-          | sort -u \
-          | while read -r pid; do
-              [[ -n "$pid" ]] && kill "$pid" >/dev/null 2>&1 || true
-            done
-        sleep 1
-        existing_count=0
-      fi
-
-      if (( existing_count == 0 )); then
-        env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE electron "$app_asar" >/dev/null 2>&1 &
-      fi
-
-      for _ in $(seq 1 40); do
-        window_address="$(hyprctl -j clients | jq -r '.[] | select(.title == "'"$title"'") | .address' | head -n1)"
-        if [[ -n "''${window_address:-}" && "$window_address" != "null" ]]; then
-          hyprctl dispatch movetoworkspacesilent "6,address:$window_address" >/dev/null 2>&1 || true
-          is_floating="$(hyprctl -j clients | jq -r '.[] | select(.address == "'"$window_address"'") | .floating' | head -n1)"
-          if [[ "''${is_floating:-false}" != "true" && "''${is_floating:-0}" != "1" ]]; then
-            hyprctl dispatch setfloating "address:$window_address" >/dev/null 2>&1 || true
-            sleep 0.1
+      (
+        # DP-2 can miss initial detection; re-apply the configured mode once available.
+        # Run this asynchronously so startup isn't delayed waiting for monitor wakeup.
+        found=0
+        for _ in $(seq 1 8); do
+          if hyprctl monitors | rg -q '^Monitor DP-2 '; then
+            found=1
+            break
           fi
-          hyprctl dispatch resizewindowpixel "exact 1416 1581,address:$window_address" >/dev/null 2>&1 || true
-          hyprctl dispatch movewindowpixel "exact -1428 12,address:$window_address" >/dev/null 2>&1 || true
+          hyprctl dispatch dpms on || true
+          sleep 1
+        done
 
+        if [ "$found" -eq 1 ]; then
+          hyprctl keyword monitor DP-2,2560x1440@144,-1440x0,1,transform,1 || true
+          hyprctl keyword monitor DP-2,addreserved,0,955,0,0 || true
           exit 0
         fi
-        sleep 0.25
-      done
 
-      echo "Obsidian Calendar Editor window did not appear in time" >&2
-      exit 1
+        echo "hyprland-dp2-fix: DP-2 monitor not detected on login" >&2
+        exit 0
+      ) &
     '';
   };
 in {
@@ -225,7 +227,6 @@ in {
         done
       '';
     })
-    obsidianCalendarWidget
     (
       writeShellScriptBin "micmute"
       ''
@@ -358,6 +359,57 @@ in {
       systemdTarget = "hyprland-session.target";
     };
   };
+  systemd.user = {
+    services = {
+      hyprland-dp2-fix = {
+        Unit = {
+          Description = "Re-assert DP-2 monitor mode on login.";
+          After = ["hyprland-session.target"];
+          PartOf = ["hyprland-session.target"];
+        };
+        Service = {
+          Type = "oneshot";
+          ExecStart = lib.getExe ensureDp2Monitor;
+        };
+        Install = {
+          WantedBy = ["hyprland-session.target"];
+        };
+      };
+      hypridle.Service.ExecStartPre = "${pkgs.bash}/bin/bash -c 'hour=\"$(${pkgs.coreutils}/bin/date +%H)\"; test \"$hour\" -lt 7 -o \"$hour\" -ge 22'";
+      hypridle-stop-daytime = {
+        Unit.Description = "Stop hypridle during daytime";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.systemd}/bin/systemctl --user stop hypridle.service";
+        };
+      };
+      hypridle-start-nighttime = {
+        Unit.Description = "Start hypridle at night";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.systemd}/bin/systemctl --user start hypridle.service";
+        };
+      };
+    };
+    timers = {
+      hypridle-stop-daytime = {
+        Unit.Description = "Stop hypridle at 07:00";
+        Timer = {
+          OnCalendar = "*-*-* 07:00:00";
+          Persistent = true;
+        };
+        Install.WantedBy = ["timers.target"];
+      };
+      hypridle-start-nighttime = {
+        Unit.Description = "Start hypridle at 22:00";
+        Timer = {
+          OnCalendar = "*-*-* 22:00:00";
+          Persistent = true;
+        };
+        Install.WantedBy = ["timers.target"];
+      };
+    };
+  };
   # fake a tray to let apps start
   # https://github.com/nix-community/home-manager/issues/2064
   systemd.user.services.ydotoold = {
@@ -374,16 +426,16 @@ in {
       WantedBy = ["graphical-session.target"];
     };
   };
-  systemd.user.services.obsidian-calendar-widget = {
+  systemd.user.services.cliphist-store = {
     Unit = {
-      Description = "Obsidian Calendar Editor widget";
+      Description = "Store Wayland clipboard history";
       After = ["hyprland-session.target"];
       PartOf = ["hyprland-session.target"];
     };
     Service = {
-      Type = "oneshot";
-      ExecStart = lib.getExe obsidianCalendarWidget;
-      RemainAfterExit = true;
+      ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store";
+      Restart = "always";
+      RestartSec = 2;
     };
     Install = {
       WantedBy = ["hyprland-session.target"];

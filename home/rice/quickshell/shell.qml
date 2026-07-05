@@ -33,33 +33,68 @@ ShellRoot {
   property bool toolBusy: false
   property string toolStatusTitle: ""
   property string toolStatusDetail: ""
+  property bool codexUsageVisible: false
   property string screenshotPath: ""
   property bool screenshotOpenAfterCapture: false
   property string pendingScreenshotMode: ""
   property bool pendingScreenshotOpenAfterCapture: false
-  property var screenshotStrokes: []
+  property bool screenshotCaptureQueued: false
+  property var screenshotAnnotations: []
   property var screenshotCurrentStroke: null
+  property string screenshotEditMode: "draw"
+  property string screenshotTextDraft: ""
   property string screenshotInk: "#ff4d6d"
   property var screenshotInkColors: ["#ff4d6d", "#f59e0b", "#facc15", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ffffff", "#111827"]
   property int screenshotInkWidth: 5
-  property int widgetMotionMs: 220
+  property int screenshotTextSize: 32
+  property int widgetMotionMs: Theme.motionPanel
   property bool widgetVisible: false
   property bool widgetWindowShown: false
   property string widgetPage: "audio"
   property string weatherForecastMode: "current"
   property string weatherError: ""
   property string weatherLastUpdated: ""
-  property int shutdownHour: 0
-  property int shutdownMinute: 0
+  readonly property color secondaryText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.72)
+  readonly property color faintText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.48)
+  readonly property color elevatedSurface: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
+  readonly property color hoverSurface: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+  readonly property color textCursorColor: {
+    const surfaceLuma = Theme.surface.r * 0.299 + Theme.surface.g * 0.587 + Theme.surface.b * 0.114
+    return surfaceLuma < 0.5 ? Theme.text : Theme.background
+  }
+  readonly property Component themedCursor: Component {
+    Rectangle {
+      width: 1
+      color: root.textCursorColor
+    }
+  }
+  property int shutdownDelayMinutes: 30
+  property string shutdownCustomTarget: ""
+  property string shutdownPendingTarget: ""
+  property int shutdownRemaining: 0
   property string shutdownStatus: ""
-  property string networkStatus: "Loading…"
-  property bool wifiEnabled: true
-  property var wifiNetworks: []
+  property var codexUsage: null
+  property string codexUsageError: ""
+  property bool kanataActive: false
+  property bool kanataKnown: false
   property var weatherData: null
   property var calendarEvents: []
+  property string calendarError: ""
+  property var clipboardEntries: []
+  property string clipboardFilter: ""
+  property string clipboardStatus: ""
   property int calendarMonthOffset: 0
   property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
-  property string calendarTaskDraft: ""
+  property string calendarEntryMode: "task"
+  property string calendarTitleDraft: ""
+  property string calendarStartDraft: ""
+  property string calendarEndDraft: ""
+  property string calendarEditingHref: ""
+  property string calendarEditingKind: ""
+  property bool calendarCanUndo: false
+  property bool calendarAllDay: false
+  property int calendarEventStartMinutes: 540
+  property int calendarEventDurationMinutes: 60
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
@@ -103,16 +138,22 @@ ShellRoot {
   Timer { id: osdTimer; interval: 1200; onTriggered: root.osdVisible = false }
   Timer { id: toolStatusTimer; interval: 1800; onTriggered: root.toolStatusVisible = root.toolBusy }
   Timer {
-    id: screenshotStartTimer
-    interval: 80
-    repeat: false
-    onTriggered: root.startScreenshotCapture(root.pendingScreenshotMode, root.pendingScreenshotOpenAfterCapture)
-  }
-  Timer {
     id: widgetCloseTimer
     interval: root.widgetMotionMs + 30
     repeat: false
     onTriggered: if (!root.widgetVisible) root.widgetWindowShown = false
+  }
+  Timer {
+    interval: 1000
+    running: root.widgetVisible && root.widgetPage === "shutdown" && root.shutdownPendingTarget.length > 0
+    repeat: true
+    onTriggered: root.refreshShutdownStatus()
+  }
+  Timer {
+    interval: 3000
+    running: true
+    repeat: true
+    onTriggered: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
   }
   Process {
     id: brightnessQuery
@@ -128,19 +169,41 @@ ShellRoot {
     }
   }
   Process {
-    id: networkQuery
-    command: ["nmcli", "-t", "-f", "TYPE,STATE,CONNECTION", "device"]
+    id: kanataStatusQuery
+    command: ["systemctl", "is-active", "kanata-internalKeyboard.service"]
     stdout: StdioCollector {
       onStreamFinished: {
-        const connected = text.split("\n").find(line => line.includes(":connected:"));
-        root.networkStatus = connected ? connected.split(":").slice(2).join(":") : "Disconnected";
+        const status = text.trim();
+        root.kanataActive = status === "active";
+        root.kanataKnown = status.length > 0 && status !== "unknown";
       }
     }
   }
   Process {
-    id: wifiQuery
-    command: ["nmcli", "radio", "wifi"]
-    stdout: StdioCollector { onStreamFinished: root.wifiEnabled = text.trim() === "enabled" }
+    id: kanataToggleAction
+    command: ["@katanaSwitchTool@"]
+    onExited: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
+  }
+  Process {
+    id: codexUsageQuery
+    command: ["@codexUsageQuery@"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          if (!payload || payload.ok === false) {
+            root.codexUsage = null;
+            root.codexUsageError = payload && payload.error ? payload.error : "Could not read Codex usage";
+            return;
+          }
+          root.codexUsage = payload;
+          root.codexUsageError = "";
+        } catch (error) {
+          root.codexUsage = null;
+          root.codexUsageError = "Could not read Codex usage";
+        }
+      }
+    }
   }
   Process {
     id: weatherQuery
@@ -172,16 +235,34 @@ ShellRoot {
         try {
           const payload = JSON.parse(text);
           root.calendarEvents = payload.events || [];
+          root.calendarError = payload.error || "";
         } catch (error) {
           root.calendarEvents = [];
+          root.calendarError = "Could not read calendar data";
         }
       }
     }
   }
   Process {
     id: calendarTaskAction
+    property bool succeeded: false
+    property string actionName: ""
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          calendarTaskAction.succeeded = payload.ok !== false;
+          root.calendarError = payload.error || "";
+          if (calendarTaskAction.succeeded) root.calendarCanUndo = Boolean(payload.undoable);
+        } catch (error) {
+          calendarTaskAction.succeeded = true;
+        }
+      }
+    }
     onExited: {
-      root.calendarTaskDraft = "";
+      if (calendarTaskAction.succeeded) root.resetCalendarEditor();
+      calendarTaskAction.succeeded = false;
+      calendarTaskAction.actionName = "";
       if (calendarQuery.running) {
         calendarQuery.running = false;
         Qt.callLater(() => calendarQuery.running = true);
@@ -191,16 +272,24 @@ ShellRoot {
     }
   }
   Process {
-    id: wifiScan
-    command: ["nmcli", "-t", "-f", "IN-USE,SIGNAL,SSID", "device", "wifi", "list", "--rescan", "no"]
+    id: clipboardQuery
+    command: ["@clipboardTool@", "list"]
     stdout: StdioCollector {
-      onStreamFinished: root.wifiNetworks = text.trim().split("\n").filter(line => line.length > 0).map(line => {
-        const fields = line.split(":");
-        return { active: fields[0] === "*", signal: Number(fields[1]), ssid: fields.slice(2).join(":") };
-      }).filter((network, index, all) => network.ssid && all.findIndex(item => item.ssid === network.ssid) === index).slice(0, 12)
+      onStreamFinished: {
+        try {
+          root.clipboardEntries = JSON.parse(text);
+          root.clipboardStatus = root.clipboardEntries.length > 0 ? "" : "Clipboard history is empty";
+        } catch (error) {
+          root.clipboardEntries = [];
+          root.clipboardStatus = "Could not read clipboard history";
+        }
+      }
     }
   }
-  Process { id: networkAction; onExited: { networkQuery.running = true; wifiQuery.running = true; } }
+  Process {
+    id: clipboardAction
+    onExited: clipboardQuery.running = true
+  }
   Process {
     id: screenshotAction
     stdout: StdioCollector {
@@ -208,8 +297,10 @@ ShellRoot {
         const lines = text.trim().split("\n").filter(line => line.length > 0);
         const path = lines.length > 0 ? lines[lines.length - 1] : "";
         if (path.length > 0) {
+          if (root.screenshotPath === path)
+            root.screenshotPath = "";
           root.screenshotPath = path;
-          root.screenshotStrokes = [];
+          root.screenshotAnnotations = [];
           root.screenshotCurrentStroke = null;
           if (root.screenshotOpenAfterCapture) root.openWidget("screenshot");
         }
@@ -218,15 +309,24 @@ ShellRoot {
     onExited: {
       root.toolBusy = false;
       toolStatusTimer.restart();
-      if (!screenshotStartTimer.running) root.screenshotOpenAfterCapture = false;
+      if (root.screenshotCaptureQueued) {
+        root.startScreenshotCapture(root.pendingScreenshotMode, root.pendingScreenshotOpenAfterCapture);
+      } else {
+        root.screenshotOpenAfterCapture = false;
+      }
+    }
+  }
+  Process {
+    id: shutdownTimerAction
+    stdout: StdioCollector {
+      onStreamFinished: root.applyShutdownStatus(text)
     }
   }
   Component.onCompleted: {
-    networkQuery.running = true;
-    wifiQuery.running = true;
-    wifiScan.running = true;
+    kanataStatusQuery.running = true;
     weatherQuery.running = true;
     calendarQuery.running = true;
+    codexUsageQuery.running = true;
   }
   Timer {
     interval: 15 * 60 * 1000
@@ -234,15 +334,23 @@ ShellRoot {
     repeat: true
     onTriggered: weatherQuery.running = true
   }
+  Timer {
+    id: codexUsageTimer
+    interval: 4 * 60 * 1000
+    running: true
+    repeat: true
+    onTriggered: if (!codexUsageQuery.running) codexUsageQuery.running = true
+  }
 
   function openWidget(page) {
     widgetCloseTimer.stop();
     widgetWindowShown = true;
     widgetPage = page;
     widgetVisible = true;
-    if (page === "network") { networkQuery.running = true; wifiQuery.running = true; wifiScan.running = true; }
     if (page === "weather") weatherQuery.running = true;
     if (page === "calendar") calendarQuery.running = true;
+    if (page === "clipboard") clipboardQuery.running = true;
+    if (page === "shutdown") root.refreshShutdownStatus();
   }
   function closeWidget() {
     widgetVisible = false;
@@ -255,11 +363,15 @@ ShellRoot {
     }
     openWidget(page);
   }
+  function toggleCodexUsage() {
+    codexUsageVisible = !codexUsageVisible;
+    if (codexUsageVisible) codexUsageQuery.running = true;
+  }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
-    if (widgetPage === "calendar") return 460;
-    if (widgetPage === "network") return 430;
+    if (widgetPage === "calendar") return 1600;
     if (widgetPage === "weather") return 390;
+    if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
     if (widgetPage === "shutdown") return 390;
     return 420;
@@ -267,11 +379,11 @@ ShellRoot {
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "audio") return 390;
-    if (widgetPage === "calendar") return 650;
-    if (widgetPage === "network") return 560;
+    if (widgetPage === "calendar") return 1640;
     if (widgetPage === "weather") return 500;
-    if (widgetPage === "tools") return 370;
-    if (widgetPage === "shutdown") return 400;
+    if (widgetPage === "clipboard") return 560;
+    if (widgetPage === "tools") return 340;
+    if (widgetPage === "shutdown") return 430;
     if (widgetPage === "media") return 500;
     return 620;
   }
@@ -310,46 +422,193 @@ ShellRoot {
   }
   function captureScreenshot(mode, openAfter) {
     root.closeWidget();
+    root.widgetWindowShown = false;
+    root.screenshotPath = "";
+    root.screenshotAnnotations = [];
+    root.screenshotCurrentStroke = null;
     root.pendingScreenshotMode = mode;
     root.pendingScreenshotOpenAfterCapture = openAfter;
+    root.screenshotCaptureQueued = true;
     root.toolBusy = true;
-    root.toolStatusVisible = true;
+    root.toolStatusVisible = false;
     root.toolStatusTitle = "Screenshot";
-    root.toolStatusDetail = mode === "edit" ? "Select an area for preview" : (mode === "copy" ? "Select an area to copy" : "Select an area to save");
+    root.toolStatusDetail = mode === "edit" ? "Select an area for preview" : "Select an area to save";
     toolStatusTimer.stop();
     if (screenshotAction.running) {
       screenshotAction.running = false;
-      screenshotStartTimer.restart();
     } else {
-      Qt.callLater(() => root.startScreenshotCapture(mode, openAfter));
+      root.startScreenshotCapture(mode, openAfter);
     }
   }
   function startScreenshotCapture(mode, openAfter) {
     root.screenshotOpenAfterCapture = openAfter;
+    root.screenshotCaptureQueued = false;
     screenshotAction.exec(["@screenshotTool@", mode]);
   }
   function screenshotEditedArgs(action) {
-    return ["@screenshotTool@", action, root.screenshotPath, JSON.stringify(root.screenshotStrokes)];
+    return ["@screenshotTool@", action, root.screenshotPath, JSON.stringify(root.screenshotAnnotations)];
   }
   function pad2(value) {
     const text = String(Math.max(0, Math.min(99, Math.round(value))));
     return text.length < 2 ? "0" + text : text;
   }
-  function shutdownTimeLabel() {
-    return root.pad2(root.shutdownHour) + ":" + root.pad2(root.shutdownMinute);
+  function codexUsageValue(key) {
+    if (!root.codexUsage) return null;
+    const value = Number(root.codexUsage[key]);
+    return Number.isFinite(value) ? value : null;
   }
-  function setShutdownTime(hour, minute) {
-    root.shutdownHour = (Math.round(hour) + 24) % 24;
-    root.shutdownMinute = (Math.round(minute) + 60) % 60;
+  function codexUsageRemainingPercent(value) {
+    const used = Number(value);
+    if (!Number.isFinite(used)) return null;
+    const remaining = 100 - used;
+    if (!Number.isFinite(remaining)) return null;
+    return Math.max(0, Math.min(100, Math.round(remaining)));
+  }
+  function codexUsageSummaryText() {
+    if (root.codexUsageError.length > 0) return "!";
+    const primaryUsed = root.codexUsageValue("primaryUsedPercent");
+    const secondaryUsed = root.codexUsageValue("secondaryUsedPercent");
+    const primaryRemaining = root.codexUsageRemainingPercent(primaryUsed);
+    const secondaryRemaining = root.codexUsageRemainingPercent(secondaryUsed);
+    if (primaryRemaining === null && secondaryRemaining === null) return "—";
+    if (primaryRemaining === null) return "— / " + secondaryRemaining + "%";
+    if (secondaryRemaining === null) return primaryRemaining + "% / —";
+    return primaryRemaining + "% / " + secondaryRemaining + "%";
+  }
+  function codexUsageColor() {
+    const primaryUsed = root.codexUsageValue("primaryUsedPercent");
+    const secondaryUsed = root.codexUsageValue("secondaryUsedPercent");
+    const used = Math.max(
+      Number.isFinite(primaryUsed) ? primaryUsed : -1,
+      Number.isFinite(secondaryUsed) ? secondaryUsed : -1
+    );
+    if (used < 0) return Theme.muted;
+    if (used >= 90) return Theme.danger;
+    if (used >= 75) return Theme.warning;
+    return Theme.text;
+  }
+  function codexUsageResetLabel(expiresAt) {
+    const target = Number(expiresAt);
+    if (!Number.isFinite(target) || target <= 0) return "—";
+    const seconds = Math.floor(target - Date.now() / 1000);
+    if (seconds <= 0) return "now";
+    if (seconds >= 86400) return Math.floor(seconds / 86400) + "d";
+    if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
+    return Math.max(1, Math.floor(seconds / 60)) + "m";
+  }
+  function codexUsageTooltipText() {
+    if (root.codexUsageError.length > 0)
+      return "Codex usage: " + root.codexUsageError;
+    if (!root.codexUsage) return "Codex usage unavailable";
+    const planType = root.codexUsage.planType || "unknown";
+    const primaryRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("primaryUsedPercent"));
+    const secondaryRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("secondaryUsedPercent"));
+    const primaryReset = root.codexUsageResetLabel(root.codexUsageValue("primaryResetsAt"));
+    const secondaryReset = root.codexUsageResetLabel(root.codexUsageValue("secondaryResetsAt"));
+    const primaryWindow = root.codexUsageValue("primaryWindowMinutes");
+    const secondaryWindow = root.codexUsageValue("secondaryWindowMinutes");
+    const primaryWindowText = Number.isFinite(primaryWindow) ? Math.round(primaryWindow / 60) + "h" : "—";
+    const secondaryWindowText = Number.isFinite(secondaryWindow) ? Math.round(secondaryWindow / 60) + "h" : "—";
+    return "Codex usage (" + planType + ")\n" +
+      "Primary: " + (primaryRemaining === null ? "—" : primaryRemaining + "%, reset " + primaryReset) + " (" + primaryWindowText + ")\n" +
+      "Secondary: " + (secondaryRemaining === null ? "—" : secondaryRemaining + "%, reset " + secondaryReset) + " (" + secondaryWindowText + ")";
+  }
+  function setShutdownDelay(minutes) {
+    root.shutdownDelayMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
+  }
+  function shutdownDelayLabel() {
+    const minutes = root.shutdownDelayMinutes;
+    if (minutes < 60) return minutes + " min";
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
+  }
+  function shutdownRemainingLabel() {
+    const seconds = Math.max(0, root.shutdownRemaining);
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return root.pad2(minutes) + ":" + root.pad2(rest);
+  }
+  function applyShutdownStatus(text) {
+    try {
+      const payload = JSON.parse(text.trim());
+      root.shutdownCustomTarget = payload.custom || "";
+      root.shutdownPendingTarget = payload.pending || "";
+      root.shutdownRemaining = Number(payload.remaining || 0);
+      if (root.shutdownPendingTarget.length > 0)
+        root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
+      else if (root.shutdownCustomTarget.length > 0)
+        root.shutdownStatus = "Shutdown set " + root.shutdownCustomTarget;
+      else
+        root.shutdownStatus = "No shutdown timer set";
+    } catch (error) {
+      root.shutdownStatus = "Could not read shutdown timer";
+    }
+  }
+  function runShutdownTimer(args) {
+    if (shutdownTimerAction.running) shutdownTimerAction.running = false;
+    shutdownTimerAction.exec(["@shutdownTimerTool@"].concat(args));
+  }
+  function refreshShutdownStatus() {
+    root.runShutdownTimer(["status"]);
   }
   function scheduleShutdown() {
-    const target = root.shutdownTimeLabel();
-    Quickshell.execDetached(["sh", "-c", "runtime_dir=\"${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown\"; mkdir -p \"$runtime_dir\"; printf '%s\\n' '" + target + "' > \"$runtime_dir/custom-target\"; rm -f \"$runtime_dir/cancel\"; notify-send -u normal 'Auto shutdown' 'Custom shutdown check set for " + target + ".'"]);
-    root.shutdownStatus = "Custom check set for " + target;
+    root.runShutdownTimer(["schedule-in", String(root.shutdownDelayMinutes)]);
   }
-  function cancelShutdown() {
-    Quickshell.execDetached(["sh", "-c", "runtime_dir=\"${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown\"; mkdir -p \"$runtime_dir\"; touch \"$runtime_dir/cancel\"; rm -f \"$runtime_dir/custom-target\" \"$runtime_dir/pending\"; sudo shutdown -c >/dev/null 2>&1 || true; notify-send -u normal 'Auto shutdown' 'Shutdown cancelled.'"]);
-    root.shutdownStatus = "Shutdown cancelled";
+  function cancelPendingShutdown() {
+    root.runShutdownTimer(["cancel-pending"]);
+  }
+  function notificationTimeLabel(notification) {
+    if (!notification) return "";
+    const candidates = [
+      notification.receivedAt,
+      notification.time,
+      notification.timestamp,
+      notification.created,
+      notification.createdAt,
+      notification.sentAt,
+      notification.date,
+      notification.timestampMs
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+      const value = candidates[i];
+      let date = null;
+      if (typeof value === "number") {
+        date = value > 0 ? new Date(value < 1e12 ? value * 1000 : value) : null;
+      } else if (typeof value === "string") {
+        const asNumber = Number(value);
+        if (Number.isFinite(asNumber))
+          date = new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber);
+        else if (value.length > 0) {
+          const parsed = Date.parse(value);
+          date = Number.isFinite(parsed) ? new Date(parsed) : null;
+        }
+      } else if (value instanceof Date) {
+        date = value;
+      }
+      if (date && Number.isFinite(date.getTime()))
+        return Qt.formatDateTime(date, "HH:mm");
+    }
+    return "";
+  }
+  function filteredClipboardEntries() {
+    const query = root.clipboardFilter.trim().toLowerCase();
+    if (query.length === 0) return root.clipboardEntries;
+    return root.clipboardEntries.filter(entry =>
+      String(entry.preview || "").toLowerCase().includes(query) ||
+      String(entry.id || "").toLowerCase().includes(query));
+  }
+  function runClipboardAction(action, entry) {
+    if (clipboardAction.running) clipboardAction.running = false;
+    if (action === "wipe") {
+      clipboardAction.exec(["@clipboardTool@", "wipe"]);
+      root.clipboardStatus = "Clearing history...";
+      return;
+    }
+    if (!entry || !entry.line) return;
+    clipboardAction.exec(["@clipboardTool@", action, entry.line]);
+    root.clipboardStatus = action === "copy" ? "Copied" : "Removed";
+    if (action === "copy") root.closeWidget();
   }
   function screenshotDisplayRect(canvas, image) {
     const paintedWidth = image.paintedWidth || canvas.width;
@@ -398,6 +657,40 @@ ShellRoot {
     } else {
       context.stroke();
     }
+  }
+  function screenshotDrawText(context, annotation, canvas, image) {
+    if (!annotation || !annotation.text || image.sourceSize.width <= 0 || image.sourceSize.height <= 0)
+      return;
+    const rect = root.screenshotDisplayRect(canvas, image);
+    const x = rect.x + annotation.x / image.sourceSize.width * rect.width;
+    const y = rect.y + annotation.y / image.sourceSize.height * rect.height;
+    const size = Math.max(8, (annotation.size || root.screenshotTextSize) * rect.width / image.sourceSize.width);
+    context.font = "700 " + size + "px \"" + Theme.fontSans + "\"";
+    context.textBaseline = "top";
+    context.lineJoin = "round";
+    context.strokeStyle = "rgba(0, 0, 0, 0.72)";
+    context.lineWidth = Math.max(2, size / 9);
+    context.fillStyle = annotation.color || root.screenshotInk;
+    context.strokeText(annotation.text, x, y);
+    context.fillText(annotation.text, x, y);
+  }
+  function screenshotDrawAnnotation(context, annotation, canvas, image) {
+    if (!annotation) return;
+    if (annotation.type === "text") root.screenshotDrawText(context, annotation, canvas, image);
+    else root.screenshotDrawStroke(context, annotation, canvas, image);
+  }
+  function addScreenshotText(point) {
+    const text = root.screenshotTextDraft.trim();
+    if (!point || text.length === 0) return;
+    root.screenshotAnnotations = root.screenshotAnnotations.concat([{
+      type: "text",
+      text,
+      x: point.x,
+      y: point.y,
+      color: root.screenshotInk,
+      size: root.screenshotTextSize
+    }]);
+    screenshotCanvas.requestPaint();
   }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
@@ -497,6 +790,22 @@ ShellRoot {
     }
     return cells;
   }
+	  function calendarDayItems(date, limit) {
+		    if (!date) return [];
+		    const items = root.calendarEvents
+		      .filter(event => event.date === date)
+		      .slice()
+		      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
+        return limit === undefined ? items : items.slice(0, limit);
+		  }
+  function calendarDayOverflow(date, limit) {
+    if (!date) return 0;
+    const count = root.calendarEvents.filter(event => event.date === date).length;
+    return Math.max(0, count - (limit || 3));
+  }
+  function calendarCurrentDayProgress() {
+    return (clock.date.getHours() * 60 + clock.date.getMinutes()) / 1440;
+  }
   function upcomingEvents(limit, fromDate) {
     const firstDate = fromDate || dateKey(clock.date);
     return root.calendarEvents
@@ -505,17 +814,121 @@ ShellRoot {
       .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
       .slice(0, limit || 10);
   }
-  function selectedDayEvents() {
-    return root.calendarEvents
-      .filter(event => event.date === root.calendarSelectedDate)
-      .slice()
-      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || a.title.localeCompare(b.title));
+	  function selectedDayEvents() {
+	    return root.calendarEvents
+	      .filter(event => event.date === root.calendarSelectedDate)
+	      .slice()
+	      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
+	  }
+  function calendarClock(minutes) {
+    const normalized = ((minutes % 1440) + 1440) % 1440;
+    const hour = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+    return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
   }
-  function addCalendarTask() {
-    const title = root.calendarTaskDraft.trim();
+  function calendarTimeOptions() {
+    const options = [];
+    for (let minutes = 0; minutes < 1440; minutes += 15)
+      options.push(root.calendarClock(minutes));
+    return options;
+  }
+  function setCalendarStartClock(value) {
+    root.calendarEventStartMinutes = root.calendarMinutesFromClock(value, root.calendarEventStartMinutes);
+  }
+  function setCalendarEndClock(value) {
+    root.calendarEventDurationMinutes = root.calendarDurationFromClocks(root.calendarClock(root.calendarEventStartMinutes), value);
+  }
+  function adjustCalendarStart(delta) {
+    root.calendarEventStartMinutes = ((root.calendarEventStartMinutes + delta) % 1440 + 1440) % 1440;
+  }
+  function adjustCalendarDuration(delta) {
+    root.calendarEventDurationMinutes = Math.max(15, Math.min(480, root.calendarEventDurationMinutes + delta));
+  }
+  function calendarEndClock() {
+    return root.calendarClock(root.calendarEventStartMinutes + root.calendarEventDurationMinutes);
+  }
+  function calendarMinutesFromClock(value, fallback) {
+    if (!value || value.length < 5) return fallback;
+    const hour = Number(value.substring(0, 2));
+    const minute = Number(value.substring(3, 5));
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return fallback;
+    return Math.max(0, Math.min(1439, hour * 60 + minute));
+  }
+  function calendarDurationFromClocks(start, end) {
+    const startMinutes = root.calendarMinutesFromClock(start, root.calendarEventStartMinutes);
+    const endMinutes = root.calendarMinutesFromClock(end, startMinutes + root.calendarEventDurationMinutes);
+    let duration = endMinutes - startMinutes;
+    if (duration <= 0) duration += 1440;
+    return Math.max(15, Math.min(480, duration));
+  }
+  function resetCalendarEditor() {
+    root.calendarTitleDraft = "";
+    root.calendarStartDraft = "";
+    root.calendarEndDraft = "";
+    root.calendarEditingHref = "";
+    root.calendarEditingKind = "";
+    root.calendarAllDay = false;
+  }
+  function editCalendarItem(item) {
+    if (!item || !item.href || item.note || item.source === "Obsidian")
+      return;
+    root.calendarEditingHref = item.href;
+    root.calendarEditingKind = item.task ? "task" : "event";
+    root.calendarEntryMode = root.calendarEditingKind;
+    root.calendarTitleDraft = item.title || "";
+    root.calendarAllDay = !item.task && Boolean(item.allDay);
+    if (!item.task) {
+      root.calendarEventStartMinutes = root.calendarMinutesFromClock(item.startTime, root.calendarEventStartMinutes);
+      root.calendarEventDurationMinutes = root.calendarDurationFromClocks(item.startTime, item.endTime);
+    }
+  }
+  function calendarSaveLabel() {
+    return root.calendarEditingHref.length > 0 ? "Save" : "+";
+  }
+  function completeCalendarTask(href) {
+    if (!href || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "complete-task", href]);
+  }
+  function deleteCalendarItem(href) {
+    if (!href || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "delete-item", href]);
+  }
+  function openCalendarNote(noteId) {
+    if (!noteId || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "open-note", String(noteId)]);
+  }
+  function undoCalendarChange() {
+    if (!root.calendarCanUndo || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "undo"]);
+  }
+  function runCalendarAction(args) {
+    calendarTaskAction.actionName = args.length > 1 ? args[1] : "";
+    calendarTaskAction.exec(args);
+  }
+  function addCalendarItem() {
+    const title = root.calendarTitleDraft.trim();
     if (title.length === 0 || calendarTaskAction.running)
       return;
-    calendarTaskAction.exec(["@calendarTask@", "add", root.calendarSelectedDate, title]);
+    if (root.calendarEntryMode === "event") {
+      const action = root.calendarEditingHref.length > 0 ? "edit-event" : "add-event";
+      const args = ["@calendarTask@", action];
+      if (root.calendarEditingHref.length > 0) args.push(root.calendarEditingHref);
+      args.push(root.calendarSelectedDate);
+      args.push(title);
+      if (!root.calendarAllDay) {
+        args.push(root.calendarClock(root.calendarEventStartMinutes));
+        args.push(root.calendarEndClock());
+      }
+      root.runCalendarAction(args);
+    } else if (root.calendarEditingHref.length > 0) {
+      root.runCalendarAction(["@calendarTask@", "edit-task", root.calendarEditingHref, root.calendarSelectedDate, title]);
+    } else {
+      root.runCalendarAction(["@calendarTask@", "add-task", root.calendarSelectedDate, title]);
+    }
   }
   function nextEventSummary() {
     const events = upcomingEvents(1);
@@ -539,6 +952,7 @@ ShellRoot {
     keepOnReload: true
     onNotification: notification => {
       notification.tracked = true;
+      notification.receivedAt = Date.now();
       root.latestNotification = notification;
       root.notificationPopupVisible = true;
       popupTimer.restart();
@@ -582,12 +996,12 @@ ShellRoot {
           Text {
             Layout.alignment: Qt.AlignHCenter
             text: Qt.formatDateTime(clock.date, "HH:mm")
-            color: Theme.text; font.family: Theme.font; font.pixelSize: 68
+            color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 68
           }
           Text {
             Layout.alignment: Qt.AlignHCenter
             text: Qt.formatDateTime(clock.date, "dddd, d MMMM")
-            color: Theme.muted; font.family: Theme.font; font.pixelSize: 16
+            color: Theme.muted; font.family: Theme.fontSans; font.pixelSize: 16
           }
           Rectangle {
             Layout.fillWidth: true; Layout.preferredHeight: 52
@@ -597,6 +1011,9 @@ ShellRoot {
               anchors.fill: parent; anchors.margins: 14
               focus: true; echoMode: TextInput.Password
               color: Theme.text; font.family: Theme.font; font.pixelSize: 17
+              cursorDelegate: root.themedCursor
+              selectionColor: Theme.accent
+              selectedTextColor: Theme.background
               onAccepted: {
                 if (!pam.active && text.length > 0) {
                   root.pendingPassword = text;
@@ -610,7 +1027,7 @@ ShellRoot {
             Layout.alignment: Qt.AlignHCenter
             text: root.authMessage || "Enter password to unlock"
             color: root.authMessage ? Theme.danger : Theme.muted
-            font.family: Theme.font; font.pixelSize: 12
+            font.family: Theme.fontSans; font.pixelSize: 12
           }
         }
       }
@@ -663,14 +1080,17 @@ ShellRoot {
             implicitHeight: 34
             radius: 7
             color: modelData.active ? Theme.accent : "transparent"
+            border.color: "transparent"
+            border.width: 1
             Text {
               anchors.centerIn: parent
               text: root.numerals[parent.modelData.id] || parent.modelData.id
-              color: parent.color === Theme.accent ? Theme.background : Theme.text
-              font.family: Theme.font
+              color: modelData.active ? Theme.background : Theme.text
+              font.family: Theme.fontSans
               font.pixelSize: 14
             }
             MouseArea {
+              id: workspaceMouse
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
@@ -687,17 +1107,20 @@ ShellRoot {
           Layout.alignment: Qt.AlignHCenter
           implicitWidth: 32
           implicitHeight: 30
+          id: trayToggle
           radius: 8
           color: root.trayExpanded ? Theme.surfaceAlt : "transparent"
           border.color: root.trayExpanded ? Theme.border : "transparent"
+          border.width: 1
           Text {
             anchors.centerIn: parent
             text: root.trayExpanded ? "󰅀" : "󰅂"
-            color: Theme.text
-            font.family: Theme.font
+            color: root.trayExpanded ? Theme.accent : Theme.text
+            font.family: Theme.fontIcon
             font.pixelSize: 16
           }
           MouseArea {
+            id: trayToggleMouse
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: {
@@ -740,14 +1163,57 @@ ShellRoot {
           }
         }
 
-        Text {
+        Item {
           Layout.alignment: Qt.AlignHCenter
-          text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio
-            ? (Pipewire.defaultAudioSink.audio.muted ? "󰝟" : "") : ""
-          color: Theme.text
-          font.family: Theme.font
-          font.pixelSize: 16
+          id: mediaButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 32
+          implicitHeight: 30
+          ToolTip.visible: false
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text { anchors.centerIn: parent; text: ""; color: root.mediaPlayer ? Theme.text : Theme.muted; font.family: Theme.fontIcon; font.pixelSize: 17 }
           MouseArea {
+            id: mediaMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWidget("media")
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 32
+          Layout.preferredHeight: 30
+          implicitWidth: 32
+          implicitHeight: 30
+          id: audioButton
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            id: audioGlyph
+            anchors.centerIn: parent
+            text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio
+              ? (Pipewire.defaultAudioSink.audio.muted ? "󰝟" : "") : ""
+            color: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted
+              ? Theme.danger
+              : Theme.text
+            font.family: Theme.fontIcon
+            font.pixelSize: 16
+          }
+          MouseArea {
+            id: audioMouse
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: root.toggleWidget("audio")
@@ -758,29 +1224,20 @@ ShellRoot {
           }
         }
 
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: "󰤨"
-          color: Theme.text
-          font.family: Theme.font
-          font.pixelSize: 15
-          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWidget("network") }
-        }
-
-        Text {
-          Layout.alignment: Qt.AlignHCenter
-          text: ""
-          color: root.mediaPlayer ? Theme.text : Theme.muted
-          font.family: Theme.font; font.pixelSize: 17
-          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWidget("media") }
-        }
-
         Item {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 42
           Layout.preferredHeight: 36
           implicitWidth: 42
           implicitHeight: 36
+          id: weatherButton
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
           Text {
             id: barWeatherGlyph
             anchors.horizontalCenter: parent.horizontalCenter
@@ -788,7 +1245,7 @@ ShellRoot {
             y: 0
             text: root.weatherGlyph()
             color: Theme.text
-            font.family: Theme.font
+            font.family: Theme.fontSans
             font.pixelSize: 17
             horizontalAlignment: Text.AlignHCenter
           }
@@ -799,33 +1256,191 @@ ShellRoot {
             anchors.topMargin: -1
             text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
             color: Theme.text
-            font.family: Theme.font
+            font.family: Theme.fontSans
             font.pixelSize: 13
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
           }
-          MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleWidget("weather") }
+          MouseArea {
+            id: weatherMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWidget("weather")
+          }
         }
 
-        Text {
+        Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          text: "󰄀"
-          color: root.toolBusy ? Theme.accent : Theme.text
-          font.family: Theme.font
-          font.pixelSize: 17
+          Layout.preferredWidth: 28
+          Layout.preferredHeight: 24
+          id: kanataIcon
+          radius: 7
+          color: {
+            if (!root.kanataKnown) return Theme.surface;
+            return root.kanataActive ? Theme.accent : "transparent";
+          }
+          border.color: !root.kanataKnown ? Theme.danger : (root.kanataActive ? Theme.accent : Theme.border)
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: ""
+            color: root.kanataActive ? Theme.background : (root.kanataKnown ? Theme.text : Theme.danger)
+            font.family: Theme.fontIcon
+            font.pixelSize: 14
+            font.bold: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            id: kanataMouse
+            cursorShape: Qt.PointingHandCursor
+            propagateComposedEvents: true
+            onClicked: {
+              if (kanataToggleAction.running) return;
+              kanataToggleAction.running = true;
+            }
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 34
+          implicitHeight: 30
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: Theme.background
+            border.color: root.codexUsageVisible ? Theme.accent : Theme.border
+            border.width: 1
+          }
+          Text {
+            anchors.centerIn: parent
+            text: "◉"
+            color: root.codexUsageVisible ? Theme.accent : Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 13
+            font.bold: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleCodexUsage()
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          id: clipboardButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 34
+          implicitHeight: 30
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            anchors.centerIn: parent
+            font.family: Theme.fontIcon
+            font.pixelSize: 17
+            color: root.widgetPage === "clipboard" && root.widgetVisible
+              ? Theme.accent
+              : Theme.text
+            text: "󰅇"
+          }
+          MouseArea {
+            id: clipboardMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWidget("clipboard")
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          id: toolsButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 34
+          implicitHeight: 30
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            anchors.centerIn: parent
+            text: "󰒓"
+            color: root.toolBusy ? Theme.accent : Theme.text
+            font.family: Theme.fontIcon
+            font.pixelSize: 17
+          }
           MouseArea {
             id: toolsMouse
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("tools")
+            onClicked: root.captureScreenshot("edit", true)
           }
         }
 
-        Text {
+        Item {
           Layout.alignment: Qt.AlignHCenter
-          text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
-          color: Theme.text; font.family: Theme.font; font.pixelSize: 16
+          id: shutdownButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 34
+          implicitHeight: 30
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            anchors.centerIn: parent
+            text: "󰐥"
+            color: root.widgetPage === "shutdown" && root.widgetVisible ? Theme.accent : Theme.text
+            font.family: Theme.fontIcon
+            font.pixelSize: 17
+          }
           MouseArea {
+            id: shutdownMouse
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWidget("shutdown")
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          id: notificationsButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 30
+          implicitWidth: 34
+          implicitHeight: 30
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            anchors.centerIn: parent
+            font.family: Theme.fontIcon
+            font.pixelSize: 16
+            color: Theme.text
+            text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
+          }
+          MouseArea {
+            id: notificationsButtonMouse
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: {
@@ -835,15 +1450,31 @@ ShellRoot {
           }
         }
 
-        Text {
+        Item {
           Layout.alignment: Qt.AlignHCenter
-          text: Qt.formatDateTime(clock.date, "HH\nmm")
-          horizontalAlignment: Text.AlignHCenter
-          lineHeight: 0.82
-          color: Theme.text
-          font.family: Theme.font
-          font.pixelSize: 12
-          font.bold: true
+          id: clockButton
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          implicitWidth: 34
+          implicitHeight: 34
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.color: "transparent"
+            border.width: 1
+          }
+          Text {
+            anchors.fill: parent
+            text: Qt.formatDateTime(clock.date, "HH\nmm")
+            color: Theme.text
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            lineHeight: 0.82
+            font.family: Theme.fontSans
+            font.pixelSize: 12
+            font.bold: true
+          }
           MouseArea {
             id: clockMouse
             anchors.fill: parent
@@ -880,19 +1511,19 @@ ShellRoot {
       height: Math.min(root.widgetPreferredHeight(), parent.height - 36)
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      anchors.rightMargin: 10
+      anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: 18
-      radius: 16
-      color: Theme.background
+      radius: Theme.radiusLg
+      color: Theme.panel
       border.color: Theme.border
       border.width: 1
       clip: true
       focus: root.widgetVisible
       opacity: root.widgetVisible ? 1 : 0
-      scale: root.widgetVisible ? 1 : 0.92
+      scale: root.widgetVisible ? 1 : 0.96
       transformOrigin: Item.BottomRight
       transform: Translate {
-        y: root.widgetVisible ? 0 : 18
+        y: root.widgetVisible ? 0 : 14
         Behavior on y { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       }
       Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
@@ -900,26 +1531,25 @@ ShellRoot {
       Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       ColumnLayout {
-        anchors.fill: parent; anchors.margins: 18; spacing: 12
+        anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", network: "Network", media: "Spotify", weather: "Weather", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot"})[root.widgetPage]
-            color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
+            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot"})[root.widgetPage]
+            color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
         }
 
         ColumnLayout {
           visible: root.widgetPage === "audio"; Layout.fillWidth: true; spacing: 14
-          Text { text: "Output device"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+          Text { text: "Output device"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
           Rectangle {
             id: outputPicker
-            property bool hovered: false
             Layout.fillWidth: true
             implicitHeight: 44
-            radius: 8
-            color: outputMenu.opened || outputPicker.hovered ? Theme.surfaceAlt : Theme.surface
+            radius: Theme.radiusSm
+            color: outputMenu.opened ? Theme.surfaceAlt : Theme.surface
             border.color: outputMenu.opened ? Theme.accent : Theme.border
             border.width: 1
             opacity: Pipewire.defaultAudioSink ? 1 : 0.55
@@ -931,11 +1561,8 @@ ShellRoot {
             }
             MouseArea {
               anchors.fill: parent
-              hoverEnabled: true
               enabled: Pipewire.defaultAudioSink || root.audioSinks().length > 0
               cursorShape: Qt.PointingHandCursor
-              onEntered: outputPicker.hovered = true
-              onExited: outputPicker.hovered = false
               onClicked: outputMenu.opened ? outputMenu.close() : outputMenu.open()
             }
             Menu {
@@ -995,7 +1622,7 @@ ShellRoot {
             Layout.fillWidth: true; spacing: 10
             Text {
               text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : ""
-              color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+              color: Theme.accent; font.family: Theme.fontIcon; font.pixelSize: 22
               MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
             }
             Slider {
@@ -1005,14 +1632,13 @@ ShellRoot {
             }
             Text { text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
           }
-          Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 4 }
+          Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true; Layout.topMargin: 4 }
           Rectangle {
             id: microphonePicker
-            property bool hovered: false
             Layout.fillWidth: true
             implicitHeight: 44
-            radius: 8
-            color: microphoneMenu.opened || microphonePicker.hovered ? Theme.surfaceAlt : Theme.surface
+            radius: Theme.radiusSm
+            color: microphoneMenu.opened ? Theme.surfaceAlt : Theme.surface
             border.color: microphoneMenu.opened ? Theme.accent : Theme.border
             border.width: 1
             opacity: Pipewire.defaultAudioSource ? 1 : 0.55
@@ -1024,11 +1650,8 @@ ShellRoot {
             }
             MouseArea {
               anchors.fill: parent
-              hoverEnabled: true
               enabled: Pipewire.defaultAudioSource || root.audioSources().length > 0
               cursorShape: Qt.PointingHandCursor
-              onEntered: microphonePicker.hovered = true
-              onExited: microphonePicker.hovered = false
               onClicked: microphoneMenu.opened ? microphoneMenu.close() : microphoneMenu.open()
             }
             Menu {
@@ -1088,7 +1711,7 @@ ShellRoot {
             Layout.fillWidth: true; spacing: 10
             Text {
               text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? "󰍭" : "󰍬"
-              color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+              color: Theme.accent; font.family: Theme.fontIcon; font.pixelSize: 22
               MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted }
             }
             Slider {
@@ -1101,41 +1724,10 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "network"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
-          Text { text: "󰤨  " + root.networkStatus; color: Theme.text; font.family: Theme.font; font.pixelSize: 16 }
-          RowLayout {
-            Layout.fillWidth: true
-            Text { text: "Wi-Fi"; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true }
-            Switch { checked: root.wifiEnabled; onToggled: networkAction.exec(["nmcli", "radio", "wifi", checked ? "on" : "off"]) }
-          }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "Rescan and refresh"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { networkAction.exec(["nmcli", "device", "wifi", "rescan"]); wifiScan.running = true; } }
-          }
-          ListView {
-            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 6; clip: true
-            model: root.wifiNetworks
-            delegate: Rectangle {
-              required property var modelData
-              width: ListView.view.width; height: 42; radius: 9
-              color: modelData.active ? Theme.accent : Theme.surface
-              RowLayout {
-                anchors.fill: parent; anchors.margins: 10
-                Text { text: parent.parent.modelData.signal > 70 ? "󰤨" : parent.parent.modelData.signal > 40 ? "󰤥" : "󰤟"; color: parent.parent.modelData.active ? Theme.background : Theme.text; font.family: Theme.font }
-                Text { text: parent.parent.modelData.ssid; color: parent.parent.modelData.active ? Theme.background : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text { text: parent.parent.modelData.signal + "%"; color: parent.parent.modelData.active ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
-              }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (!parent.modelData.active) networkAction.exec(["nmcli", "connection", "up", "id", parent.modelData.ssid]) }
-            }
-          }
-        }
-
-        ColumnLayout {
           visible: root.widgetPage === "media"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
           Image { visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 220; Layout.preferredHeight: 220; fillMode: Image.PreserveAspectCrop; source: root.mediaPlayer ? root.mediaPlayer.trackArtUrl : "" }
           Text { visible: root.mediaPlayer === null; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 70; text: ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 82 }
-          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "Spotify is not running"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
+          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "Spotify is not running"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
           Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? root.mediaPlayer.trackArtist : ""; color: Theme.muted; font.family: Theme.font }
           RowLayout {
             visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; spacing: 28
@@ -1147,7 +1739,7 @@ ShellRoot {
             visible: root.mediaPlayer === null
             Layout.fillWidth: true
             Layout.preferredHeight: 42
-            radius: 8
+            radius: Theme.radiusSm
             color: Theme.surface
             Text { anchors.centerIn: parent; text: "  Open Spotify"; color: Theme.accent; font.family: Theme.font }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["spotify"]) }
@@ -1176,7 +1768,7 @@ ShellRoot {
               Text {
                 text: root.weatherData ? root.weatherGlyph() : "󰖙"
                 color: root.weatherData ? Theme.accent : Theme.muted
-                font.family: Theme.font
+                font.family: Theme.fontIcon
                 font.pixelSize: 52
                 Layout.preferredWidth: 58
                 horizontalAlignment: Text.AlignHCenter
@@ -1187,7 +1779,7 @@ ShellRoot {
                 Text {
                   text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : (weatherQuery.running ? "Loading" : "No data")
                   color: Theme.text
-                  font.family: Theme.font
+                  font.family: Theme.fontSans
                   font.pixelSize: 36
                   font.bold: true
                   elide: Text.ElideRight
@@ -1195,16 +1787,16 @@ ShellRoot {
                 }
                 Text {
                   text: root.weatherData ? root.weatherData.description : (root.weatherError || "Warsaw forecast")
-                  color: root.weatherError ? Theme.danger : Theme.muted
-                  font.family: Theme.font
+                  color: root.weatherError ? Theme.danger : root.secondaryText
+                  font.family: Theme.fontSans
                   font.pixelSize: 13
                   elide: Text.ElideRight
                   Layout.fillWidth: true
                 }
                 Text {
                   text: root.weatherData && root.weatherLastUpdated ? "Updated " + root.weatherLastUpdated : "Open-Meteo"
-                  color: Theme.muted
-                  font.family: Theme.font
+                  color: root.secondaryText
+                  font.family: Theme.fontSans
                   font.pixelSize: 11
                   elide: Text.ElideRight
                   Layout.fillWidth: true
@@ -1214,15 +1806,12 @@ ShellRoot {
                 Layout.preferredWidth: 34
                 Layout.preferredHeight: 34
                 radius: 8
-                color: weatherQuery.running ? Theme.accent : Theme.surface
-                scale: refreshMouse.containsMouse ? 1.06 : 1
-                Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                color: Theme.surface
                 Text {
                   anchors.centerIn: parent
                   text: "󰑐"
-                  color: weatherQuery.running ? Theme.background : Theme.text
-                  font.family: Theme.font
+                  color: Theme.text
+                  font.family: Theme.fontIcon
                   font.pixelSize: 15
                 }
                 RotationAnimation on rotation {
@@ -1235,7 +1824,6 @@ ShellRoot {
                 MouseArea {
                   id: refreshMouse
                   anchors.fill: parent
-                  hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: if (!weatherQuery.running) weatherQuery.running = true
                 }
@@ -1253,27 +1841,23 @@ ShellRoot {
                 { id: "hourly", label: "Hourly" },
               ]
               delegate: Rectangle {
-                id: weatherTab
-                required property var modelData
-                Layout.fillWidth: true
-                Layout.preferredHeight: 32
-                radius: 8
-                color: root.weatherForecastMode === modelData.id ? Theme.accent : Theme.surface
-                scale: tabMouse.containsMouse || root.weatherForecastMode === modelData.id ? 1 : 0.98
-                Behavior on color { ColorAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                Text {
-                  anchors.centerIn: parent
-                  text: modelData.label
+              id: weatherTab
+              required property var modelData
+              Layout.fillWidth: true
+              Layout.preferredHeight: 32
+              radius: 8
+              color: root.weatherForecastMode === modelData.id ? Theme.accent : Theme.surface
+              Text {
+                anchors.centerIn: parent
+                text: modelData.label
                   color: root.weatherForecastMode === modelData.id ? Theme.background : Theme.text
-                  font.family: Theme.font
+                  font.family: Theme.fontSans
                   font.pixelSize: 12
                   font.bold: root.weatherForecastMode === modelData.id
                 }
                 MouseArea {
                   id: tabMouse
                   anchors.fill: parent
-                  hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: root.weatherForecastMode = modelData.id
                 }
@@ -1293,30 +1877,30 @@ ShellRoot {
               rowSpacing: 8
               columnSpacing: 8
               Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
                 ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Feels like"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: "Feels like"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
                   Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
               }
               Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
                 ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Wind"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: "Wind"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
                   Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
               }
               Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
                 ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Low"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: "Low"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
                   Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMin !== undefined ? Math.round(root.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
               }
               Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: 10; color: Theme.surface
+                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
                 ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "High"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                  Text { text: "High"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
                   Text { text: root.weatherData && root.weatherData.todayMax !== null && root.weatherData.todayMax !== undefined ? Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
               }
@@ -1326,7 +1910,7 @@ ShellRoot {
                 Layout.fillWidth: true
                 text: root.weatherError
                 color: Theme.danger
-                font.family: Theme.font
+                font.family: Theme.fontSans
                 font.pixelSize: 11
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
@@ -1354,7 +1938,7 @@ ShellRoot {
                   Text { text: parent.parent.isToday ? "Today" : root.weatherShortDate(parent.parent.modelData.date); color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isToday; Layout.preferredWidth: 50 }
                   Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isToday ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
                   Item { Layout.fillWidth: true }
-                  Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "—"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
+                  Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "—"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
                 }
               }
               Text {
@@ -1362,7 +1946,7 @@ ShellRoot {
                 visible: parent.count === 0
                 text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No forecast available")
                 color: root.weatherError ? Theme.danger : Theme.muted
-                font.family: Theme.font
+                font.family: Theme.fontSans
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width - 24
@@ -1390,9 +1974,9 @@ ShellRoot {
                   anchors.margins: 10
                   spacing: 10
                   Text { text: parent.parent.isCurrentHour ? "Now" : root.weatherHourLabel(parent.parent.modelData.time); color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isCurrentHour; Layout.preferredWidth: 46 }
-                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-                  Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.muted; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : root.secondaryText; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
+                  Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : root.secondaryText; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
                 }
               }
               Text {
@@ -1400,7 +1984,7 @@ ShellRoot {
                 visible: parent.count === 0
                 text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No hourly forecast")
                 color: root.weatherError ? Theme.danger : Theme.muted
-                font.family: Theme.font
+                font.family: Theme.fontSans
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width - 24
@@ -1411,193 +1995,346 @@ ShellRoot {
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "tools"; Layout.fillWidth: true; spacing: 14
-          Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.font; font.bold: true }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
+          visible: root.widgetPage === "clipboard"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          spacing: 10
+
+	            RowLayout {
+	              Layout.alignment: Qt.AlignLeft
+	              spacing: 8
+            TextField {
+              Layout.fillWidth: true
+              implicitHeight: 38
+              text: root.clipboardFilter
+              placeholderText: "Search history"
+              color: Theme.text
+              placeholderTextColor: Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              cursorDelegate: root.themedCursor
+              selectionColor: Theme.accent
+              selectedTextColor: Theme.background
+              selectByMouse: true
+              background: Rectangle {
+                radius: 9
+                color: Theme.surface
+                border.color: parent.activeFocus ? Theme.accent : Theme.border
+                border.width: 1
+              }
+              onTextChanged: root.clipboardFilter = text
+              Keys.onEscapePressed: {
+                if (root.clipboardFilter.length > 0) root.clipboardFilter = "";
+                else root.closeWidget();
+              }
+            }
+            Rectangle {
+              Layout.preferredWidth: 38
+              Layout.preferredHeight: 38
+              radius: 9
+              color: Theme.surface
+              Text { anchors.centerIn: parent; text: "󰑐"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
+              MouseArea {
+                id: refreshClipboardMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: clipboardQuery.running = true
+              }
+            }
+            Rectangle {
+              Layout.preferredWidth: 38
+              Layout.preferredHeight: 38
+              radius: 9
+              color: Theme.surface
+              Text { anchors.centerIn: parent; text: "󰆴"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
+              MouseArea {
+                id: clearClipboardMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.runClipboardAction("wipe", null)
+              }
+            }
           }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "󰆏  Select area and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("copy", false) }
-          }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "󰈔  Select area, save and copy"; color: Theme.text; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("save", false) }
-          }
-          Text { text: "Power"; color: Theme.muted; font.family: Theme.font; font.bold: true; Layout.topMargin: 4 }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 44; radius: 9; color: shutdownToolMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-            Text { anchors.centerIn: parent; text: "󰐥  Shutdown timer"; color: Theme.text; font.family: Theme.font }
-            MouseArea {
-              id: shutdownToolMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.openWidget("shutdown")
+
+          ListView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            spacing: 7
+            model: root.filteredClipboardEntries()
+            delegate: Rectangle {
+            id: clipboardRow
+            required property var modelData
+            width: ListView.view.width
+            height: 58
+            radius: 10
+            color: Theme.surface
+            border.color: Theme.border
+            border.width: 1
+              RowLayout {
+                z: 1
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+                Text {
+                  text: "󰅇"
+                  color: Theme.accent
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 18
+                  Layout.preferredWidth: 24
+                  horizontalAlignment: Text.AlignHCenter
+                }
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: 2
+                  Text {
+                    Layout.fillWidth: true
+                    text: clipboardRow.modelData.preview
+                    color: Theme.text
+                    font.family: Theme.fontSans
+                    font.pixelSize: 12
+                    maximumLineCount: 2
+                    wrapMode: Text.Wrap
+                    elide: Text.ElideRight
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    text: "#" + clipboardRow.modelData.id
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                  }
+                }
+                Rectangle {
+                  Layout.preferredWidth: 30
+                  Layout.preferredHeight: 30
+                  radius: 8
+                  color: Theme.background
+                  border.color: Theme.border
+                  Text { anchors.centerIn: parent; text: "×"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
+                  MouseArea {
+                    id: deleteClipboardMouse
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.runClipboardAction("delete", clipboardRow.modelData)
+                  }
+                }
+              }
+              MouseArea {
+                id: clipboardRowMouse
+                z: 0
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton
+                onClicked: root.runClipboardAction("copy", clipboardRow.modelData)
+              }
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: parent.count === 0
+              text: clipboardQuery.running ? "Loading clipboard..." : (root.clipboardStatus || "No matches")
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+              width: parent.width - 24
+              wrapMode: Text.Wrap
             }
           }
         }
 
-        ColumnLayout {
-          visible: root.widgetPage === "shutdown"; Layout.fillWidth: true; spacing: 14
-          Text { text: "Time"; color: Theme.muted; font.family: Theme.font; font.bold: true }
-          Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 86
-            radius: 10
-            color: Theme.surface
-            RowLayout {
-              anchors.fill: parent
-              anchors.margins: 12
-              spacing: 12
-              Rectangle {
-                Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 8
-                color: minusHourMouse.containsMouse ? Theme.surfaceAlt : Theme.background
-                border.color: Theme.border
-                Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
-                MouseArea {
-                  id: minusHourMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.setShutdownTime(root.shutdownHour - 1, root.shutdownMinute)
-                }
-              }
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Text {
-                  Layout.fillWidth: true
-                  horizontalAlignment: Text.AlignHCenter
-                  text: root.shutdownTimeLabel()
-                  color: Theme.text
-                  font.family: Theme.font
-                  font.pixelSize: 28
-                  font.bold: true
-                }
-                Text {
-                  Layout.fillWidth: true
-                  horizontalAlignment: Text.AlignHCenter
-                  text: "custom shutdown check"
-                  color: Theme.muted
-                  font.family: Theme.font
-                  font.pixelSize: 11
-                }
-              }
-              Rectangle {
-                Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 8
-                color: plusHourMouse.containsMouse ? Theme.surfaceAlt : Theme.background
-                border.color: Theme.border
-                Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
-                MouseArea {
-                  id: plusHourMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.setShutdownTime(root.shutdownHour + 1, root.shutdownMinute)
-                }
-              }
-            }
-          }
+        ScrollView {
+          id: toolsScroll
+          visible: root.widgetPage === "tools"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
 
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
+          ColumnLayout {
+            width: toolsScroll.availableWidth
+            spacing: 14
+            Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
             Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 42; radius: 9; color: Theme.surface
+              Layout.fillWidth: true; implicitHeight: 44; radius: Theme.radiusSm; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
+            }
+          }
+        }
+
+        ScrollView {
+          id: shutdownScroll
+          visible: root.widgetPage === "shutdown"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+
+          ColumnLayout {
+            width: shutdownScroll.availableWidth
+            spacing: 10
+            Text { text: "Shutdown in"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
+            Rectangle {
+              Layout.fillWidth: true
+              implicitHeight: 78
+              radius: 10
+              color: Theme.surface
               RowLayout {
-                anchors.fill: parent; anchors.margins: 6; spacing: 8
-                Rectangle {
-                  Layout.preferredWidth: 32; Layout.fillHeight: true; radius: 7; color: minuteDownMouse.containsMouse ? Theme.surfaceAlt : Theme.background; border.color: Theme.border
-                  Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 18 }
-                  MouseArea { id: minuteDownMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(root.shutdownHour, root.shutdownMinute - 5) }
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+              Rectangle {
+                Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 8
+                  color: Theme.background
+                  border.color: Theme.border
+                  Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
+                  MouseArea {
+                    id: minusDelayMouse
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.setShutdownDelay(root.shutdownDelayMinutes - 5)
+                  }
                 }
-                Text { Layout.fillWidth: true; text: "Minute"; color: Theme.text; font.family: Theme.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  spacing: 0
+                  Text {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.shutdownDelayLabel()
+                    color: Theme.text
+                    font.family: Theme.fontSans
+                    font.pixelSize: 28
+                    font.bold: true
+                  }
+                  Text {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "relative timer"
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.pixelSize: 11
+                  }
+                }
                 Rectangle {
-                  Layout.preferredWidth: 32; Layout.fillHeight: true; radius: 7; color: minuteUpMouse.containsMouse ? Theme.surfaceAlt : Theme.background; border.color: Theme.border
-                  Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 18 }
-                  MouseArea { id: minuteUpMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(root.shutdownHour, root.shutdownMinute + 5) }
+                  Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 8
+                  color: Theme.background
+                  border.color: Theme.border
+                  Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
+                  MouseArea {
+                    id: plusDelayMouse
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.setShutdownDelay(root.shutdownDelayMinutes + 5)
+                  }
                 }
               }
             }
-          }
 
-          Text { text: "Hourly checks"; color: Theme.muted; font.family: Theme.font; font.bold: true }
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-              model: [0, 1, 2, 3, 4, 5, 6]
-              delegate: Rectangle {
-                required property int modelData
-                Layout.fillWidth: true
-                Layout.preferredHeight: 34
-                radius: 8
-                color: root.shutdownHour === modelData && root.shutdownMinute === 0 ? Theme.accent : Theme.surface
+	            RowLayout {
+	              Layout.fillWidth: true
+	              Layout.alignment: Qt.AlignLeft
+	              spacing: 8
+	              Repeater {
+                model: [15, 30, 60, 120]
+                delegate: Rectangle {
+                  required property int modelData
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: 34
+                  radius: 8
+                  color: root.shutdownDelayMinutes === modelData ? Theme.accent : Theme.surface
+                  Text {
+                    anchors.centerIn: parent
+                    text: parent.modelData < 60 ? parent.modelData + "m" : (parent.modelData / 60) + "h"
+                    color: root.shutdownDelayMinutes === parent.modelData ? Theme.background : Theme.text
+                    font.family: Theme.fontSans
+                    font.pixelSize: 12
+                    font.bold: root.shutdownDelayMinutes === parent.modelData
+                  }
+                  MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownDelay(parent.modelData) }
+                }
+              }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: "Overnight checks still run at 00:00-06:00."
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 11
+              wrapMode: Text.Wrap
+            }
+
+            Rectangle {
+              Layout.fillWidth: true
+              implicitHeight: 58
+              radius: 10
+              color: root.shutdownPendingTarget.length > 0 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16) : Theme.surface
+              border.color: root.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.border
+              border.width: 1
+              ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 2
+                Text {
+                  Layout.fillWidth: true
+                  text: root.shutdownPendingTarget.length > 0 ? "Shutdown " + root.shutdownPendingTarget : "No shutdown timer set"
+                  color: root.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.text
+                  font.family: Theme.fontSans
+                  font.bold: true
+                  font.pixelSize: 13
+                  elide: Text.ElideRight
+                }
+                Text {
+                  Layout.fillWidth: true
+                  text: root.shutdownPendingTarget.length > 0 ? root.shutdownRemainingLabel() + " left" : "Use the timer above to schedule one"
+                  color: Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 11
+                  elide: Text.ElideRight
+                }
+              }
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 10
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
+                color: Theme.surface
+                Text { anchors.centerIn: parent; text: "󰐥  Set timer"; color: Theme.text; font.family: Theme.fontSans; font.bold: true }
+                MouseArea {
+                  id: scheduleShutdownMouse
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.scheduleShutdown()
+                }
+              }
+              Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
+                enabled: root.shutdownPendingTarget.length > 0
+                opacity: root.shutdownPendingTarget.length > 0 ? 1 : 0.55
+                color: Theme.surface
                 Text {
                   anchors.centerIn: parent
-                  text: root.pad2(parent.modelData)
-                  color: root.shutdownHour === parent.modelData && root.shutdownMinute === 0 ? Theme.background : Theme.text
-                  font.family: Theme.font
-                  font.pixelSize: 12
-                  font.bold: root.shutdownHour === parent.modelData && root.shutdownMinute === 0
+                  text: "󰜺  Cancel"
+                  color: Theme.text
+                  font.family: Theme.fontIcon
+                  font.bold: true
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownTime(parent.modelData, 0) }
+                MouseArea {
+                  id: cancelShutdownMouse
+                  anchors.fill: parent
+                  enabled: root.shutdownPendingTarget.length > 0
+                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onClicked: root.cancelPendingShutdown()
+                }
               }
             }
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: "00:00-06:00 run automatically. Each check gives 5 minutes to cancel here."
-            color: Theme.muted
-            font.family: Theme.font
-            font.pixelSize: 11
-            wrapMode: Text.Wrap
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
-              color: scheduleShutdownMouse.containsMouse ? Theme.accent : Theme.surface
-              Text { anchors.centerIn: parent; text: "󰐥  Schedule"; color: scheduleShutdownMouse.containsMouse ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true }
-              MouseArea {
-                id: scheduleShutdownMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.scheduleShutdown()
-              }
-            }
-            Rectangle {
-              Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
-              color: cancelShutdownMouse.containsMouse ? Theme.danger : Theme.surface
-              Text { anchors.centerIn: parent; text: "󰜺  Cancel"; color: cancelShutdownMouse.containsMouse ? Theme.background : Theme.text; font.family: Theme.font; font.bold: true }
-              MouseArea {
-                id: cancelShutdownMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.cancelShutdown()
-              }
-            }
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: root.shutdownStatus
-            visible: root.shutdownStatus.length > 0
-            color: Theme.muted
-            font.family: Theme.font
-            font.pixelSize: 12
-            horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
           }
         }
 
@@ -1626,18 +2363,23 @@ ShellRoot {
               onPaint: {
                 const context = getContext("2d");
                 context.clearRect(0, 0, width, height);
-                for (const stroke of root.screenshotStrokes)
-                  root.screenshotDrawStroke(context, stroke, screenshotCanvas, screenshotImage);
+                for (const annotation of root.screenshotAnnotations)
+                  root.screenshotDrawAnnotation(context, annotation, screenshotCanvas, screenshotImage);
                 root.screenshotDrawStroke(context, root.screenshotCurrentStroke, screenshotCanvas, screenshotImage);
               }
               MouseArea {
                 anchors.fill: parent
-                cursorShape: Qt.CrossCursor
+                cursorShape: root.screenshotEditMode === "text" ? Qt.IBeamCursor : Qt.CrossCursor
                 enabled: root.screenshotPath.length > 0
                 onPressed: mouse => {
                   const point = root.screenshotPointFromCanvas(mouse, screenshotCanvas, screenshotImage);
                   if (!point) return;
+                  if (root.screenshotEditMode === "text") {
+                    root.addScreenshotText(point);
+                    return;
+                  }
                   root.screenshotCurrentStroke = {
+                    type: "stroke",
                     color: root.screenshotInk,
                     width: root.screenshotInkWidth,
                     points: [point]
@@ -1645,7 +2387,7 @@ ShellRoot {
                   screenshotCanvas.requestPaint();
                 }
                 onPositionChanged: mouse => {
-                  if (!root.screenshotCurrentStroke) return;
+                  if (root.screenshotEditMode !== "draw" || !root.screenshotCurrentStroke) return;
                   const point = root.screenshotPointFromCanvas(mouse, screenshotCanvas, screenshotImage);
                   if (!point) return;
                   root.screenshotCurrentStroke.points.push(point);
@@ -1653,7 +2395,7 @@ ShellRoot {
                 }
                 onReleased: {
                   if (!root.screenshotCurrentStroke) return;
-                  root.screenshotStrokes = root.screenshotStrokes.concat([root.screenshotCurrentStroke]);
+                  root.screenshotAnnotations = root.screenshotAnnotations.concat([root.screenshotCurrentStroke]);
                   root.screenshotCurrentStroke = null;
                   screenshotCanvas.requestPaint();
                 }
@@ -1668,13 +2410,71 @@ ShellRoot {
               anchors.centerIn: parent
               text: "No screenshot yet"
               color: Theme.muted
-              font.family: Theme.font
+              font.family: Theme.fontSans
             }
           }
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "Ink"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+            Repeater {
+              model: [
+                { key: "draw", label: "Draw" },
+                { key: "text", label: "Text" }
+              ]
+              Rectangle {
+                required property var modelData
+                Layout.preferredWidth: 84
+                implicitHeight: 34
+                radius: 8
+                color: root.screenshotEditMode === modelData.key ? Theme.accent : Theme.surface
+                border.color: root.screenshotEditMode === modelData.key ? Theme.accent : Theme.border
+                border.width: 1
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.label
+                  color: root.screenshotEditMode === modelData.key ? Theme.background : Theme.text
+                  font.family: Theme.fontSans
+                  font.pixelSize: 12
+                  font.bold: true
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.screenshotEditMode = parent.modelData.key;
+                    root.screenshotCurrentStroke = null;
+                    screenshotCanvas.requestPaint();
+                  }
+                }
+              }
+            }
+            TextField {
+              Layout.fillWidth: true
+              implicitHeight: 34
+              enabled: root.screenshotEditMode === "text"
+              text: root.screenshotTextDraft
+              placeholderText: "Text to place"
+              color: Theme.text
+              placeholderTextColor: Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              cursorDelegate: root.themedCursor
+              selectionColor: Theme.accent
+              selectedTextColor: Theme.background
+              selectByMouse: true
+              background: Rectangle {
+                radius: 8
+                color: Theme.surface
+                border.color: parent.activeFocus ? Theme.accent : Theme.border
+                border.width: 1
+              }
+              onTextChanged: root.screenshotTextDraft = text
+            }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Text { text: "Ink"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
             Repeater {
               model: root.screenshotInkColors
               delegate: Rectangle {
@@ -1697,183 +2497,539 @@ ShellRoot {
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "Brush size"; color: Theme.muted; font.family: Theme.font; font.bold: true }
+            Text { text: root.screenshotEditMode === "text" ? "Text size" : "Brush size"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
             Item { Layout.fillWidth: true }
             Slider {
               Layout.preferredWidth: 160
               from: 2
-              to: 24
+              to: root.screenshotEditMode === "text" ? 96 : 24
               stepSize: 1
-              value: root.screenshotInkWidth
-              onMoved: root.screenshotInkWidth = Math.round(value)
+              value: root.screenshotEditMode === "text" ? root.screenshotTextSize : root.screenshotInkWidth
+              onMoved: {
+                if (root.screenshotEditMode === "text") root.screenshotTextSize = Math.round(value);
+                else root.screenshotInkWidth = Math.round(value);
+              }
             }
             Text {
               Layout.preferredWidth: 34
               horizontalAlignment: Text.AlignRight
-              text: root.screenshotInkWidth + "px"
+              text: (root.screenshotEditMode === "text" ? root.screenshotTextSize : root.screenshotInkWidth) + "px"
               color: Theme.text
-              font.family: Theme.font
+              font.family: Theme.fontSans
             }
           }
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
             Rectangle {
-              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
-              Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (root.screenshotPath.length > 0) {
-                    root.runTool(root.screenshotEditedArgs("copy-edited"), "Screenshot", "Copied edited image");
-                    root.closeWidget();
-                  }
-                }
-              }
-            }
-            Rectangle {
-              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
-              Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("save-edited"), "Screenshot", "Saved edited image") }
-            }
-            Rectangle {
-              Layout.fillWidth: true; implicitHeight: 40; radius: 9; color: Theme.surface
-              Text { anchors.centerIn: parent; text: "Retake"; color: Theme.accent; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
-            }
-          }
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Rectangle {
-              Layout.fillWidth: true; implicitHeight: 36; radius: 9; color: Theme.surface
+              Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Undo"; color: Theme.text; font.family: Theme.font }
               MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  if (root.screenshotStrokes.length > 0) {
-                    root.screenshotStrokes = root.screenshotStrokes.slice(0, root.screenshotStrokes.length - 1);
+                  if (root.screenshotAnnotations.length > 0) {
+                    root.screenshotAnnotations = root.screenshotAnnotations.slice(0, root.screenshotAnnotations.length - 1);
                     screenshotCanvas.requestPaint();
                   }
                 }
               }
             }
             Rectangle {
-              Layout.fillWidth: true; implicitHeight: 36; radius: 9; color: Theme.surface
-              Text { anchors.centerIn: parent; text: "Clear"; color: Theme.text; font.family: Theme.font }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.screenshotStrokes = [];
-                  root.screenshotCurrentStroke = null;
-                  screenshotCanvas.requestPaint();
-                }
-              }
+              Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("save-edited"), "Screenshot", "Saved edited image") }
+            }
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("copy-edited"), "Screenshot", "Copied edited image") }
+            }
+            Rectangle {
+              Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Retake"; color: Theme.accent; font.family: Theme.font }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
             }
           }
         }
 
         ColumnLayout {
-          visible: root.widgetPage === "calendar"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
-          RowLayout {
+          visible: root.widgetPage === "calendar"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 10
+	          RowLayout {
+	            Layout.fillWidth: true
+	            Text {
+	              text: Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "dddd, d MMMM")
+	              color: Theme.muted
+	              font.family: Theme.fontSans
+	              Layout.fillWidth: true
+	            }
+	          }
+          ColumnLayout {
             Layout.fillWidth: true
-            Text {
-              text: "‹"
-              color: Theme.text
-              font.pixelSize: 28
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.calendarMonthOffset--
+            spacing: 8
+	            RowLayout {
+	              Layout.fillWidth: true
+	              Layout.preferredHeight: 30
+	              spacing: 8
+	              Text {
+	                text: root.calendarEditingHref.length > 0 ? "Editing " + root.calendarEditingKind : ""
+	                color: Theme.accent
+	                font.family: Theme.fontSans
+	                font.pixelSize: 11
+	                font.bold: true
+	                Layout.fillWidth: true
+	                verticalAlignment: Text.AlignVCenter
+	              }
+	              Rectangle {
+	                implicitWidth: 78
+	                implicitHeight: 30
+		                radius: Theme.radiusSm
+		                color: root.calendarCanUndo ? Theme.surface : "transparent"
+		                border.color: root.calendarCanUndo ? Theme.border : "transparent"
+		                border.width: 1
+		                Text { anchors.fill: parent; text: "Undo"; color: root.calendarCanUndo ? Theme.accent : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                MouseArea {
+	                  anchors.fill: parent
+	                  enabled: root.calendarCanUndo && !calendarTaskAction.running
+	                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+	                  onClicked: root.undoCalendarChange()
+	                }
+	              }
+	              Rectangle {
+	                implicitWidth: 92
+	                implicitHeight: 30
+		                radius: Theme.radiusSm
+		                color: root.calendarEditingHref.length > 0 ? Theme.surface : "transparent"
+		                Text { anchors.fill: parent; text: "Cancel"; color: root.calendarEditingHref.length > 0 ? Theme.text : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                MouseArea { anchors.fill: parent; enabled: root.calendarEditingHref.length > 0; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.resetCalendarEditor() }
+	              }
+	              Rectangle {
+	                implicitWidth: 80
+	                implicitHeight: 30
+		                radius: Theme.radiusSm
+		                color: root.calendarEditingHref.length > 0 ? Theme.danger : "transparent"
+		                Text { anchors.fill: parent; text: "Delete"; color: root.calendarEditingHref.length > 0 ? Theme.text : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                MouseArea {
+	                  anchors.fill: parent
+	                  enabled: root.calendarEditingHref.length > 0 && !calendarTaskAction.running
+	                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+	                  onClicked: root.deleteCalendarItem(root.calendarEditingHref)
+	                }
               }
             }
-            Text {
-              Layout.fillWidth: true
-              horizontalAlignment: Text.AlignHCenter
-              text: Qt.formatDateTime(root.calendarDisplayDate(), "MMMM yyyy")
-              color: Theme.text
-              font.family: Theme.font
-              font.pixelSize: 18
-              font.bold: true
-            }
-            Text {
-              text: "›"
-              color: Theme.text
-              font.pixelSize: 28
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.calendarMonthOffset++
-              }
-            }
-          }
-          RowLayout {
-            Layout.fillWidth: true
-            Text {
-              text: Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "dddd, d MMMM")
-              color: Theme.muted
-              font.family: Theme.font
-              Layout.fillWidth: true
-            }
-            Rectangle {
-              implicitWidth: 70
-              implicitHeight: 28
-              radius: 7
-              color: Theme.surface
-              Text { anchors.centerIn: parent; text: "Today"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 11 }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.calendarMonthOffset = 0;
-                  root.calendarSelectedDate = root.dateKey(clock.date);
+			            RowLayout {
+			              Layout.alignment: Qt.AlignLeft
+			              Layout.leftMargin: 135
+			              spacing: 8
+              Repeater {
+                model: [
+                  { key: "task", label: "Task" },
+                  { key: "event", label: "Event" }
+                ]
+	                Rectangle {
+	                  required property var modelData
+	                  implicitWidth: 72
+	                  implicitHeight: 40
+	                  radius: 8
+                  color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.surface
+                  border.color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.border
+                  border.width: 1
+                  Text {
+		                    anchors.fill: parent
+		                    text: modelData.label
+		                    color: root.calendarEntryMode === modelData.key ? Theme.background : Theme.text
+		                    font.family: Theme.fontSans
+		                    font.pixelSize: 14
+		                    font.bold: true
+		                    horizontalAlignment: Text.AlignHCenter
+		                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                      root.resetCalendarEditor();
+                      root.calendarEntryMode = parent.modelData.key;
+                    }
+                  }
                 }
+	              }
+              TextField {
+                Layout.preferredWidth: 360
+                Layout.maximumWidth: 360
+                implicitHeight: 40
+                text: root.calendarTitleDraft
+                placeholderText: root.calendarEntryMode === "event" ? "Add event" : "Add task"
+                color: Theme.text
+                placeholderTextColor: Theme.muted
+                font.family: Theme.font
+                font.pixelSize: 12
+                cursorDelegate: root.themedCursor
+                selectionColor: Theme.accent
+                selectedTextColor: Theme.background
+                selectByMouse: true
+                background: Rectangle {
+                  radius: 9
+                  color: Theme.surface
+                  border.color: parent.activeFocus ? Theme.accent : Theme.border
+                  border.width: 1
+                }
+                onTextChanged: root.calendarTitleDraft = text
+                Keys.onReturnPressed: root.addCalendarItem()
+                Keys.onEnterPressed: root.addCalendarItem()
+              }
+		              Rectangle {
+		                implicitWidth: 40
+		                implicitHeight: 40
+		                radius: 9
+                color: root.calendarTitleDraft.trim().length > 0 ? Theme.accent : Theme.surface
+	                Text {
+		                  anchors.fill: parent
+		                  text: root.calendarSaveLabel()
+		                  color: root.calendarTitleDraft.trim().length > 0 ? Theme.background : Theme.muted
+		                  font.family: Theme.fontSans
+			                  font.pixelSize: root.calendarEditingHref.length > 0 ? 11 : 18
+	                  font.bold: true
+	                  horizontalAlignment: Text.AlignHCenter
+	                  verticalAlignment: Text.AlignVCenter
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  enabled: root.calendarTitleDraft.trim().length > 0 && !calendarTaskAction.running
+                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+		                  onClicked: root.addCalendarItem()
+		                }
+		              }
+			              Rectangle {
+			                implicitWidth: 78
+			                implicitHeight: 40
+		                radius: 8
+		                color: root.calendarEntryMode === "event" ? (root.calendarAllDay ? Theme.accent : Theme.surface) : "transparent"
+		                border.color: root.calendarEntryMode === "event" ? (root.calendarAllDay ? Theme.accent : Theme.border) : "transparent"
+	                border.width: 1
+	                RowLayout {
+	                  anchors.centerIn: parent
+	                  spacing: 6
+		                  Text { text: root.calendarEntryMode === "event" && root.calendarAllDay ? "✓" : ""; color: root.calendarEntryMode === "event" ? (root.calendarAllDay ? Theme.background : Theme.muted) : "transparent"; font.family: Theme.fontSans; font.pixelSize: 12; font.bold: true; Layout.preferredWidth: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+		                  Text { text: "All day"; color: root.calendarEntryMode === "event" ? (root.calendarAllDay ? Theme.background : Theme.text) : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; verticalAlignment: Text.AlignVCenter }
+		                }
+		                MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event"; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.calendarAllDay = !root.calendarAllDay }
+		              }
+				              ColumnLayout {
+					                Layout.preferredWidth: 260
+					                Layout.maximumWidth: 260
+				                Layout.preferredHeight: 40
+				                spacing: 4
+				                RowLayout {
+				                  Layout.fillWidth: true
+				                  Layout.preferredHeight: 18
+					                  spacing: 5
+				                  Text {
+				                    text: "Start"
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.muted : "transparent"
+				                    font.family: Theme.fontSans
+				                    font.pixelSize: 12
+				                    font.bold: true
+				                    Layout.preferredWidth: 36
+				                    horizontalAlignment: Text.AlignRight
+				                    verticalAlignment: Text.AlignVCenter
+				                  }
+					                  Rectangle {
+					                    implicitWidth: 24
+					                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: "-"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarStart(-15) }
+				                  }
+				                  Rectangle {
+				                    Layout.fillWidth: true
+				                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.accent : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: root.calendarClock(root.calendarEventStartMinutes); color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 15; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                  }
+				                  Rectangle {
+				                    implicitWidth: 24
+				                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: "+"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarStart(15) }
+				                  }
+				                }
+				                RowLayout {
+				                  Layout.fillWidth: true
+				                  Layout.preferredHeight: 18
+					                  spacing: 5
+				                  Text {
+				                    text: "End"
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.muted : "transparent"
+				                    font.family: Theme.fontSans
+				                    font.pixelSize: 12
+				                    font.bold: true
+				                    Layout.preferredWidth: 36
+				                    horizontalAlignment: Text.AlignRight
+				                    verticalAlignment: Text.AlignVCenter
+				                  }
+					                  Rectangle {
+					                    implicitWidth: 24
+				                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: "-"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarDuration(-15) }
+				                  }
+				                  Rectangle {
+				                    Layout.fillWidth: true
+				                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.accent : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: root.calendarEndClock() + "  " + root.calendarEventDurationMinutes + "m"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 15; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                  }
+				                  Rectangle {
+				                    implicitWidth: 24
+				                    implicitHeight: 18
+				                    radius: 5
+				                    color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.surface : "transparent"
+				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
+				                    border.width: 1
+						                    Text { anchors.fill: parent; text: "+"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarDuration(15) }
+				                  }
+				                }
+				              }
+	            }
+            Rectangle {
+              visible: root.calendarError.length > 0
+              Layout.fillWidth: true
+              implicitHeight: 30
+              radius: Theme.radiusSm
+              color: Theme.surface
+              border.color: Theme.accent
+              border.width: 1
+              Text {
+                anchors.fill: parent
+                anchors.margins: 8
+                text: root.calendarError
+                color: Theme.accent
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
               }
             }
           }
-          GridLayout {
-            Layout.fillWidth: true; columns: 7; rowSpacing: 8; columnSpacing: 8
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 12
+	            ColumnLayout {
+		              Layout.preferredWidth: 1168
+		              Layout.maximumWidth: 1168
+	              Layout.fillHeight: true
+	              spacing: 10
+	              RowLayout {
+	                Layout.preferredWidth: 1168
+	                Layout.maximumWidth: 1168
+	                spacing: 10
+	                Rectangle {
+	                  implicitWidth: 40
+	                  implicitHeight: 40
+	                  radius: 8
+	                  color: Theme.surface
+	                  border.color: Theme.border
+	                  border.width: 1
+	                  Text { anchors.fill: parent; text: "‹"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 24; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                  MouseArea {
+	                    anchors.fill: parent
+	                    cursorShape: Qt.PointingHandCursor
+	                    onClicked: root.calendarMonthOffset--
+	                  }
+	                }
+		                Text {
+		                  Layout.fillWidth: true
+		                  text: Qt.formatDateTime(root.calendarDisplayDate(), "MMMM yyyy")
+	                  color: Theme.text
+	                  font.family: Theme.fontSans
+	                  font.pixelSize: 20
+	                  font.bold: true
+		                  horizontalAlignment: Text.AlignHCenter
+		                  verticalAlignment: Text.AlignVCenter
+		                }
+		                Rectangle {
+		                  implicitWidth: 70
+		                  implicitHeight: 40
+		                  radius: 8
+		                  color: Theme.surface
+		                  border.color: Theme.border
+		                  border.width: 1
+		                  Text { anchors.fill: parent; text: "Today"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+		                  MouseArea {
+		                    anchors.fill: parent
+		                    cursorShape: Qt.PointingHandCursor
+		                    onClicked: {
+		                      root.calendarMonthOffset = 0;
+		                      root.calendarSelectedDate = root.dateKey(clock.date);
+		                    }
+		                  }
+		                }
+		                Rectangle {
+		                  implicitWidth: 40
+		                  implicitHeight: 40
+	                  radius: 8
+	                  color: Theme.surface
+	                  border.color: Theme.border
+	                  border.width: 1
+	                  Text { anchors.fill: parent; text: "›"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 24; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                  MouseArea {
+	                    anchors.fill: parent
+	                    cursorShape: Qt.PointingHandCursor
+	                    onClicked: root.calendarMonthOffset++
+	                  }
+	                }
+	              }
+	              GridLayout {
+                id: calendarMonthGrid
+	                readonly property int cellSize: 160
+                Layout.preferredWidth: cellSize * 7 + columnSpacing * 6
+                columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
               model: ["M", "T", "W", "T", "F", "S", "S"]
               Text {
                 required property string modelData
                 text: modelData
                 color: Theme.accent
-                font.family: Theme.font
+                font.family: Theme.fontSans
                 font.bold: true
-                Layout.fillWidth: true
+		                font.pixelSize: 14
+	                Layout.preferredWidth: calendarMonthGrid.cellSize
+	                Layout.preferredHeight: 22
                 horizontalAlignment: Text.AlignHCenter
               }
             }
             Repeater {
-              model: root.monthCells()
-              Rectangle {
-                required property var modelData
-                Layout.fillWidth: true
-                implicitHeight: 34
+	              model: root.monthCells()
+	              Rectangle {
+	                id: calendarDayCell
+	                required property var modelData
+                Layout.preferredWidth: calendarMonthGrid.cellSize
+                Layout.preferredHeight: calendarMonthGrid.cellSize
+                implicitWidth: calendarMonthGrid.cellSize
+                implicitHeight: calendarMonthGrid.cellSize
                 radius: 8
                 color: !modelData.inMonth ? "transparent" : modelData.isSelected ? Theme.accent : Theme.surface
                 border.color: modelData.inMonth && (modelData.isToday || modelData.eventCount > 0) && !modelData.isSelected ? Theme.accent : "transparent"
                 border.width: modelData.inMonth && (modelData.isToday || modelData.eventCount > 0) && !modelData.isSelected ? 1 : 0
                 Text {
-                  anchors.centerIn: parent
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+	                  anchors.leftMargin: 13
+	                  anchors.topMargin: 10
                   text: modelData.inMonth ? modelData.day : ""
                   color: modelData.isSelected ? Theme.background : Theme.text
-                  font.family: Theme.font
+                  font.family: Theme.fontSans
+		                  font.pixelSize: 22
+                  font.bold: modelData.isToday || modelData.isSelected
+                }
+                Flickable {
+                  id: calendarDayScroll
+                  visible: modelData.inMonth && modelData.eventCount > 0
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  anchors.topMargin: 44
+                  anchors.leftMargin: 12
+                  anchors.rightMargin: 8
+                  anchors.bottomMargin: 10
+                  clip: true
+                  boundsBehavior: Flickable.StopAtBounds
+                  contentWidth: width
+                  contentHeight: calendarDayEventColumn.implicitHeight
+
+                  Column {
+                    id: calendarDayEventColumn
+                    width: calendarDayScroll.width - (calendarDayScroll.contentHeight > calendarDayScroll.height ? 8 : 0)
+                    spacing: 5
+                    Repeater {
+                      model: root.calendarDayItems(calendarDayCell.modelData.date)
+                      Rectangle {
+                        required property var modelData
+                        width: parent.width
+                        height: 20
+                        radius: 5
+                        color: calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))
+                        Text {
+                          anchors.fill: parent
+                          anchors.leftMargin: 7
+                          anchors.rightMargin: 7
+                          text: (modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")) + modelData.title
+                          color: calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text)
+                          font.family: Theme.fontSans
+                          font.pixelSize: 12
+                          font.strikeout: Boolean(modelData.completed)
+                          elide: Text.ElideRight
+                          verticalAlignment: Text.AlignVCenter
+                        }
+                      }
+                    }
+                  }
+
+                  ScrollBar.vertical: ScrollBar {
+                    policy: calendarDayScroll.contentHeight > calendarDayScroll.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    width: 4
+                    contentItem: Rectangle {
+                      implicitWidth: 4
+                      radius: 2
+                      color: calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.36) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.28)
+                    }
+                    background: Item {}
+                  }
                 }
                 Rectangle {
-                  visible: modelData.inMonth && modelData.eventCount > 0
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  anchors.bottom: parent.bottom
-                  anchors.bottomMargin: 4
-                  implicitWidth: Math.min(18, 5 + modelData.eventCount * 4)
-                  implicitHeight: 4
-                  radius: 2
-                  color: modelData.isSelected ? Theme.background : Theme.accent
-                }
+                  visible: modelData.inMonth && modelData.isToday
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+		                  anchors.leftMargin: 8
+		                  anchors.rightMargin: 8
+		                  y: Math.max(39, Math.min(parent.height - 12, Math.round(39 + root.calendarCurrentDayProgress() * (parent.height - 52))))
+		                  height: 4
+	                  radius: 2
+	                  color: "#f38ba8"
+	                  z: 8
+	                }
+	                Rectangle {
+	                  visible: modelData.inMonth && modelData.isToday
+	                  anchors.right: parent.right
+		                  anchors.rightMargin: 8
+		                  y: Math.max(28, Math.min(parent.height - 22, Math.round(29 + root.calendarCurrentDayProgress() * (parent.height - 50))))
+		                  width: 52
+		                  height: 20
+		                  radius: 6
+	                  color: modelData.isSelected ? Theme.background : Theme.surface
+	                  border.color: "#f38ba8"
+	                  border.width: 1
+	                  z: 9
+	                  Text {
+	                    anchors.centerIn: parent
+	                    text: Qt.formatDateTime(clock.date, "HH:mm")
+	                    color: "#f38ba8"
+	                    font.family: Theme.fontSans
+		                    font.pixelSize: 12
+	                    font.bold: true
+	                  }
+	                }
                 MouseArea {
                   anchors.fill: parent
                   enabled: modelData.inMonth
@@ -1882,67 +3038,252 @@ ShellRoot {
                 }
               }
             }
+              }
+            }
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              spacing: 10
+              Text {
+                Layout.fillWidth: true
+                text: "Selected day"
+                color: Theme.muted
+                font.family: Theme.fontSans
+                font.bold: true
+              }
+              RowLayout {
+                visible: false
+                Layout.fillWidth: true
+                spacing: 8
+            Repeater {
+              model: [
+                { key: "task", label: "Task" },
+                { key: "event", label: "Event" }
+              ]
+              Rectangle {
+                required property var modelData
+                Layout.fillWidth: true
+                implicitHeight: 32
+                radius: 8
+                color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.surface
+                border.color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.border
+                border.width: 1
+                Text {
+                  anchors.centerIn: parent
+                  text: modelData.label
+                  color: root.calendarEntryMode === modelData.key ? Theme.background : Theme.text
+                  font.family: Theme.fontSans
+                  font.pixelSize: 12
+                  font.bold: true
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.resetCalendarEditor();
+                    root.calendarEntryMode = parent.modelData.key;
+                  }
+                }
+              }
+            }
           }
           Text {
+            visible: false
             Layout.fillWidth: true
-            text: "Selected day"
-            color: Theme.muted
-            font.family: Theme.font
+            text: "Editing " + root.calendarEditingKind
+            color: Theme.accent
+            font.family: Theme.fontSans
+            font.pixelSize: 11
             font.bold: true
           }
           RowLayout {
+            visible: false
             Layout.fillWidth: true
             spacing: 8
             TextField {
               Layout.fillWidth: true
               implicitHeight: 38
-              text: root.calendarTaskDraft
-              placeholderText: "Add task"
-              color: Theme.text
-              placeholderTextColor: Theme.muted
-              font.family: Theme.font
-              font.pixelSize: 12
-              selectByMouse: true
-              background: Rectangle {
+            text: root.calendarTitleDraft
+            placeholderText: root.calendarEntryMode === "event" ? "Add event" : "Add task"
+            color: Theme.text
+            placeholderTextColor: Theme.muted
+            font.family: Theme.font
+            font.pixelSize: 12
+            cursorDelegate: root.themedCursor
+            selectionColor: Theme.accent
+            selectedTextColor: Theme.background
+            selectByMouse: true
+            background: Rectangle {
                 radius: 9
                 color: Theme.surface
                 border.color: parent.activeFocus ? Theme.accent : Theme.border
                 border.width: 1
               }
-              onTextChanged: root.calendarTaskDraft = text
-              Keys.onReturnPressed: root.addCalendarTask()
-              Keys.onEnterPressed: root.addCalendarTask()
+              onTextChanged: root.calendarTitleDraft = text
+              Keys.onReturnPressed: root.addCalendarItem()
+              Keys.onEnterPressed: root.addCalendarItem()
             }
             Rectangle {
               implicitWidth: 42
               implicitHeight: 38
               radius: 9
-              color: root.calendarTaskDraft.trim().length > 0 ? Theme.accent : Theme.surface
+              color: root.calendarTitleDraft.trim().length > 0 ? Theme.accent : Theme.surface
               Text {
                 anchors.centerIn: parent
-                text: "+"
-                color: root.calendarTaskDraft.trim().length > 0 ? Theme.background : Theme.muted
-                font.family: Theme.font
-                font.pixelSize: 18
+                text: root.calendarSaveLabel()
+                color: root.calendarTitleDraft.trim().length > 0 ? Theme.background : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: root.calendarEditingHref.length > 0 ? 11 : 18
                 font.bold: true
               }
               MouseArea {
                 anchors.fill: parent
-                enabled: root.calendarTaskDraft.trim().length > 0 && !calendarTaskAction.running
+                enabled: root.calendarTitleDraft.trim().length > 0 && !calendarTaskAction.running
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: root.addCalendarTask()
+                onClicked: root.addCalendarItem()
+              }
+            }
+          }
+          RowLayout {
+            visible: false
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+              implicitWidth: 88
+              implicitHeight: 34
+              radius: 8
+              color: root.calendarAllDay ? Theme.accent : Theme.surface
+              border.color: root.calendarAllDay ? Theme.accent : Theme.border
+              border.width: 1
+              RowLayout {
+                anchors.centerIn: parent
+                spacing: 6
+                Text { text: root.calendarAllDay ? "✓" : ""; color: root.calendarAllDay ? Theme.background : Theme.muted; font.family: Theme.fontSans; font.pixelSize: 12; font.bold: true; Layout.preferredWidth: 12; horizontalAlignment: Text.AlignHCenter }
+                Text { text: "All day"; color: root.calendarAllDay ? Theme.background : Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true }
+              }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.calendarAllDay = !root.calendarAllDay }
+            }
+            RowLayout {
+              visible: !root.calendarAllDay
+              Layout.fillWidth: true
+              spacing: 6
+              Rectangle {
+                implicitWidth: 30
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+	                  Text { anchors.fill: parent; text: "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarStart(-15) }
+              }
+              Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.accent
+                border.width: 1
+	                  Text { anchors.fill: parent; text: "Start " + root.calendarClock(root.calendarEventStartMinutes); color: Theme.text; font.family: Theme.font; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              }
+              Rectangle {
+                implicitWidth: 30
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+	                  Text { anchors.fill: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarStart(15) }
+              }
+              Rectangle {
+                implicitWidth: 30
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+	                  Text { anchors.fill: parent; text: "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarDuration(-15) }
+              }
+              Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.accent
+                border.width: 1
+	                  Text { anchors.fill: parent; text: root.calendarEventDurationMinutes + "m -> " + root.calendarEndClock(); color: Theme.text; font.family: Theme.font; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+              }
+              Rectangle {
+                implicitWidth: 30
+                implicitHeight: 34
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+	                  Text { anchors.fill: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarDuration(15) }
+              }
+            }
+          }
+          Rectangle {
+            visible: false
+            Layout.fillWidth: true
+            implicitHeight: 34
+            radius: Theme.radiusSm
+            color: Theme.surface
+            border.color: Theme.accent
+            border.width: 1
+            Text {
+              anchors.fill: parent
+              anchors.margins: 8
+              text: root.calendarError
+              color: Theme.accent
+              font.family: Theme.fontSans
+              font.pixelSize: 10
+              elide: Text.ElideRight
+              verticalAlignment: Text.AlignVCenter
+            }
+          }
+          RowLayout {
+            visible: false
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+              Layout.fillWidth: true
+              implicitHeight: 34
+              radius: Theme.radiusSm
+              color: Theme.surface
+              Text { anchors.centerIn: parent; text: "Cancel edit"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.resetCalendarEditor() }
+            }
+            Rectangle {
+              Layout.fillWidth: true
+              implicitHeight: 34
+              radius: Theme.radiusSm
+              color: Theme.danger
+              Text { anchors.centerIn: parent; text: "Delete"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true }
+              MouseArea {
+                anchors.fill: parent
+                enabled: !calendarTaskAction.running
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.deleteCalendarItem(root.calendarEditingHref)
               }
             }
           }
           ListView {
-            Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 6
+            Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 96; clip: true; spacing: 6
             model: root.selectedDayEvents()
             delegate: Rectangle {
+              id: calendarItemRow
               required property var modelData
+              readonly property bool editable: Boolean(modelData.href) && !modelData.note && modelData.source !== "Obsidian"
+              readonly property bool noteOpenable: Boolean(modelData.note) && Boolean(modelData.noteId)
               width: ListView.view.width
-              implicitHeight: 50
+              implicitHeight: 58
               radius: 9
-              color: Theme.surface
+	              color: root.calendarEditingHref === modelData.href ? Theme.surfaceAlt : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.10) : Theme.surface)
               RowLayout {
                 anchors.fill: parent; anchors.margins: 10; spacing: 10
                 ColumnLayout {
@@ -1950,31 +3291,123 @@ ShellRoot {
                   Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "dd"); color: Theme.accent; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
                   Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "MMM"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
                 }
-                Text { text: modelData.title; color: Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight }
-                Text {
-                  text: modelData.task ? "task" : (modelData.allDay ? "all day" : (modelData.startTime || ""))
-                  color: Theme.muted
-                  font.family: Theme.font
+	                Text { text: modelData.title; color: modelData.completed ? Theme.muted : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; font.strikeout: Boolean(modelData.completed) }
+	                Text {
+	                  text: modelData.note ? "note" : (modelData.task ? (modelData.completed ? "done" : "task") : (modelData.allDay ? "all day" : (modelData.startTime || "")))
+	                  color: Theme.muted
+                  font.family: Theme.fontSans
                   font.pixelSize: 10
+                }
+                Rectangle {
+                  visible: calendarItemRow.noteOpenable
+                  implicitWidth: 64
+                  implicitHeight: 32
+                  radius: 8
+                  color: Theme.surfaceAlt
+                  Text {
+		                    anchors.fill: parent
+		                    text: "Open"
+		                    color: Theme.text
+		                    font.family: Theme.fontSans
+		                    font.pixelSize: 12
+		                    font.bold: true
+		                    horizontalAlignment: Text.AlignHCenter
+		                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    id: openNoteMouse
+                    anchors.fill: parent
+                    enabled: calendarItemRow.noteOpenable && !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.openCalendarNote(calendarItemRow.modelData.noteId)
+                  }
+                }
+                Rectangle {
+                  visible: calendarItemRow.editable
+                  implicitWidth: 58
+                  implicitHeight: 32
+                  radius: 8
+                  color: Theme.surfaceAlt
+                  Text {
+		                    anchors.fill: parent
+		                    text: "Edit"
+		                    color: Theme.text
+		                    font.family: Theme.fontSans
+		                    font.pixelSize: 12
+		                    font.bold: true
+		                    horizontalAlignment: Text.AlignHCenter
+		                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    id: editCalendarMouse
+                    anchors.fill: parent
+                    enabled: calendarItemRow.editable && !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.editCalendarItem(calendarItemRow.modelData)
+                  }
+                }
+                Rectangle {
+                  visible: calendarItemRow.editable
+                  implicitWidth: 72
+                  implicitHeight: 32
+                  radius: 8
+                  color: Theme.surfaceAlt
+                  Text {
+		                    anchors.fill: parent
+		                    text: "Remove"
+		                    color: Theme.muted
+		                    font.family: Theme.fontSans
+		                    font.pixelSize: 12
+		                    font.bold: true
+		                    horizontalAlignment: Text.AlignHCenter
+		                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    id: deleteCalendarMouse
+                    anchors.fill: parent
+                    enabled: calendarItemRow.editable && !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.deleteCalendarItem(calendarItemRow.modelData.href)
+                  }
+                }
+                Rectangle {
+		                  visible: Boolean(modelData.task) && !Boolean(modelData.completed) && calendarItemRow.editable
+                  implicitWidth: 30
+                  implicitHeight: 30
+                  radius: 15
+                  color: Theme.accent
+                  Text {
+	                    anchors.fill: parent
+	                    text: "✓"
+	                    color: Theme.background
+	                    font.family: Theme.fontSans
+	                    font.pixelSize: 14
+	                    font.bold: true
+	                    horizontalAlignment: Text.AlignHCenter
+	                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    enabled: !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.completeCalendarTask(modelData.href)
+                  }
                 }
               }
             }
+            Text {
+              anchors.centerIn: parent
+              visible: parent.count === 0
+              text: "No events or tasks"
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+            }
           }
-          Text {
-            visible: root.selectedDayEvents().length === 0
-            Layout.fillWidth: true
-            text: "No events or tasks"
-            color: Theme.muted
-            font.family: Theme.font
-            font.pixelSize: 12
-            horizontalAlignment: Text.AlignHCenter
+            }
           }
-          Rectangle {
-            Layout.fillWidth: true; implicitHeight: 42; radius: 9; color: Theme.surface
-            Text { anchors.centerIn: parent; text: "Open Obsidian"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["obsidian"]) }
-          }
-        }
+	        }
       }
       Keys.onEscapePressed: root.closeWidget()
     }
@@ -1989,9 +3422,14 @@ ShellRoot {
     exclusionMode: ExclusionMode.Ignore
     Rectangle {
       anchors.fill: parent; anchors.margins: 4
-      radius: 14; color: Theme.background; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusMd; color: Theme.panel; border.color: Theme.border; border.width: 1
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.notificationPopupVisible = false
+      }
       RowLayout {
-        anchors.fill: parent; anchors.margins: 15; spacing: 12
+        anchors.fill: parent; anchors.margins: Theme.padMd; spacing: Theme.gapMd
         IconImage {
           visible: root.latestNotification && root.latestNotification.appIcon
           implicitSize: 42
@@ -1999,8 +3437,12 @@ ShellRoot {
         }
         ColumnLayout {
           Layout.fillWidth: true; Layout.fillHeight: true; spacing: 4
-          Text { text: root.latestNotification ? root.latestNotification.appName : ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 11 }
-          Text { Layout.fillWidth: true; text: root.latestNotification ? root.latestNotification.summary : ""; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 14; wrapMode: Text.Wrap }
+          RowLayout {
+            Layout.fillWidth: true
+            Text { text: root.latestNotification ? root.latestNotification.appName : ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 11; Layout.fillWidth: true }
+            Text { text: root.latestNotification ? root.notificationTimeLabel(root.latestNotification) : ""; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 10 }
+          }
+          Text { Layout.fillWidth: true; text: root.latestNotification ? root.latestNotification.summary : ""; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 14; wrapMode: Text.Wrap }
           Text { Layout.fillWidth: true; Layout.fillHeight: true; text: root.latestNotification ? root.latestNotification.body : ""; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; elide: Text.ElideRight; maximumLineCount: 3 }
         }
         Text {
@@ -2019,12 +3461,12 @@ ShellRoot {
     margins.bottom: 70
     exclusionMode: ExclusionMode.Ignore
     Rectangle {
-      anchors.fill: parent; radius: 14; color: Theme.background; border.color: Theme.border; border.width: 1
+      anchors.fill: parent; radius: Theme.radiusMd; color: Theme.panel; border.color: Theme.border; border.width: 1
       RowLayout {
         anchors.fill: parent; anchors.margins: 14; spacing: 12
         Text {
           text: root.osdKind === "brightness" ? "󰃠" : (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : "")
-          color: Theme.accent; font.family: Theme.font; font.pixelSize: 22
+          color: Theme.accent; font.family: Theme.fontIcon; font.pixelSize: 22
         }
         Rectangle {
           Layout.fillWidth: true; Layout.preferredHeight: 8; radius: 4; color: Theme.surface
@@ -2058,14 +3500,72 @@ ShellRoot {
         Text {
           text: root.toolStatusTitle === "Voice to text" ? "󰍬" : "󰄀"
           color: Theme.accent
-          font.family: Theme.font
+          font.family: Theme.fontIcon
           font.pixelSize: 24
         }
         ColumnLayout {
           Layout.fillWidth: true
           spacing: 2
-          Text { text: root.toolStatusTitle; color: Theme.text; font.family: Theme.font; font.bold: true }
+          Text { text: root.toolStatusTitle; color: Theme.text; font.family: Theme.fontSans; font.bold: true }
           Text { text: root.toolStatusDetail; color: Theme.muted; font.family: Theme.font; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
+        }
+      }
+    }
+  }
+
+  PanelWindow {
+    visible: root.codexUsageVisible
+    focusable: true
+    color: "transparent"
+    implicitWidth: 270
+    implicitHeight: 170
+    anchors { bottom: true; right: true }
+    margins { bottom: 72; right: 54 }
+    exclusionMode: ExclusionMode.Ignore
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.codexUsageVisible = false
+    }
+    Rectangle {
+      width: parent.width
+      height: parent.height
+      radius: Theme.radiusLg
+      color: Theme.panel
+      border.color: Theme.border
+      border.width: 1
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: Theme.padMd
+        spacing: 8
+        RowLayout {
+          Layout.fillWidth: true
+          Text {
+            text: "◉  Codex usage"
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.bold: true
+            font.pixelSize: 16
+            Layout.fillWidth: true
+          }
+          Text { text: "×"; color: Theme.muted; font.pixelSize: 20; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.codexUsageVisible = false } }
+        }
+        Text {
+          Layout.fillWidth: true
+          text: root.codexUsageError.length > 0 ? ("Error: " + root.codexUsageError) : (root.codexUsage ? root.codexUsageSummaryText() : "No data yet")
+          color: root.codexUsageError.length > 0 ? Theme.danger : Theme.text
+          font.family: Theme.fontSans
+          font.pixelSize: 13
+          wrapMode: Text.Wrap
+        }
+        Text {
+          Layout.fillWidth: true
+          visible: !!root.codexUsage
+          text: root.codexUsageTooltipText()
+          color: Theme.muted
+          font.family: Theme.font
+          font.pixelSize: 11
+          wrapMode: Text.Wrap
+          elide: Text.ElideRight
         }
       }
     }
@@ -2076,7 +3576,6 @@ ShellRoot {
     focusable: true
     color: "transparent"
     anchors { top: true; left: true; right: true; bottom: true }
-    margins.right: 44
     exclusionMode: ExclusionMode.Ignore
 
     MouseArea {
@@ -2096,17 +3595,17 @@ ShellRoot {
         right: parent.right
         bottom: parent.bottom
         topMargin: 18
-        rightMargin: 10
+        rightMargin: 54
         bottomMargin: 18
       }
-      radius: 16; color: Theme.background; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
       ColumnLayout {
-        anchors.fill: parent; anchors.margins: 16; spacing: 10
+        anchors.fill: parent; anchors.margins: Theme.padMd; spacing: Theme.gapSm
         RowLayout {
           Layout.fillWidth: true
-          Text { text: "Notifications"; color: Theme.text; font.family: Theme.font; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true }
+          Text { text: "Notifications"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true }
           Text {
-            text: "Clear"; color: Theme.accent; font.family: Theme.font
+            text: "Clear"; color: Theme.accent; font.family: Theme.fontSans
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const copy = notificationServer.trackedNotifications.values.slice(); for (const n of copy) n.dismiss(); } }
           }
         }
@@ -2116,16 +3615,23 @@ ShellRoot {
           delegate: Rectangle {
             required property var modelData
             width: ListView.view.width; height: content.implicitHeight + 24
-            radius: 11; color: Theme.surface
+            radius: Theme.radiusMd; color: Theme.surface
+            scale: 1
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: parent.modelData.dismiss()
+            }
             ColumnLayout {
               id: content
               anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12; spacing: 4
               RowLayout {
                 Layout.fillWidth: true
                 Text { text: parent.parent.parent.modelData.appName; color: Theme.accent; font.family: Theme.font; font.pixelSize: 10; Layout.fillWidth: true }
+                Text { text: root.notificationTimeLabel(parent.parent.parent.modelData); color: root.secondaryText; font.family: Theme.font; font.pixelSize: 10 }
                 Text { text: "×"; color: Theme.muted; font.pixelSize: 18; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.parent.parent.parent.modelData.dismiss() } }
               }
-              Text { Layout.fillWidth: true; text: parent.parent.modelData.summary; color: Theme.text; font.family: Theme.font; font.bold: true; wrapMode: Text.Wrap }
+              Text { Layout.fillWidth: true; text: parent.parent.modelData.summary; color: Theme.text; font.family: Theme.fontSans; font.bold: true; wrapMode: Text.Wrap }
               Text { Layout.fillWidth: true; text: parent.parent.modelData.body; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; textFormat: Text.StyledText }
               RowLayout {
                 Layout.fillWidth: true; visible: parent.parent.modelData.actions.length > 0
@@ -2159,14 +3665,17 @@ ShellRoot {
 
     Rectangle {
       width: 500; height: 530; anchors.centerIn: parent
-      radius: 16; color: Theme.background; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
       ColumnLayout {
         anchors.fill: parent; anchors.margins: 18; spacing: 10
-        TextInput {
+          TextInput {
           id: search
           Layout.fillWidth: true; Layout.preferredHeight: 42
           focus: launcher.visible
           color: Theme.text; font.family: Theme.font; font.pixelSize: 18
+          cursorDelegate: root.themedCursor
+          selectionColor: Theme.accent
+          selectedTextColor: Theme.background
           selectByMouse: true
           onAccepted: if (appList.count > 0) appList.itemAtIndex(0).launch()
           Keys.onEscapePressed: root.launcherVisible = false
@@ -2185,7 +3694,8 @@ ShellRoot {
             id: appRow
             required property var modelData
             width: ListView.view.width; height: 48; radius: 9
-            color: rowMouse.containsMouse ? Theme.surface : "transparent"
+            color: "transparent"
+            scale: 1
             function launch() { modelData.execute(); root.launcherVisible = false; search.text = ""; }
             RowLayout {
               anchors.fill: parent; anchors.margins: 7; spacing: 12
@@ -2196,7 +3706,6 @@ ShellRoot {
                 Text { text: appRow.modelData.genericName; color: Theme.muted; font.family: Theme.font; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
               }
             }
-            MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: appRow.launch() }
           }
         }
       }
@@ -2210,11 +3719,16 @@ ShellRoot {
     implicitWidth: 480; implicitHeight: 170
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
+    MouseArea {
+      anchors.fill: parent
+      enabled: root.powerVisible
+      onClicked: root.powerVisible = false
+    }
     Rectangle {
       width: 450; height: 140; anchors.centerIn: parent
-      radius: 16; color: Theme.background; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
       RowLayout {
-        anchors.fill: parent; anchors.margins: 18; spacing: 12
+        anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         Repeater {
           model: [
             { icon: "󰌾", label: "Lock", command: [] },
@@ -2225,7 +3739,7 @@ ShellRoot {
           Rectangle {
             required property var modelData
             Layout.fillWidth: true; Layout.fillHeight: true; radius: 12
-            color: powerMouse.containsMouse ? (modelData.label === "Power" ? Theme.danger : Theme.surface) : Theme.surface
+            color: Theme.surface
             ColumnLayout {
               anchors.centerIn: parent
               Text { text: parent.parent.modelData.icon; color: Theme.text; font.family: Theme.font; font.pixelSize: 28; Layout.alignment: Qt.AlignHCenter }
@@ -2234,7 +3748,6 @@ ShellRoot {
             MouseArea {
               id: powerMouse
               anchors.fill: parent
-              hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 root.powerVisible = false;

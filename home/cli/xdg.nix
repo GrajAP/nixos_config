@@ -20,7 +20,7 @@
     "video/*" = ["mpv.desktop"];
     "image/*" = ["imv.desktop"];
     "application/json" = browser;
-    "application/pdf" = ["org.pwmt.zathura-pdf-mupdf.desktop"];
+    "application/pdf" = browser;
   };
 in {
   xdg.configFile."applications/helium.desktop".text = ''

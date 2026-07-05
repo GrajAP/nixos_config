@@ -35,6 +35,8 @@
 
     shellAliases = import ./aliases.nix {inherit pkgs lib config;};
     initContent = ''
+      alias codex='codex --dangerously-bypass-approvals-and-sandbox'
+
       if command -v t3code-notify >/dev/null 2>&1; then
         alias t3code=t3code-notify
       fi

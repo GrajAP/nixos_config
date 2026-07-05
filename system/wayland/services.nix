@@ -15,7 +15,10 @@
 
   services = {
     pulseaudio.enable = false;
-    xserver.enable = true;
+    xserver = {
+      enable = true;
+      excludePackages = [pkgs.xterm];
+    };
     openssh.enable = true;
     greetd = {
       enable = true;

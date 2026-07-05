@@ -12,12 +12,14 @@
         "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
         "brightnessctl set 100%"
         "${lib.optionalString config.programs.foot.server.enable "foot --server"}"
-        "signal-desktop"
-        "ferdium"
-        "spotify --disable-gpu &"
+        "kdeconnect-indicator &"
+        "signal-desktop &"
+        "ferdium &"
+        "spotify &"
+        "t3code-desktop &"
         "find ~/.config/obsidian -maxdepth 1 -type f -name 'obsidian-*.asar' -delete"
-        "launch-obsidian-tools"
-        "helium"
+        "launch-obsidian-tools &"
+        "helium &"
       ];
       gestures.workspace_swipe_forever = true;
 
@@ -35,7 +37,7 @@
       };
 
       decoration = {
-        rounding = 10;
+        rounding = 12;
         blur = {
           enabled = true;
           size = 3;
@@ -43,8 +45,8 @@
           ignore_opacity = false;
           new_optimizations = true;
           xray = true;
-          contrast = 0.7;
-          brightness = 0.8;
+          contrast = 0.78;
+          brightness = 0.86;
         };
       };
       input = {
@@ -78,17 +80,19 @@
 
       animations.enabled = true;
       animations.bezier = [
-        "smoothOut,0.36,0,0.66,-0.56"
-        "smoothIn,0.25,1,0.5,1"
-        "overshot,0.4,0.8,0.2,1.2"
+        "nativeOut,0.16,1,0.3,1"
+        "nativeIn,0.32,0,0.67,0"
+        "nativePanel,0.22,1,0.36,1"
+        "softOvershoot,0.34,1.18,0.64,1"
       ];
       animations.animation = [
-        "windows,1,4,overshot,slide"
-        "windowsOut,1,4,smoothOut,slide"
-        "border,1,10,default"
-        "fade,1,10,smoothIn"
-        "fadeDim,1,10,smoothIn"
-        "workspaces,1,4,overshot,slidevert"
+        "windows,1,4,nativePanel,popin 88%"
+        "windowsOut,1,3,nativeIn,popin 92%"
+        "border,1,8,nativeOut"
+        "fade,1,7,nativeOut"
+        "fadeDim,1,7,nativeOut"
+        "workspaces,1,4,nativePanel,slidevert"
+        "specialWorkspace,1,4,softOvershoot,slidevert"
       ];
 
       dwindle = {
@@ -136,10 +140,6 @@
         "workspace special:tools,match:class spotify"
         "workspace special:tools,match:class obsidian"
         "workspace special:tools,match:class Obsidian"
-        "workspace 6 silent,match:title ^(Obsidian Calendar Editor)$"
-        "size 1416 1581,match:title ^(Obsidian Calendar Editor)$"
-        "move -1428 12,match:title ^(Obsidian Calendar Editor)$"
-        "workspace 6 silent, float on, size 1416 1581, move -1428 12, no_initial_focus on,match:title ^(Obsidian Calendar Editor)$"
         "fullscreen 1,match:class guitarix"
         "fullscreen 1,match:class Guitarix"
       ];

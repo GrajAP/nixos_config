@@ -82,7 +82,9 @@ in {
   home.packages = with pkgs; [
     github-desktop
     libreoffice-fresh
+    nextcloud-client
     obsidian
+    qownnotes
     t3codeNoSandbox
     t3codeNotify
   ];

@@ -7,7 +7,6 @@
 in {
   environment.systemPackages = with pkgs; [
     # For debugging and troubleshooting Secure Boot.
-    os-prober
     sbctl
   ];
   boot = {
@@ -20,7 +19,7 @@ in {
     # some kernel parameters, i dont remember what half of this shit does but who cares
     consoleLogLevel = mkDefault 0;
     initrd.verbose = false;
-    kernelPackages = mkDefault pkgs.linuxPackages;
+    kernelPackages = mkDefault pkgs.linuxPackages_zen;
     kernelParams = [
       "psmouse.synaptics_intertouch=1"
       "intel_pstate=disable"
@@ -34,11 +33,22 @@ in {
     loader = {
       efi.canTouchEfiVariables = true;
       efi.efiSysMountPoint = "/boot";
+      timeout = 1;
       grub = {
         enable = true;
         device = "nodev";
-        useOSProber = true;
+        useOSProber = false;
         efiSupport = true;
+        extraConfig = ''
+          # Dual-boot Windows entry without running os-prober at boot.
+          menuentry "Windows Boot Manager" {
+            insmod part_gpt
+            insmod fat
+            insmod chain
+            search --file --set=root /EFI/Microsoft/Boot/bootmgfw.efi
+            chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+          }
+        '';
       };
     };
   };

@@ -90,7 +90,6 @@ in {
         "${mod},N,global,quickshell:notifications"
         "${modshift},N,exec,${ipc} notifications clear"
         "${mod},O,exec,toggle-obs-special"
-        "${mod},S,exec,${ipc} tools screenshotCopy"
         "${modshift},S,exec,${ipc} tools screenshotSave"
         "${mod},U,exec,hyprctl dispatch focusurgentorlast"
 
