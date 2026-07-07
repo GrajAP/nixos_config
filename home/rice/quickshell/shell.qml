@@ -632,22 +632,21 @@ ShellRoot {
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
-    if (codexUsed === null && sparkUsed === null) return "—";
-    if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
-    if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
-    return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    if (codexUsed === null && sparkAvailable === null) return "—";
+    if (codexUsed === null) return "— / " + Math.round(sparkAvailable) + "%";
+    if (sparkAvailable === null) return Math.round(codexUsed) + "% / —";
+    return Math.round(codexUsed) + "% / " + Math.round(sparkAvailable) + "%";
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const secondaryUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const used = Math.max(
-      Number.isFinite(primaryUsed) ? primaryUsed : -1,
-      Number.isFinite(secondaryUsed) ? secondaryUsed : -1
-    );
-    if (used < 0) return Theme.muted;
-    if (used >= 90) return Theme.danger;
-    if (used >= 75) return Theme.warning;
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const codexRisk = Number.isFinite(primaryUsed) ? primaryUsed : -1;
+    const sparkRisk = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : -1;
+    const risk = Math.max(codexRisk, sparkRisk);
+    if (risk < 0) return Theme.muted;
+    if (risk >= 90) return Theme.danger;
+    if (risk >= 75) return Theme.warning;
     return Theme.text;
   }
   function codexUsageResetLabel(expiresAt) {
@@ -669,14 +668,14 @@ ShellRoot {
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
     const sparkWindow = root.codexUsageWindowLabel(root.codexUsageValue("sparkPrimaryWindowMinutes"));
     return "Codex usage (" + planType + ")\n" +
       "Codex: " + (codexUsed === null ? "—" : Math.round(codexUsed) + "% used, reset " + codexReset) + " (" + codexWindow + ")\n" +
-      "Spark: " + (sparkUsed === null ? "—" : Math.round(sparkUsed) + "% used, reset " + sparkReset) + " (" + sparkWindow + ")";
+      "Spark: " + (sparkAvailable === null ? "—" : Math.round(sparkAvailable) + "% available, reset " + sparkReset) + " (" + sparkWindow + ")";
   }
   function codexUsageWindowLabel(minutesValue) {
     const minutes = Number(minutesValue);
@@ -966,21 +965,32 @@ ShellRoot {
     }
     return cells;
   }
-	  function calendarDayItems(date, limit) {
-		    if (!date) return [];
-		    const items = root.calendarEvents
-		      .filter(event => event.date === date)
-		      .slice()
-		      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
-        return limit === undefined ? items : items.slice(0, limit);
-		  }
+  function calendarDayItems(date, limit) {
+    if (!date) return [];
+    const items = root.calendarEvents
+      .filter(event => event.date === date)
+      .map(event => {
+        const copy = Object.assign({}, event);
+        copy.nowMarker = false;
+        copy.sortMinutes = event.startTime && !event.task ? root.calendarMinutesFromClock(event.startTime, 0) : (event.task ? 1500 : -1);
+        return copy;
+      });
+    if (date === root.dateKey(clock.date)) {
+      items.push({
+        nowMarker: true,
+        task: false,
+        completed: false,
+        title: Qt.formatDateTime(clock.date, "HH:mm"),
+        sortMinutes: clock.date.getHours() * 60 + clock.date.getMinutes()
+      });
+    }
+    items.sort((a, b) => a.sortMinutes - b.sortMinutes || Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || String(a.title || "").localeCompare(String(b.title || "")));
+    return limit === undefined ? items : items.slice(0, limit);
+  }
   function calendarDayOverflow(date, limit) {
     if (!date) return 0;
     const count = root.calendarEvents.filter(event => event.date === date).length;
     return Math.max(0, count - (limit || 3));
-  }
-  function calendarCurrentDayProgress() {
-    return (clock.date.getHours() * 60 + clock.date.getMinutes()) / 1440;
   }
   function calendarEventStartDate(event) {
     if (!event || !event.date || !event.startTime || event.allDay || event.task || event.completed)
@@ -1343,7 +1353,8 @@ ShellRoot {
           Layout.preferredWidth: 38
           Layout.preferredHeight: 118
           readonly property var alert: root.calendarUpcomingAlert()
-          visible: alert !== null
+          visible: true
+          opacity: alert !== null ? 1 : 0
           radius: 8
           color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
           border.color: "transparent"
@@ -1398,10 +1409,61 @@ ShellRoot {
           }
           MouseArea {
             anchors.fill: parent
+            enabled: parent.alert !== null
             cursorShape: Qt.PointingHandCursor
             onClicked: {
               if (parent.alert && parent.alert.date)
                 root.calendarSelectedDate = parent.alert.date;
+              root.toggleWidget("calendar");
+            }
+          }
+        }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 38
+          Layout.preferredHeight: Math.min(98, 28 + root.todayActiveTasks(3).length * 22)
+          readonly property var tasks: root.todayActiveTasks(3)
+          visible: tasks.length > 0
+          radius: 8
+          color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+          border.color: "transparent"
+          border.width: 0
+          clip: true
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 4
+            spacing: 2
+            Text {
+              Layout.fillWidth: true
+              text: "󰄬 " + parent.parent.tasks.length
+              color: Theme.accent
+              font.family: Theme.fontIcon
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+            }
+            Repeater {
+              model: parent.parent.tasks
+              Text {
+                required property var modelData
+                Layout.fillWidth: true
+                text: modelData.title || "Task"
+                color: Theme.text
+                font.family: Theme.fontSans
+                font.pixelSize: 8
+                horizontalAlignment: Text.AlignHCenter
+                maximumLineCount: 2
+                wrapMode: Text.Wrap
+                elide: Text.ElideRight
+              }
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              root.calendarSelectedDate = root.dateKey(clock.date);
               root.toggleWidget("calendar");
             }
           }
@@ -1490,56 +1552,6 @@ ShellRoot {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: root.toggleWidget("media")
-          }
-        }
-
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 38
-          Layout.preferredHeight: Math.min(98, 28 + root.todayActiveTasks(3).length * 22)
-          readonly property var tasks: root.todayActiveTasks(3)
-          visible: tasks.length > 0
-          radius: 8
-          color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-          border.color: "transparent"
-          border.width: 0
-          clip: true
-
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 4
-            spacing: 2
-            Text {
-              Layout.fillWidth: true
-              text: "󰄬 " + parent.parent.tasks.length
-              color: Theme.accent
-              font.family: Theme.fontIcon
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
-            }
-            Repeater {
-              model: parent.parent.tasks
-              Text {
-                required property var modelData
-                Layout.fillWidth: true
-                text: modelData.title || "Task"
-                color: Theme.text
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                horizontalAlignment: Text.AlignHCenter
-                maximumLineCount: 2
-                wrapMode: Text.Wrap
-                elide: Text.ElideRight
-              }
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.calendarSelectedDate = root.dateKey(clock.date);
-              root.toggleWidget("calendar");
-            }
           }
         }
 
@@ -3101,13 +3113,13 @@ ShellRoot {
             Layout.fillHeight: true
             spacing: 12
 	            ColumnLayout {
-		              Layout.preferredWidth: 1168
-		              Layout.maximumWidth: 1168
+                  id: calendarMonthColumn
+                  Layout.fillWidth: true
+                  Layout.preferredWidth: 2
 	              Layout.fillHeight: true
 	              spacing: 10
 	              RowLayout {
-	                Layout.preferredWidth: 1168
-	                Layout.maximumWidth: 1168
+	                Layout.fillWidth: true
 	                spacing: 10
 	                Rectangle {
 	                  implicitWidth: 40
@@ -3167,8 +3179,8 @@ ShellRoot {
 	              }
 	              GridLayout {
                 id: calendarMonthGrid
-	                readonly property int cellSize: 160
-                Layout.preferredWidth: cellSize * 7 + columnSpacing * 6
+                readonly property int cellSize: Math.max(92, Math.floor(Math.min((calendarMonthColumn.width - columnSpacing * 6) / 7, (calendarMonthColumn.height - 112 - rowSpacing * 6) / 6)))
+                Layout.fillWidth: true
                 columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
               model: ["M", "T", "W", "T", "F", "S", "S"]
@@ -3210,7 +3222,7 @@ ShellRoot {
                 }
                 Flickable {
                   id: calendarDayScroll
-                  visible: modelData.inMonth && modelData.eventCount > 0
+                  visible: modelData.inMonth && (modelData.eventCount > 0 || modelData.isToday)
                   anchors.left: parent.left
                   anchors.right: parent.right
                   anchors.top: parent.top
@@ -3235,15 +3247,16 @@ ShellRoot {
                         width: parent.width
                         height: 20
                         radius: 5
-                        color: calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))
+                        color: modelData.nowMarker ? "#f38ba8" : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10))))
                         Text {
                           anchors.fill: parent
                           anchors.leftMargin: 7
                           anchors.rightMargin: 7
-                          text: (modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")) + modelData.title
-                          color: calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text)
+                          text: modelData.nowMarker ? "now " + modelData.title : ((modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")) + modelData.title)
+                          color: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
                           font.family: Theme.fontSans
                           font.pixelSize: 12
+                          font.bold: Boolean(modelData.nowMarker)
                           font.strikeout: Boolean(modelData.completed)
                           elide: Text.ElideRight
                           verticalAlignment: Text.AlignVCenter
@@ -3263,39 +3276,6 @@ ShellRoot {
                     background: Item {}
                   }
                 }
-                Rectangle {
-                  visible: modelData.inMonth && modelData.isToday
-                  anchors.left: parent.left
-                  anchors.right: parent.right
-		                  anchors.leftMargin: 8
-		                  anchors.rightMargin: 8
-		                  y: Math.max(39, Math.min(parent.height - 12, Math.round(39 + root.calendarCurrentDayProgress() * (parent.height - 52))))
-		                  height: 4
-	                  radius: 2
-	                  color: "#f38ba8"
-	                  z: 8
-	                }
-	                Rectangle {
-	                  visible: modelData.inMonth && modelData.isToday
-	                  anchors.right: parent.right
-		                  anchors.rightMargin: 8
-		                  y: Math.max(28, Math.min(parent.height - 22, Math.round(29 + root.calendarCurrentDayProgress() * (parent.height - 50))))
-		                  width: 52
-		                  height: 20
-		                  radius: 6
-	                  color: modelData.isSelected ? Theme.background : Theme.surface
-	                  border.color: "#f38ba8"
-	                  border.width: 1
-	                  z: 9
-	                  Text {
-	                    anchors.centerIn: parent
-	                    text: Qt.formatDateTime(clock.date, "HH:mm")
-	                    color: "#f38ba8"
-	                    font.family: Theme.fontSans
-		                    font.pixelSize: 12
-	                    font.bold: true
-	                  }
-	                }
                 MouseArea {
                   anchors.fill: parent
                   enabled: modelData.inMonth
@@ -3308,6 +3288,7 @@ ShellRoot {
             }
             ColumnLayout {
               Layout.fillWidth: true
+              Layout.preferredWidth: 1
               Layout.fillHeight: true
               spacing: 10
               Text {

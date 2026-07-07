@@ -14,6 +14,21 @@ ColumnLayout {
     const value = shell.codexUsageValue(key);
     return value === null ? null : Math.max(0, Math.min(100, Math.round(value)));
   }
+  function metricLabel(metric, value) {
+    if (value === null) return metric === "available" ? "available --" : "used --";
+    return value + "% " + (metric === "available" ? "available" : "used");
+  }
+  function metricColor(metric, value) {
+    if (value === null) return Theme.muted;
+    if (metric === "available") {
+      if (value <= 10) return Theme.danger;
+      if (value <= 25) return Theme.warning;
+      return Theme.accent;
+    }
+    if (value >= 90) return Theme.danger;
+    if (value >= 75) return Theme.warning;
+    return Theme.accent;
+  }
 
   function windowLabel(key) {
     return shell.codexUsageWindowLabel(shell.codexUsageValue(key)) + " window";
@@ -33,24 +48,28 @@ ColumnLayout {
     model: shell.codexUsage ? [
       {
         label: "Codex primary",
+        metric: "used",
         usedKey: "codexPrimaryUsedPercent",
         resetKey: "codexPrimaryResetsAt",
         windowKey: "codexPrimaryWindowMinutes"
       },
       {
         label: "Codex secondary",
+        metric: "used",
         usedKey: "codexSecondaryUsedPercent",
         resetKey: "codexSecondaryResetsAt",
         windowKey: "codexSecondaryWindowMinutes"
       },
       {
         label: "GPT-5.3-Codex-Spark",
+        metric: "available",
         usedKey: "sparkPrimaryUsedPercent",
         resetKey: "sparkPrimaryResetsAt",
         windowKey: "sparkPrimaryWindowMinutes"
       },
       {
         label: "Spark secondary",
+        metric: "available",
         usedKey: "sparkSecondaryUsedPercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
@@ -84,10 +103,10 @@ ColumnLayout {
           }
           Text {
             text: {
-              const used = usageValue(parent.parent.parent.modelData.usedKey);
-              return used === null ? "used --" : used + "% used";
+              const value = usageValue(parent.parent.parent.modelData.usedKey);
+              return metricLabel(parent.parent.parent.modelData.metric, value);
             }
-            color: Theme.accent
+            color: metricColor(parent.parent.parent.modelData.metric, usageValue(parent.parent.parent.modelData.usedKey))
             font.family: Theme.fontSans
             font.bold: true
             font.pixelSize: 11
@@ -104,15 +123,11 @@ ColumnLayout {
             height: parent.height
             radius: parent.radius
             color: {
-              const used = usageValue(parent.parent.parent.modelData.usedKey);
-              if (used === null) return Theme.muted;
-              if (used >= 90) return Theme.danger;
-              if (used >= 75) return Theme.warning;
-              return Theme.accent;
+              return metricColor(parent.parent.parent.modelData.metric, usageValue(parent.parent.parent.modelData.usedKey));
             }
             width: {
-              const used = usageValue(parent.parent.parent.modelData.usedKey);
-              return parent.width * (used === null ? 0 : used / 100);
+              const value = usageValue(parent.parent.parent.modelData.usedKey);
+              return parent.width * (value === null ? 0 : value / 100);
             }
           }
         }
@@ -121,8 +136,8 @@ ColumnLayout {
           Layout.fillWidth: true
           Text {
             text: {
-              const used = usageValue(parent.parent.parent.modelData.usedKey);
-              return used === null ? "used --" : "used " + used + "%";
+              const value = usageValue(parent.parent.parent.modelData.usedKey);
+              return metricLabel(parent.parent.parent.modelData.metric, value);
             }
             color: shell.secondaryText
             font.family: Theme.fontSans
