@@ -1498,6 +1498,8 @@
     KeybindHelpWindow 1.0 KeybindHelpWindow.qml
     LauncherWindow 1.0 LauncherWindow.qml
     PowerMenuWindow 1.0 PowerMenuWindow.qml
+    TrayWidget 1.0 TrayWidget.qml
+    WeatherWidget 1.0 WeatherWidget.qml
   '';
   codexIcon = pkgs.writeText "codex.svg" (
     builtins.replaceStrings
@@ -1545,6 +1547,14 @@
       path = ./PowerMenuWindow.qml;
     }
     {
+      name = "TrayWidget.qml";
+      path = ./TrayWidget.qml;
+    }
+    {
+      name = "WeatherWidget.qml";
+      path = ./WeatherWidget.qml;
+    }
+    {
       name = "assets";
       path = quickshellAssets;
     }
@@ -1567,6 +1577,8 @@ in {
   xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
   xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
   xdg.configFile."quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
+  xdg.configFile."quickshell/TrayWidget.qml".source = ./TrayWidget.qml;
+  xdg.configFile."quickshell/WeatherWidget.qml".source = ./WeatherWidget.qml;
   xdg.configFile."quickshell/assets".source = quickshellAssets;
   xdg.configFile."quickshell/qmldir".source = qmldirConfig;
 

@@ -57,6 +57,7 @@ ShellRoot {
   property string weatherForecastMode: "current"
   property string weatherError: ""
   property string weatherLastUpdated: ""
+  readonly property bool weatherLoading: weatherQuery.running
   readonly property color secondaryText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.72)
   readonly property color faintText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.48)
   readonly property color elevatedSurface: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
@@ -520,6 +521,14 @@ ShellRoot {
   }
   function refreshClipboard() {
     if (!clipboardQuery.running) clipboardQuery.running = true;
+  }
+  function refreshWeather() {
+    if (!weatherQuery.running) weatherQuery.running = true;
+  }
+  function displayTrayMenu(item, anchorItem, x, y) {
+    if (!item || !item.hasMenu) return;
+    const point = anchorItem.mapToItem(widgetWindow.contentItem, x, y);
+    item.display(widgetWindow, point.x, point.y);
   }
   function closeWidget() {
     hoverWidgetCloseTimer.stop();
@@ -2378,98 +2387,9 @@ ShellRoot {
           Layout.fillHeight: true
         }
 
-        ScrollView {
-          id: trayScroll
+        TrayWidget {
           visible: root.widgetPage === "tray"
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-
-          ColumnLayout {
-            width: trayScroll.availableWidth
-            spacing: 10
-
-            Repeater {
-              id: trayRepeater
-              model: SystemTray.items
-              Rectangle {
-                id: trayItem
-                required property var modelData
-                Layout.fillWidth: true
-                implicitHeight: 52
-                radius: 10
-                color: trayItemMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                border.color: trayItemMouse.containsMouse ? Theme.accent : Theme.border
-                border.width: 1
-
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 10
-                  IconImage {
-                    Layout.preferredWidth: 26
-                    Layout.preferredHeight: 26
-                    implicitSize: 24
-                    source: trayItem.modelData.icon
-                  }
-                  ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Text {
-                      Layout.fillWidth: true
-                      text: trayItem.modelData.title || trayItem.modelData.id || "Tray item"
-                      color: Theme.text
-                      font.family: Theme.fontSans
-                      font.pixelSize: 13
-                      font.bold: true
-                      elide: Text.ElideRight
-                    }
-                    Text {
-                      Layout.fillWidth: true
-                      text: trayItem.modelData.hasMenu ? "Left click activate, right click menu" : "Left click activate"
-                      color: Theme.muted
-                      font.family: Theme.fontSans
-                      font.pixelSize: 10
-                      elide: Text.ElideRight
-                    }
-                  }
-                }
-
-                MouseArea {
-                  id: trayItemMouse
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                  onClicked: mouse => {
-                    if (mouse.button === Qt.RightButton && parent.modelData.hasMenu) {
-                      const point = trayItem.mapToItem(widgetWindow.contentItem, mouse.x, mouse.y);
-                      parent.modelData.display(widgetWindow, point.x, point.y);
-                    } else if (mouse.button === Qt.MiddleButton) {
-                      parent.modelData.secondaryActivate();
-                      root.closeWidget();
-                    } else {
-                      parent.modelData.activate();
-                      root.closeWidget();
-                    }
-                  }
-                }
-              }
-            }
-
-            Text {
-              visible: trayRepeater.count === 0
-              Layout.fillWidth: true
-              Layout.topMargin: 120
-              text: "Tray is empty"
-              color: Theme.muted
-              font.family: Theme.fontSans
-              font.pixelSize: 13
-              horizontalAlignment: Text.AlignHCenter
-            }
-          }
+          shell: root
         }
 
         ColumnLayout {
@@ -2495,252 +2415,9 @@ ShellRoot {
           }
         }
 
-        ColumnLayout {
+        WeatherWidget {
           visible: root.widgetPage === "weather"
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          spacing: 10
-          clip: true
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 118
-            radius: 12
-            color: Theme.surfaceAlt
-            border.color: Theme.border
-            border.width: 1
-            clip: true
-            RowLayout {
-              anchors.fill: parent
-              anchors.margins: 14
-              spacing: 14
-              Text {
-                text: root.weatherData ? root.weatherGlyph() : "󰖙"
-                color: root.weatherData ? Theme.accent : Theme.muted
-                font.family: Theme.fontIcon
-                font.pixelSize: 52
-                Layout.preferredWidth: 58
-                horizontalAlignment: Text.AlignHCenter
-              }
-              ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                Text {
-                  text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : (weatherQuery.running ? "Loading" : "No data")
-                  color: Theme.text
-                  font.family: Theme.fontSans
-                  font.pixelSize: 36
-                  font.bold: true
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
-                Text {
-                  text: root.weatherData ? root.weatherData.description : (root.weatherError || "Warsaw forecast")
-                  color: root.weatherError ? Theme.danger : root.secondaryText
-                  font.family: Theme.fontSans
-                  font.pixelSize: 13
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
-                Text {
-                  text: root.weatherData && root.weatherLastUpdated ? "Updated " + root.weatherLastUpdated : "Open-Meteo"
-                  color: root.secondaryText
-                  font.family: Theme.fontSans
-                  font.pixelSize: 11
-                  elide: Text.ElideRight
-                  Layout.fillWidth: true
-                }
-              }
-              Rectangle {
-                Layout.preferredWidth: 34
-                Layout.preferredHeight: 34
-                radius: 8
-                color: Theme.surface
-                Text {
-                  anchors.centerIn: parent
-                  text: "󰑐"
-                  color: Theme.text
-                  font.family: Theme.fontIcon
-                  font.pixelSize: 15
-                }
-                RotationAnimation on rotation {
-                  running: weatherQuery.running
-                  loops: Animation.Infinite
-                  from: 0
-                  to: 360
-                  duration: 900
-                }
-                MouseArea {
-                  id: refreshMouse
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: if (!weatherQuery.running) weatherQuery.running = true
-                }
-              }
-            }
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-              model: [
-                { id: "current", label: "Now" },
-                { id: "future", label: "Daily" },
-                { id: "hourly", label: "Hourly" },
-              ]
-              delegate: Rectangle {
-              id: weatherTab
-              required property var modelData
-              Layout.fillWidth: true
-              Layout.preferredHeight: 32
-              radius: 8
-              color: root.weatherForecastMode === modelData.id ? Theme.accent : Theme.surface
-              Text {
-                anchors.centerIn: parent
-                text: modelData.label
-                  color: root.weatherForecastMode === modelData.id ? Theme.background : Theme.text
-                  font.family: Theme.fontSans
-                  font.pixelSize: 12
-                  font.bold: root.weatherForecastMode === modelData.id
-                }
-                MouseArea {
-                  id: tabMouse
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.weatherForecastMode = modelData.id
-                }
-              }
-            }
-          }
-
-          Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-
-            GridLayout {
-              visible: root.weatherForecastMode === "current"
-              anchors.fill: parent
-              columns: 2
-              rowSpacing: 8
-              columnSpacing: 8
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
-                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Feels like"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-                  Text { text: root.weatherData && root.weatherData.apparentTemperature !== null && root.weatherData.apparentTemperature !== undefined ? Math.round(root.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-                }
-              }
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
-                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Wind"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-                  Text { text: root.weatherData && root.weatherData.windSpeed !== null && root.weatherData.windSpeed !== undefined ? Math.round(root.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-                }
-              }
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
-                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "Low"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-                  Text { text: root.weatherData && root.weatherData.todayMin !== null && root.weatherData.todayMin !== undefined ? Math.round(root.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-                }
-              }
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 76; radius: Theme.radiusMd; color: Theme.surface
-                ColumnLayout { anchors.fill: parent; anchors.margins: 12; spacing: 2
-                  Text { text: "High"; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-                  Text { text: root.weatherData && root.weatherData.todayMax !== null && root.weatherData.todayMax !== undefined ? Math.round(root.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-                }
-              }
-              Text {
-                visible: root.weatherError.length > 0
-                Layout.columnSpan: 2
-                Layout.fillWidth: true
-                text: root.weatherError
-                color: Theme.danger
-                font.family: Theme.fontSans
-                font.pixelSize: 11
-                wrapMode: Text.Wrap
-                maximumLineCount: 2
-                elide: Text.ElideRight
-              }
-            }
-
-            ListView {
-              visible: root.weatherForecastMode === "future"
-              anchors.fill: parent
-              clip: true
-              spacing: 7
-              model: root.weatherData && root.weatherData.dailyForecast ? root.weatherData.dailyForecast : []
-              delegate: Rectangle {
-                required property var modelData
-                readonly property bool isToday: root.weatherIsToday(modelData.date)
-                width: ListView.view.width
-                height: 44
-                radius: 10
-                color: isToday ? Theme.accent : Theme.surface
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 10
-                  Text { text: parent.parent.isToday ? "Today" : root.weatherShortDate(parent.parent.modelData.date); color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isToday; Layout.preferredWidth: 50 }
-                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isToday ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-                  Item { Layout.fillWidth: true }
-                  Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "—"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
-                }
-              }
-              Text {
-                anchors.centerIn: parent
-                visible: parent.count === 0
-                text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No forecast available")
-                color: root.weatherError ? Theme.danger : Theme.muted
-                font.family: Theme.fontSans
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter
-                width: parent.width - 24
-                wrapMode: Text.Wrap
-              }
-            }
-
-            ListView {
-              visible: root.weatherForecastMode === "hourly"
-              anchors.fill: parent
-              clip: true
-              spacing: 7
-              model: root.weatherData && root.weatherData.hourlyForecast ? root.weatherData.hourlyForecast.slice(0, 12) : []
-              delegate: Rectangle {
-                required property var modelData
-                readonly property bool isCurrentHour: root.weatherIsCurrentHour(modelData.time)
-                width: ListView.view.width
-                height: 44
-                radius: 10
-                color: isCurrentHour ? Theme.accent : Theme.surface
-                border.color: isCurrentHour ? Theme.accent : Theme.border
-                border.width: isCurrentHour ? 0 : 1
-                RowLayout {
-                  anchors.fill: parent
-                  anchors.margins: 10
-                  spacing: 10
-                  Text { text: parent.parent.isCurrentHour ? "Now" : root.weatherHourLabel(parent.parent.modelData.time); color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isCurrentHour; Layout.preferredWidth: 46 }
-                  Text { text: root.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : root.secondaryText; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-                  Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                  Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : root.secondaryText; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
-                }
-              }
-              Text {
-                anchors.centerIn: parent
-                visible: parent.count === 0
-                text: weatherQuery.running ? "Loading forecast…" : (root.weatherError || "No hourly forecast")
-                color: root.weatherError ? Theme.danger : Theme.muted
-                font.family: Theme.fontSans
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter
-                width: parent.width - 24
-                wrapMode: Text.Wrap
-              }
-            }
-          }
+          shell: root
         }
 
         ClipboardWidget {

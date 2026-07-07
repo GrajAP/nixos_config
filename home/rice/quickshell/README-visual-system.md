@@ -30,8 +30,9 @@ Rules:
 
 ## File layout
 
-- `shell.qml` owns global state, IPC handlers, processes, shared functions, the bar, notification history, widgets and lock surface.
-- Bar subviews with their own interaction model, such as workspace app grouping or clipboard history, should live in focused component files and receive `shell` as their state/action boundary.
+- `shell.qml` owns global state, IPC handlers, processes, shared functions, the bar, widget routing and lock surface.
+- Bar subviews with their own interaction model, such as workspace app grouping, clipboard history, tray or weather, should live in focused component files and receive `shell` as their state/action boundary.
+- Keep extracted components medium-sized and cohesive. Split by visible surface or interaction model, not by tiny helper fragments.
 - `*Window.qml` files are standalone overlay windows extracted from the main shell. They receive `shell` as a required property and should not duplicate global state.
 - `default.nix` wires generated helper scripts, theme values, QML files and the systemd user service.
 - New large overlays should be added as their own `SomethingWindow.qml` file and registered in `default.nix` and `qmldir`.
