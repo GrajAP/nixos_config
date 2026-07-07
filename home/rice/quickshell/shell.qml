@@ -597,6 +597,12 @@ ShellRoot {
     if (root.screenshotPath.length === 0) return;
     root.runWidgetTool(root.screenshotEditedArgs(action), title, detail);
   }
+  function saveEditedScreenshot() {
+    root.runScreenshotEditedTool("save-edited", "Screenshot", "Saved edited image");
+  }
+  function copyEditedScreenshot() {
+    root.runScreenshotEditedTool("copy-edited", "Screenshot", "Copied edited image");
+  }
   function captureScreenshot(mode, openAfter) {
     root.closeWidget();
     root.widgetWindowShown = false;
@@ -1623,24 +1629,24 @@ ShellRoot {
           }
           Column {
             anchors.centerIn: parent
-            width: parent.width - 4
-            height: parent.height - 3
-            spacing: -2
+            width: parent.width
+            height: 30
+            spacing: -1
 
             Text {
               id: barWeatherGlyph
               width: parent.width
-              height: 17
+              height: 16
               text: root.weatherGlyph()
               color: root.barWidgetText("weather", Theme.text)
-              font.family: Theme.fontSans
-              font.pixelSize: 14
+              font.family: Theme.fontIcon
+              font.pixelSize: 15
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
             }
             Text {
               width: parent.width
-              height: 16
+              height: 15
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
@@ -2841,12 +2847,12 @@ ShellRoot {
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runScreenshotEditedTool("save-edited", "Screenshot", "Saved edited image") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.saveEditedScreenshot() }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runScreenshotEditedTool("copy-edited", "Screenshot", "Copied edited image") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.copyEditedScreenshot() }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
@@ -3682,6 +3688,16 @@ ShellRoot {
 	        }
       }
       Keys.onEscapePressed: root.closeWidget()
+      Keys.onPressed: event => {
+        if (root.widgetPage !== "screenshot" || !(event.modifiers & Qt.ControlModifier)) return;
+        if (event.key === Qt.Key_C) {
+          root.copyEditedScreenshot();
+          event.accepted = true;
+        } else if (event.key === Qt.Key_S) {
+          root.saveEditedScreenshot();
+          event.accepted = true;
+        }
+      }
     }
   }
 
