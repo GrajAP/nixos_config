@@ -565,7 +565,7 @@ ShellRoot {
     if (value.includes("chromium")) return "chromium";
     if (value.includes("chrome")) return "google-chrome";
     if (value.includes("brave")) return "brave-browser";
-    if (value.includes("helium")) return "chromium";
+    if (value.includes("helium")) return "helium";
     if (value.includes("spotify")) return "spotify";
     if (value.includes("vesktop") || value.includes("discord")) return "discord";
     if (value.includes("signal")) return "signal-desktop";
@@ -585,7 +585,16 @@ ShellRoot {
     return "application-x-executable";
   }
   function appIconSourceForClient(client) {
+    const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (value.includes("helium")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/256x256/apps/helium.png";
+    if (value.includes("t3code")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/t3code.svg";
     return Quickshell.iconPath(root.appThemeIconForClient(client), "application-x-executable");
+  }
+  function appIconSizeForClient(client, normalSize) {
+    const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (value.includes("t3code")) return Math.max(14, normalSize - 5);
+    if (value.includes("helium")) return Math.max(16, normalSize - 3);
+    return normalSize;
   }
   function appColorForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
@@ -1609,7 +1618,7 @@ ShellRoot {
                   }
                   IconImage {
                     anchors.centerIn: parent
-                    implicitSize: 21
+                    implicitSize: root.appIconSizeForClient(parent.modelData, 21)
                     source: root.appIconSourceForClient(parent.modelData)
                   }
                   MouseArea {
@@ -1965,31 +1974,28 @@ ShellRoot {
             border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
-          Item {
+          ColumnLayout {
             anchors.centerIn: parent
-            width: parent.width - 4
-            height: 27
+            width: 30
+            height: 29
+            spacing: 0
 
             Text {
               id: barWeatherGlyph
-              anchors.top: parent.top
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: parent.width
-              height: 13
+              Layout.fillWidth: true
+              Layout.preferredHeight: 15
               text: root.weatherGlyph()
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontIcon
-              font.pixelSize: 13
+              font.pixelSize: 14
               lineHeightMode: Text.FixedHeight
-              lineHeight: 13
+              lineHeight: 15
               horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignBottom
+              verticalAlignment: Text.AlignVCenter
             }
             Text {
-              anchors.top: barWeatherGlyph.bottom
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: parent.width
-              height: 14
+              Layout.fillWidth: true
+              Layout.preferredHeight: 14
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
@@ -1998,7 +2004,7 @@ ShellRoot {
               lineHeightMode: Text.FixedHeight
               lineHeight: 14
               horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignTop
+              verticalAlignment: Text.AlignVCenter
               minimumPixelSize: 9
               fontSizeMode: Text.Fit
             }
@@ -2168,7 +2174,7 @@ ShellRoot {
           border.width: 1
           IconImage {
             anchors.centerIn: parent
-            implicitSize: 30
+            implicitSize: root.appIconSizeForClient(workspacePreviewWindow.client, 30)
             source: root.appIconSourceForClient(workspacePreviewWindow.client)
           }
         }
