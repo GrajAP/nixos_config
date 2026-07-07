@@ -18,7 +18,7 @@ Rules:
 - Inline UI transitions, such as selection changes and compact controls, should use `Theme.motionMedium`.
 - Bar widgets and anchored panels should use `Theme.motionPanel`; keep them calm enough to read, but never slower than the user action.
 - Fullscreen overlays and modal surfaces should use `Theme.motionModal`.
-- Prefer `Easing.OutQuart` for anchored panel open/close movement and `Easing.OutCubic` for small opacity or hover feedback. Avoid springy or bouncing easing unless the surface is explicitly playful.
+- Prefer `Easing.OutCubic` for open/close movement and opacity. Avoid springy or bouncing easing unless the surface is explicitly playful.
 - Hover-open widgets may use a short close delay so moving from the bar icon into the panel does not accidentally dismiss it.
 
 ## File layout

@@ -53,10 +53,8 @@ ShellRoot {
   property int screenshotTextSize: 32
   property int widgetMotionMs: Theme.motionPanel
   property bool widgetVisible: false
-  property bool widgetContentVisible: true
   property bool widgetWindowShown: false
   property string widgetPage: "audio"
-  property string pendingWidgetPage: ""
   property string weatherForecastMode: "current"
   property string weatherError: ""
   property string weatherLastUpdated: ""
@@ -503,40 +501,15 @@ ShellRoot {
       }
     }
   }
-  Timer {
-    id: widgetPageSwitchTimer
-    interval: Theme.motionFast
-    repeat: false
-    onTriggered: {
-      if (root.pendingWidgetPage.length === 0) return;
-      root.widgetPage = root.pendingWidgetPage;
-      root.pendingWidgetPage = "";
-      root.refreshWidgetPage(root.widgetPage);
-      root.widgetContentVisible = true;
-    }
-  }
-
   function openWidget(page) {
     widgetCloseTimer.stop();
-    const wasWidgetVisible = widgetVisible;
     root.keybindHelpVisible = false;
     root.launcherVisible = false;
     root.powerVisible = false;
     root.notificationHistoryVisible = false;
     widgetWindowShown = true;
-    widgetVisible = true;
-    if (wasWidgetVisible && root.widgetPage !== page && root.isSmallWidget(root.widgetPage) && root.isSmallWidget(page)) {
-      root.pendingWidgetPage = page;
-      root.widgetContentVisible = false;
-      widgetPageSwitchTimer.restart();
-      return;
-    }
     widgetPage = page;
-    pendingWidgetPage = "";
-    widgetContentVisible = true;
-    root.refreshWidgetPage(page);
-  }
-  function refreshWidgetPage(page) {
+    widgetVisible = true;
     if (page === "weather") weatherQuery.running = true;
     if (page === "calendar") calendarQuery.running = true;
     if (page === "clipboard") clipboardQuery.running = true;
@@ -551,9 +524,6 @@ ShellRoot {
     root.hoverWidgetButtonPage = "";
     root.hoverWidgetPanelHovered = false;
     root.hoverWidgetMenuOpen = false;
-    root.pendingWidgetPage = "";
-    widgetPageSwitchTimer.stop();
-    root.widgetContentVisible = false;
     widgetVisible = false;
     widgetCloseTimer.restart();
   }
@@ -1741,15 +1711,17 @@ ShellRoot {
                     }
                     onPositionChanged: mouse => {
                       if (!pressed) return;
+                      if (Math.abs(clientBubble.x) < 5 && Math.abs(clientBubble.y) < 5) return;
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                       root.workspaceDragTarget = root.workspaceIdAtY(point.y);
                     }
                     onReleased: mouse => {
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                       const target = root.workspaceIdAtY(point.y);
+                      const wasDragged = Math.abs(clientBubble.x) >= 5 || Math.abs(clientBubble.y) >= 5;
                       clientBubble.x = 0;
                       clientBubble.y = 0;
-                      if (target !== 0)
+                      if (wasDragged && target !== 0)
                         root.moveWorkspaceClient(parent.modelData, target);
                       else {
                         root.clearWorkspaceInteraction();
@@ -1793,19 +1765,29 @@ ShellRoot {
         }
         }
 
+        Item {
+          id: calendarBarRegion
+          anchors.top: workspaceStack.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: barActionStack.top
+          anchors.topMargin: 8
+          anchors.bottomMargin: 8
+          clip: true
+
         ColumnLayout {
           id: calendarBarStack
           anchors.centerIn: parent
           width: 38
           spacing: 7
+          visible: calendarBarRegion.height >= 82
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 38
-          Layout.preferredHeight: 118
+          Layout.preferredHeight: 88
           readonly property var alert: root.calendarUpcomingAlert()
-          visible: true
-          opacity: alert !== null ? 1 : 0
+          visible: alert !== null
           radius: 8
           color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
           border.color: "transparent"
@@ -1854,7 +1836,7 @@ ShellRoot {
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
               wrapMode: Text.Wrap
-              maximumLineCount: 4
+              maximumLineCount: 2
               elide: Text.ElideRight
             }
           }
@@ -1873,8 +1855,8 @@ ShellRoot {
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 38
-          Layout.preferredHeight: Math.min(98, 28 + root.todayActiveTasks(3).length * 22)
-          readonly property var tasks: root.todayActiveTasks(3)
+          Layout.preferredHeight: Math.min(76, 26 + root.todayActiveTasks(2).length * 22)
+          readonly property var tasks: root.todayActiveTasks(2)
           visible: tasks.length > 0
           radius: 8
           color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
@@ -1920,6 +1902,7 @@ ShellRoot {
           }
         }
 
+        }
         }
 
         ColumnLayout {
@@ -2336,8 +2319,8 @@ ShellRoot {
       scale: root.widgetVisible ? 1 : 0.96
       transformOrigin: Item.BottomRight
       transform: Translate {
-        y: root.widgetVisible ? 0 : 18
-        Behavior on y { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutQuart } }
+        y: root.widgetVisible ? 0 : 14
+        Behavior on y { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       }
       HoverHandler {
         onHoveredChanged: {
@@ -2348,15 +2331,12 @@ ShellRoot {
             root.scheduleHoverWidgetClose(root.widgetPage);
         }
       }
-      Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutQuart } }
-      Behavior on scale { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutQuart } }
-      Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutQuart } }
-      Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutQuart } }
+      Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on scale { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       ColumnLayout {
-        id: widgetContentLayout
         anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd
-        opacity: root.widgetVisible && root.widgetContentVisible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: Theme.motionFast; easing.type: Easing.OutCubic } }
         RowLayout {
           Layout.fillWidth: true
           Text {
