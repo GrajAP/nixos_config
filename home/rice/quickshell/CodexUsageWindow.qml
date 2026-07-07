@@ -16,7 +16,7 @@ ColumnLayout {
   }
   function displayValue(metric, value) {
     if (value === null) return null;
-    return metric === "available-as-used" ? 100 - value : value;
+    return value;
   }
   function metricLabel(metric, value) {
     const display = displayValue(metric, value);
@@ -68,14 +68,14 @@ ColumnLayout {
       },
       {
         label: "GPT-5.3-Codex-Spark",
-        metric: "available-as-used",
+        metric: "used",
         usedKey: "sparkPrimaryUsedPercent",
         resetKey: "sparkPrimaryResetsAt",
         windowKey: "sparkPrimaryWindowMinutes"
       },
       {
         label: "Spark secondary",
-        metric: "available-as-used",
+        metric: "used",
         usedKey: "sparkSecondaryUsedPercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
@@ -83,6 +83,7 @@ ColumnLayout {
     ] : []
 
     Rectangle {
+      id: usageCard
       required property var modelData
       Layout.fillWidth: true
       implicitHeight: 68
@@ -99,7 +100,7 @@ ColumnLayout {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: parent.parent.parent.modelData.label
+            text: usageCard.modelData.label
             color: Theme.text
             font.family: Theme.fontSans
             font.bold: true
@@ -109,10 +110,10 @@ ColumnLayout {
           }
           Text {
             text: {
-              const value = usageValue(parent.parent.parent.modelData.usedKey);
-              return metricLabel(parent.parent.parent.modelData.metric, value);
+              const value = usageValue(usageCard.modelData.usedKey);
+              return metricLabel(usageCard.modelData.metric, value);
             }
-            color: metricColor(parent.parent.parent.modelData.metric, usageValue(parent.parent.parent.modelData.usedKey))
+            color: metricColor(usageCard.modelData.metric, usageValue(usageCard.modelData.usedKey))
             font.family: Theme.fontSans
             font.bold: true
             font.pixelSize: 11
@@ -129,11 +130,11 @@ ColumnLayout {
             height: parent.height
             radius: parent.radius
             color: {
-              return metricColor(parent.parent.parent.modelData.metric, usageValue(parent.parent.parent.modelData.usedKey));
+              return metricColor(usageCard.modelData.metric, usageValue(usageCard.modelData.usedKey));
             }
             width: {
-              const value = usageValue(parent.parent.parent.modelData.usedKey);
-              const display = displayValue(parent.parent.parent.modelData.metric, value);
+              const value = usageValue(usageCard.modelData.usedKey);
+              const display = displayValue(usageCard.modelData.metric, value);
               return parent.width * (display === null ? 0 : display / 100);
             }
           }
@@ -143,8 +144,8 @@ ColumnLayout {
           Layout.fillWidth: true
           Text {
             text: {
-              const value = usageValue(parent.parent.parent.modelData.usedKey);
-              return metricLabel(parent.parent.parent.modelData.metric, value);
+              const value = usageValue(usageCard.modelData.usedKey);
+              return metricLabel(usageCard.modelData.metric, value);
             }
             color: shell.secondaryText
             font.family: Theme.fontSans
@@ -153,7 +154,7 @@ ColumnLayout {
           }
           Text {
             Layout.preferredWidth: 220
-            text: windowLabel(parent.parent.parent.modelData.windowKey) + " · reset " + shell.codexUsageResetLabel(shell.codexUsageValue(parent.parent.parent.modelData.resetKey))
+            text: windowLabel(usageCard.modelData.windowKey) + " · reset " + shell.codexUsageResetLabel(shell.codexUsageValue(usageCard.modelData.resetKey))
             color: shell.secondaryText
             font.family: Theme.fontSans
             font.pixelSize: 10

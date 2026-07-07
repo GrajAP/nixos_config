@@ -139,7 +139,10 @@
       bash
       coreutils
       findutils
+      gawk
+      gnugrep
       jq
+      ripgrep
     ];
     text = ''
       #!/usr/bin/env bash
@@ -189,8 +192,8 @@
           if [[ -n "$general_entry" && -n "$spark_entry" ]]; then
             break 2
           fi
-        done < <(tac "$session_file")
-      done < <(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
+        done < <(tail -n 2000 "$session_file" | tac | rg -F '"rate_limits"' || true)
+      done < <(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort -nr | awk '{print $2}' | head -n 8)
 
       if [[ -z "$general_entry" && -z "$spark_entry" ]]; then
         echo '{"ok":false,"error":"No session entry with rate limits"}'

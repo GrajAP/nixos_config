@@ -812,26 +812,23 @@ ShellRoot {
     if (key === "Mouse Left" || key === "Mouse Right" || key === "Wheel Up" || key === "Wheel Down") return 1.8;
     return 1;
   }
+  function isSmallWidget(page) {
+    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown";
+  }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
-    if (widgetPage === "codex") return 420;
     if (widgetPage === "calendar") return widgetWindow.width;
-    if (widgetPage === "weather") return 390;
     if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
-    if (widgetPage === "shutdown") return 390;
+    if (root.isSmallWidget(widgetPage)) return 430;
     return 420;
   }
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
-    if (widgetPage === "codex") return 430;
-    if (widgetPage === "audio") return 390;
     if (widgetPage === "calendar") return widgetWindow.height;
-    if (widgetPage === "weather") return 500;
     if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
-    if (widgetPage === "shutdown") return 430;
-    if (widgetPage === "media") return 500;
+    if (root.isSmallWidget(widgetPage)) return 500;
     return 620;
   }
   function audioNodeLabel(node) {
@@ -926,18 +923,17 @@ ShellRoot {
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
-    if (codexUsed === null && sparkAvailable === null) return "—";
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    if (codexUsed === null && sparkUsed === null) return "—";
     if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
-    if (sparkAvailable === null) return Math.round(codexUsed) + "% / —";
+    if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
     return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexRisk = Number.isFinite(primaryUsed) ? primaryUsed : -1;
-    const sparkRisk = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : -1;
+    const sparkRisk = Number.isFinite(sparkUsed) ? sparkUsed : -1;
     const risk = Math.max(codexRisk, sparkRisk);
     if (risk < 0) return Theme.muted;
     if (risk >= 90) return Theme.danger;
@@ -963,8 +959,7 @@ ShellRoot {
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
