@@ -1549,9 +1549,9 @@ ShellRoot {
           Layout.alignment: Qt.AlignHCenter
           id: mediaButton
           Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
-          implicitWidth: 32
-          implicitHeight: 30
+          Layout.preferredHeight: 34
+          implicitWidth: 34
+          implicitHeight: 34
           ToolTip.visible: false
           Rectangle {
             anchors.fill: parent
@@ -1571,10 +1571,10 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 32
-          Layout.preferredHeight: 30
-          implicitWidth: 32
-          implicitHeight: 30
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          implicitWidth: 34
+          implicitHeight: 34
           id: audioButton
           Rectangle {
             anchors.fill: parent
@@ -1608,10 +1608,10 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 42
-          Layout.preferredHeight: 30
-          implicitWidth: 42
-          implicitHeight: 30
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          implicitWidth: 34
+          implicitHeight: 34
           id: weatherButton
           clip: true
           Rectangle {
@@ -1621,35 +1621,35 @@ ShellRoot {
             border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
-          Row {
+          Column {
             anchors.centerIn: parent
-            width: parent.width - 8
-            height: parent.height
-            spacing: 2
+            width: parent.width - 4
+            height: parent.height - 3
+            spacing: -2
 
             Text {
               id: barWeatherGlyph
-              width: 16
-              height: parent.height
+              width: parent.width
+              height: 17
               text: root.weatherGlyph()
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
-              font.pixelSize: 15
+              font.pixelSize: 14
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
-              elide: Text.ElideRight
             }
             Text {
-              width: parent.width - barWeatherGlyph.width - parent.spacing
-              height: parent.height
+              width: parent.width
+              height: 16
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
-              font.pixelSize: 12
+              font.pixelSize: 11
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
-              elide: Text.ElideRight
+              minimumPixelSize: 9
+              fontSizeMode: Text.Fit
             }
           }
           MouseArea {
@@ -1662,10 +1662,10 @@ ShellRoot {
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 28
-          Layout.preferredHeight: 24
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
           id: kanataIcon
-          radius: 7
+          radius: 8
           color: {
             if (!root.kanataKnown) return Theme.surface;
             return root.kanataActive ? Theme.accent : "transparent";
@@ -1695,9 +1695,9 @@ ShellRoot {
         Item {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
+          Layout.preferredHeight: 34
           implicitWidth: 34
-          implicitHeight: 30
+          implicitHeight: 34
           Rectangle {
             anchors.fill: parent
             radius: 8
@@ -1721,9 +1721,9 @@ ShellRoot {
           Layout.alignment: Qt.AlignHCenter
           id: shutdownButton
           Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
+          Layout.preferredHeight: 34
           implicitWidth: 34
-          implicitHeight: 30
+          implicitHeight: 34
           Rectangle {
             anchors.fill: parent
             radius: 8
