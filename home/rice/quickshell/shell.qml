@@ -84,7 +84,7 @@ ShellRoot {
   property int workspaceHoverWorkspaceId: 0
   property int workspacePreviewY: 120
   property var workspaceDragClient: null
-  property int workspaceDragTarget: 0
+  property var workspaceDragTarget: 0
   property var weatherData: null
   property var calendarEvents: []
   property string calendarError: ""
@@ -258,7 +258,7 @@ ShellRoot {
           const clients = JSON.parse(text);
           const byWorkspace = {};
           for (const client of clients) {
-            if (!client || !client.mapped || !client.workspace || client.workspace.id <= 0)
+            if (!client || !client.mapped || !client.workspace || client.workspace.id === 0)
               continue;
             const key = String(client.workspace.id);
             if (!byWorkspace[key]) byWorkspace[key] = [];
@@ -266,7 +266,8 @@ ShellRoot {
               address: client.address || "",
               className: client.class || client.initialClass || "",
               title: client.title || client.initialTitle || "",
-              workspaceId: client.workspace.id
+              workspaceId: client.workspace.id,
+              workspaceName: client.workspace.name || String(client.workspace.id)
             });
           }
           root.workspaceClientsById = byWorkspace;
@@ -282,9 +283,30 @@ ShellRoot {
     stdout: StdioCollector {
       onStreamFinished: {
         try {
-          root.workspaceEntries = JSON.parse(text)
-            .filter(workspace => workspace && workspace.id > 0)
+          const parsed = JSON.parse(text)
+            .filter(workspace => workspace && workspace.id !== 0)
             .sort((a, b) => a.id - b.id);
+          const byId = {};
+          let maxId = 0;
+          for (const workspace of parsed) {
+            byId[String(workspace.id)] = workspace;
+            if (workspace.id > 0)
+              maxId = Math.max(maxId, workspace.id);
+          }
+          const entries = [];
+          for (let id = 1; id <= maxId; id++) {
+            entries.push(byId[String(id)] || {
+              id: id,
+              name: String(id),
+              windows: 0
+            });
+          }
+          const specialEntries = parsed
+            .filter(workspace => workspace.id < 0)
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+          for (const workspace of specialEntries)
+            entries.push(workspace);
+          root.workspaceEntries = entries;
         } catch (error) {
           root.workspaceEntries = [];
         }
@@ -524,11 +546,12 @@ ShellRoot {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
     if (value.includes("firefox")) return "󰈹";
     if (value.includes("chromium") || value.includes("chrome") || value.includes("brave")) return "";
+    if (value.includes("helium")) return "";
     if (value.includes("spotify")) return "";
     if (value.includes("discord") || value.includes("vesktop")) return "󰙯";
     if (value.includes("signal")) return "󰭹";
     if (value.includes("obsidian")) return "󰠮";
-    if (value.includes("code") || value.includes("codium")) return "󰨞";
+    if (value.includes("code") || value.includes("codium") || value.includes("t3code")) return "󰨞";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "";
     if (value.includes("steam")) return "";
     if (value.includes("obs")) return "󰻂";
@@ -542,13 +565,14 @@ ShellRoot {
     if (value.includes("chromium")) return "chromium";
     if (value.includes("chrome")) return "google-chrome";
     if (value.includes("brave")) return "brave-browser";
+    if (value.includes("helium")) return "chromium";
     if (value.includes("spotify")) return "spotify";
-    if (value.includes("vesktop")) return "vesktop";
-    if (value.includes("discord")) return "discord";
+    if (value.includes("vesktop") || value.includes("discord")) return "discord";
     if (value.includes("signal")) return "signal-desktop";
     if (value.includes("obsidian")) return "obsidian";
     if (value.includes("codium")) return "vscodium";
-    if (value.includes("code") || value.includes("t3code")) return "visual-studio-code";
+    if (value.includes("t3code")) return "t3code";
+    if (value.includes("code")) return "visual-studio-code";
     if (value.includes("kitty")) return "kitty";
     if (value.includes("wezterm")) return "org.wezfurlong.wezterm";
     if (value.includes("alacritty")) return "Alacritty";
@@ -558,7 +582,6 @@ ShellRoot {
     if (value.includes("ferdium")) return "ferdium";
     if (value.includes("dolphin")) return "system-file-manager";
     if (value.includes("org.gnome.nautilus")) return "org.gnome.Nautilus";
-    if (value.includes("helium")) return "chromium";
     return "application-x-executable";
   }
   function appIconSourceForClient(client) {
@@ -567,12 +590,12 @@ ShellRoot {
   function appColorForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
     if (value.includes("firefox")) return "#f97316";
-    if (value.includes("chromium") || value.includes("chrome") || value.includes("brave")) return "#60a5fa";
+    if (value.includes("chromium") || value.includes("chrome") || value.includes("brave") || value.includes("helium")) return "#60a5fa";
     if (value.includes("spotify")) return "#22c55e";
     if (value.includes("discord") || value.includes("vesktop")) return "#8b5cf6";
     if (value.includes("signal")) return "#38bdf8";
     if (value.includes("obsidian")) return "#a78bfa";
-    if (value.includes("code") || value.includes("codium")) return "#3b82f6";
+    if (value.includes("code") || value.includes("codium") || value.includes("t3code")) return "#3b82f6";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "#64748b";
     if (value.includes("steam")) return "#1d4ed8";
     if (value.includes("obs")) return "#7c3aed";
@@ -596,10 +619,26 @@ ShellRoot {
   function workspaceIds() {
     return root.workspaceEntries.map(workspace => workspace.id);
   }
+  function workspaceEntryById(workspaceId) {
+    const key = String(workspaceId);
+    for (const workspace of root.workspaceEntries) {
+      if (String(workspace.id) === key)
+        return workspace;
+    }
+    return null;
+  }
+  function workspaceDispatchName(workspaceId) {
+    const workspace = root.workspaceEntryById(workspaceId);
+    return workspace && workspace.name ? String(workspace.name) : String(workspaceId);
+  }
+  function workspaceDisplayName(workspaceId) {
+    const name = root.workspaceDispatchName(workspaceId);
+    return name.indexOf("special:") === 0 ? name.slice(8) : name;
+  }
   function workspaceCellHeight(workspaceId) {
     const clients = root.workspaceClientsById[String(workspaceId)] || [];
     if (clients.length === 0) return 34;
-    return Math.min(172, 24 + Math.min(clients.length, 5) * 30);
+    return Math.min(220, 24 + Math.min(clients.length, 5) * 30 + (clients.length > 5 ? 26 : 0));
   }
   function workspaceIdAtY(y) {
     const workspaces = root.workspaceEntries;
@@ -613,13 +652,22 @@ ShellRoot {
     }
     return 0;
   }
-  function moveWorkspaceClient(client, workspaceId) {
-    if (!client || !client.address || workspaceId <= 0 || client.workspaceId === workspaceId) return;
-    Quickshell.execDetached(["hyprctl", "dispatch", "movetoworkspacesilent", String(workspaceId) + ",address:" + client.address]);
-    root.workspaceDragTarget = 0;
+  function clearWorkspaceInteraction() {
+    root.workspaceHoverClient = null;
     root.workspaceDragClient = null;
+    root.workspaceDragTarget = 0;
+    root.workspaceHoverWorkspaceId = 0;
+  }
+  function moveWorkspaceClient(client, workspaceId) {
+    if (!client || !client.address || workspaceId === 0 || client.workspaceId === workspaceId) {
+      root.clearWorkspaceInteraction();
+      return;
+    }
+    Quickshell.execDetached(["hyprctl", "dispatch", "movetoworkspacesilent", root.workspaceDispatchName(workspaceId) + ",address:" + client.address]);
+    root.clearWorkspaceInteraction();
     Qt.callLater(() => {
       if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true;
+      if (!workspaceQuery.running) workspaceQuery.running = true;
     });
   }
   function refreshCodexUsage() {
@@ -1528,7 +1576,8 @@ ShellRoot {
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 root.closeTransientPanels();
-                Hyprland.dispatch("workspace " + workspaceCell.modelData.id);
+                root.clearWorkspaceInteraction();
+                Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceCell.modelData.id));
               }
             }
 
@@ -1573,7 +1622,8 @@ ShellRoot {
                     drag.threshold: 4
                     onClicked: mouse => {
                       root.closeTransientPanels();
-                      Hyprland.dispatch("workspace " + workspaceCell.modelData.id);
+                      root.clearWorkspaceInteraction();
+                      Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceCell.modelData.id));
                     }
                     onEntered: {
                       root.workspaceHoverClient = parent.modelData;
@@ -1599,18 +1649,16 @@ ShellRoot {
                       const target = root.workspaceIdAtY(point.y);
                       clientBubble.x = 0;
                       clientBubble.y = 0;
-                      if (target > 0)
+                      if (target !== 0)
                         root.moveWorkspaceClient(parent.modelData, target);
                       else {
-                        root.workspaceDragTarget = 0;
-                        root.workspaceDragClient = null;
+                        root.clearWorkspaceInteraction();
                       }
                     }
                     onCanceled: {
                       clientBubble.x = 0;
                       clientBubble.y = 0;
-                      root.workspaceDragTarget = 0;
-                      root.workspaceDragClient = null;
+                      root.clearWorkspaceInteraction();
                     }
                   }
                 }
@@ -2149,7 +2197,7 @@ ShellRoot {
           }
           Text {
             Layout.fillWidth: true
-            text: root.workspaceDragClient ? (root.workspaceDragTarget > 0 ? "Drop on workspace " + root.workspaceDragTarget : "Drop on a workspace") : ("Workspace " + root.workspaceHoverWorkspaceId)
+            text: root.workspaceDragClient ? (root.workspaceDragTarget !== 0 ? "Drop on " + root.workspaceDisplayName(root.workspaceDragTarget) : "Drop on a workspace") : ("Workspace " + root.workspaceDisplayName(root.workspaceHoverWorkspaceId))
             color: Theme.accent
             font.family: Theme.fontSans
             font.pixelSize: 10
