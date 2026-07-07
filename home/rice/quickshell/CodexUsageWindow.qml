@@ -14,19 +14,25 @@ ColumnLayout {
     const value = shell.codexUsageValue(key);
     return value === null ? null : Math.max(0, Math.min(100, Math.round(value)));
   }
+  function displayValue(metric, value) {
+    if (value === null) return null;
+    return metric === "available-as-used" ? 100 - value : value;
+  }
   function metricLabel(metric, value) {
-    if (value === null) return metric === "available" ? "available --" : "used --";
-    return value + "% " + (metric === "available" ? "available" : "used");
+    const display = displayValue(metric, value);
+    if (display === null) return metric === "available" ? "available --" : "used --";
+    return display + "% " + (metric === "available" ? "available" : "used");
   }
   function metricColor(metric, value) {
-    if (value === null) return Theme.muted;
+    const display = displayValue(metric, value);
+    if (display === null) return Theme.muted;
     if (metric === "available") {
       if (value <= 10) return Theme.danger;
       if (value <= 25) return Theme.warning;
       return Theme.accent;
     }
-    if (value >= 90) return Theme.danger;
-    if (value >= 75) return Theme.warning;
+    if (display >= 90) return Theme.danger;
+    if (display >= 75) return Theme.warning;
     return Theme.accent;
   }
 
@@ -62,14 +68,14 @@ ColumnLayout {
       },
       {
         label: "GPT-5.3-Codex-Spark",
-        metric: "available",
+        metric: "available-as-used",
         usedKey: "sparkPrimaryUsedPercent",
         resetKey: "sparkPrimaryResetsAt",
         windowKey: "sparkPrimaryWindowMinutes"
       },
       {
         label: "Spark secondary",
-        metric: "available",
+        metric: "available-as-used",
         usedKey: "sparkSecondaryUsedPercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
@@ -127,7 +133,8 @@ ColumnLayout {
             }
             width: {
               const value = usageValue(parent.parent.parent.modelData.usedKey);
-              return parent.width * (value === null ? 0 : value / 100);
+              const display = displayValue(parent.parent.parent.modelData.metric, value);
+              return parent.width * (display === null ? 0 : display / 100);
             }
           }
         }

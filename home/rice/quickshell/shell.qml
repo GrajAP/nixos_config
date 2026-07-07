@@ -633,10 +633,11 @@ ShellRoot {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
     const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
     if (codexUsed === null && sparkAvailable === null) return "—";
-    if (codexUsed === null) return "— / " + Math.round(sparkAvailable) + "%";
+    if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
     if (sparkAvailable === null) return Math.round(codexUsed) + "% / —";
-    return Math.round(codexUsed) + "% / " + Math.round(sparkAvailable) + "%";
+    return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
@@ -669,13 +670,14 @@ ShellRoot {
     const planType = root.codexUsage.planType || "unknown";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
     const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
     const sparkWindow = root.codexUsageWindowLabel(root.codexUsageValue("sparkPrimaryWindowMinutes"));
     return "Codex usage (" + planType + ")\n" +
       "Codex: " + (codexUsed === null ? "—" : Math.round(codexUsed) + "% used, reset " + codexReset) + " (" + codexWindow + ")\n" +
-      "Spark: " + (sparkAvailable === null ? "—" : Math.round(sparkAvailable) + "% available, reset " + sparkReset) + " (" + sparkWindow + ")";
+      "Spark: " + (sparkUsed === null ? "—" : Math.round(sparkUsed) + "% used, reset " + sparkReset) + " (" + sparkWindow + ")";
   }
   function codexUsageWindowLabel(minutesValue) {
     const minutes = Number(minutesValue);
