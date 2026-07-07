@@ -24,6 +24,13 @@ in {
       "8250.nr_uarts=0"
       "psmouse.synaptics_intertouch=1"
       "intel_pstate=disable"
+      # One Realtek RTS5765DL NVMe controller can stay in a not-ready state
+      # during Linux probe; avoid aggressive PCIe/NVMe power management so the
+      # Windows disk behind it has a chance to enumerate before GRUB/Linux use it.
+      "nvme_core.default_ps_max_latency_us=0"
+      "nvme_core.admin_timeout=60"
+      "nvme.noacpi=1"
+      "pcie_aspm=off"
     ];
     extraModprobeConfig = ''
       options i915 enable_fbc=1 enable_guc=2
