@@ -91,6 +91,7 @@ ShellRoot {
   property var clipboardEntries: []
   property string clipboardFilter: ""
   property string clipboardStatus: ""
+  readonly property bool clipboardLoading: clipboardQuery.running
   property int calendarMonthOffset: 0
   property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
   property string calendarEntryMode: "task"
@@ -516,6 +517,9 @@ ShellRoot {
   }
   function toggleClipboardHistory() {
     root.toggleWidget("clipboard");
+  }
+  function refreshClipboard() {
+    if (!clipboardQuery.running) clipboardQuery.running = true;
   }
   function closeWidget() {
     hoverWidgetCloseTimer.stop();
@@ -1627,140 +1631,12 @@ ShellRoot {
         anchors.fill: parent
         anchors.margins: 3
 
-        ColumnLayout {
+        BarWorkspaceList {
           id: workspaceStack
+          shell: root
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          spacing: 7
-
-        Repeater {
-          model: root.workspaceEntries
-          Rectangle {
-            id: workspaceCell
-            required property var modelData
-            readonly property var clients: root.workspaceClientList(modelData.id, 5)
-            readonly property bool dragTarget: root.workspaceDragTarget === modelData.id
-            readonly property bool active: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData.id
-            Layout.fillWidth: true
-            implicitHeight: root.workspaceCellHeight(modelData.id)
-            radius: 18
-            color: dragTarget ? Theme.accentSoft : (active ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, clients.length > 0 ? 0.08 : 0.02))
-            border.color: dragTarget || active ? Theme.accent : "transparent"
-            border.width: 1
-            scale: dragTarget ? 1.06 : 1
-            Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-
-            MouseArea {
-              id: workspaceCellMouse
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.openWorkspace(workspaceCell.modelData.id);
-              }
-            }
-
-            Column {
-              visible: workspaceCell.clients.length > 0
-              anchors.centerIn: parent
-              spacing: 6
-              Repeater {
-                model: workspaceCell.clients
-                Item {
-                  id: clientBubble
-                  required property var modelData
-                  property real pressStackY: 0
-                  property bool draggingWorkspaceClient: false
-                  width: 30
-                  height: 30
-                  scale: draggingWorkspaceClient ? 1.10 : (clientMouse.containsMouse ? 1.06 : 1)
-                  opacity: draggingWorkspaceClient ? 0.82 : 1
-                  Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                  Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-
-                  Rectangle {
-                    anchors.centerIn: parent
-                    width: 30
-                    height: 30
-                    radius: 15
-                    color: clientMouse.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
-                    border.color: clientMouse.containsMouse ? Theme.border : "transparent"
-                    border.width: 1
-                  }
-                  IconImage {
-                    anchors.centerIn: parent
-                    implicitSize: root.appIconSizeForClient(parent.modelData, 24)
-                    source: root.appIconSourceForClient(parent.modelData)
-                  }
-                  MouseArea {
-                    id: clientMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: pressed || clientBubble.draggingWorkspaceClient ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-                    onPressed: mouse => {
-                      clientBubble.pressStackY = mapToItem(workspaceStack, mouse.x, mouse.y).y;
-                      clientBubble.draggingWorkspaceClient = false;
-                      root.clearWorkspaceInteraction();
-                    }
-                    onPositionChanged: mouse => {
-                      if (!pressed) return;
-                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
-                      if (!clientBubble.draggingWorkspaceClient && Math.abs(point.y - clientBubble.pressStackY) < 8) return;
-                      clientBubble.draggingWorkspaceClient = true;
-                      root.workspaceDragClient = parent.modelData;
-                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
-                    }
-                    onReleased: mouse => {
-                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
-                      const target = root.workspaceIdAtY(point.y);
-                      if (clientBubble.draggingWorkspaceClient) {
-                        if (target !== 0)
-                          root.moveWorkspaceClient(parent.modelData, target);
-                        else
-                          root.clearWorkspaceInteraction();
-                      } else {
-                        root.clearWorkspaceInteraction();
-                        root.openWorkspace(workspaceCell.modelData.id);
-                      }
-                      clientBubble.draggingWorkspaceClient = false;
-                    }
-                    onCanceled: {
-                      clientBubble.draggingWorkspaceClient = false;
-                      root.clearWorkspaceInteraction();
-                    }
-                  }
-                }
-              }
-              Rectangle {
-                visible: (root.workspaceClientsById[String(workspaceCell.modelData.id)] || []).length > workspaceCell.clients.length
-                width: 28
-                height: 20
-                radius: 10
-                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
-                border.color: Theme.border
-                border.width: 1
-                Text {
-                  anchors.centerIn: parent
-                  text: "+" + ((root.workspaceClientsById[String(workspaceCell.modelData.id)] || []).length - workspaceCell.clients.length)
-                  color: Theme.accent
-                  font.family: Theme.fontSans
-                  font.pixelSize: 10
-                  font.bold: true
-                }
-              }
-            }
-            Rectangle {
-              visible: workspaceCell.clients.length === 0
-              anchors.centerIn: parent
-              width: 7
-              height: 7
-              radius: 4
-              color: workspaceCell.active ? Theme.accent : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.28)
-            }
-          }
-        }
         }
 
         Item {
@@ -2867,154 +2743,9 @@ ShellRoot {
           }
         }
 
-        ColumnLayout {
+        ClipboardWidget {
           visible: root.widgetPage === "clipboard"
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          spacing: 9
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            TextField {
-              Layout.fillWidth: true
-              implicitHeight: 36
-              text: root.clipboardFilter
-              placeholderText: "Search history"
-              color: Theme.text
-              placeholderTextColor: Theme.muted
-              font.family: Theme.font
-              font.pixelSize: 12
-              cursorDelegate: root.themedCursor
-              selectionColor: Theme.accent
-              selectedTextColor: Theme.background
-              selectByMouse: true
-              background: Rectangle {
-                radius: 9
-                color: Theme.surface
-                border.color: parent.activeFocus ? Theme.accent : Theme.border
-                border.width: 1
-              }
-              onTextChanged: root.clipboardFilter = text
-              Keys.onEscapePressed: {
-                if (root.clipboardFilter.length > 0) root.clipboardFilter = "";
-                else root.closeWidget();
-              }
-            }
-            Rectangle {
-              Layout.preferredWidth: 36
-              Layout.preferredHeight: 36
-              radius: 9
-              color: Theme.surface
-              Text { anchors.centerIn: parent; text: "󰑐"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
-              MouseArea {
-                id: refreshClipboardMouse
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: clipboardQuery.running = true
-              }
-            }
-            Rectangle {
-              Layout.preferredWidth: 36
-              Layout.preferredHeight: 36
-              radius: 9
-              color: Theme.surface
-              Text { anchors.centerIn: parent; text: "󰆴"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
-              MouseArea {
-                id: clearClipboardMouse
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.runClipboardAction("wipe", null)
-              }
-            }
-          }
-
-          ListView {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 7
-            model: root.filteredClipboardEntries()
-            delegate: Rectangle {
-              id: clipboardRow
-              required property var modelData
-              width: ListView.view.width
-              height: 54
-              radius: 10
-              color: clipboardRowMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-              border.color: clipboardRowMouse.containsMouse ? Theme.accent : Theme.border
-              border.width: 1
-              RowLayout {
-                z: 1
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-                Text {
-                  text: "󰅇"
-                  color: Theme.accent
-                  font.family: Theme.fontIcon
-                  font.pixelSize: 18
-                  Layout.preferredWidth: 24
-                  horizontalAlignment: Text.AlignHCenter
-                }
-                ColumnLayout {
-                  Layout.fillWidth: true
-                  spacing: 2
-                  Text {
-                    Layout.fillWidth: true
-                    text: clipboardRow.modelData.preview
-                    color: Theme.text
-                    font.family: Theme.fontSans
-                    font.pixelSize: 12
-                    maximumLineCount: 2
-                    wrapMode: Text.Wrap
-                    elide: Text.ElideRight
-                  }
-                  Text {
-                    Layout.fillWidth: true
-                    text: "#" + clipboardRow.modelData.id
-                    color: Theme.muted
-                    font.family: Theme.fontSans
-                    font.pixelSize: 10
-                    elide: Text.ElideRight
-                  }
-                }
-                Rectangle {
-                  Layout.preferredWidth: 30
-                  Layout.preferredHeight: 30
-                  radius: 8
-                  color: Theme.background
-                  border.color: Theme.border
-                  Text { anchors.centerIn: parent; text: "×"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
-                  MouseArea {
-                    id: deleteClipboardMouse
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.runClipboardAction("delete", clipboardRow.modelData)
-                  }
-                }
-              }
-              MouseArea {
-                id: clipboardRowMouse
-                z: 0
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton
-                onClicked: root.runClipboardAction("copy", clipboardRow.modelData)
-              }
-            }
-            Text {
-              anchors.centerIn: parent
-              visible: parent.count === 0
-              text: clipboardQuery.running ? "Loading clipboard..." : (root.clipboardStatus || "No matches")
-              color: Theme.muted
-              font.family: Theme.fontSans
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
-              width: parent.width - 24
-              wrapMode: Text.Wrap
-            }
-          }
+          shell: root
         }
 
         ScrollView {

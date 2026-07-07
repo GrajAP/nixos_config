@@ -1492,6 +1492,8 @@
   '';
   qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
+    BarWorkspaceList 1.0 BarWorkspaceList.qml
+    ClipboardWidget 1.0 ClipboardWidget.qml
     CodexUsageWindow 1.0 CodexUsageWindow.qml
     KeybindHelpWindow 1.0 KeybindHelpWindow.qml
     LauncherWindow 1.0 LauncherWindow.qml
@@ -1517,6 +1519,14 @@
     {
       name = "Theme.qml";
       path = themeConfig;
+    }
+    {
+      name = "BarWorkspaceList.qml";
+      path = ./BarWorkspaceList.qml;
+    }
+    {
+      name = "ClipboardWidget.qml";
+      path = ./ClipboardWidget.qml;
     }
     {
       name = "CodexUsageWindow.qml";
@@ -1551,6 +1561,8 @@ in {
 
   xdg.configFile."quickshell/shell.qml".source = shellConfig;
   xdg.configFile."quickshell/Theme.qml".source = themeConfig;
+  xdg.configFile."quickshell/BarWorkspaceList.qml".source = ./BarWorkspaceList.qml;
+  xdg.configFile."quickshell/ClipboardWidget.qml".source = ./ClipboardWidget.qml;
   xdg.configFile."quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
   xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
   xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
