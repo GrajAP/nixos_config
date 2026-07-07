@@ -1,7 +1,7 @@
 {pkgs, ...}: {
   imports = [./fonts.nix ./pipewire.nix ./services.nix];
   environment.etc."greetd/environments".text = ''
-    Hyprland
+    Hyprland (UWSM)
   '';
 
   environment = {
@@ -36,5 +36,10 @@
       xdg-desktop-portal-gtk
       xdg-desktop-portal-hyprland
     ];
+  };
+  programs.hyprland = {
+    enable = true;
+    package = pkgs.hyprland;
+    withUWSM = true;
   };
 }

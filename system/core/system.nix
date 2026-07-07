@@ -65,6 +65,17 @@ in {
       resyncTimer = "10m";
     };
   };
+  systemd.user = {
+    services.psd.wantedBy = lib.mkForce [];
+    timers.psd-delayed-start = {
+      description = "Start profile-sync-daemon after session startup";
+      timerConfig = {
+        OnStartupSec = "20s";
+        Unit = "psd.service";
+      };
+      wantedBy = ["timers.target"];
+    };
+  };
   services.udev.extraRules = ''
     KERNEL=="uinput", GROUP="input", MODE="0660"
   '';

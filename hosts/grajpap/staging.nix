@@ -5,7 +5,8 @@
 }: {
   # Staging preview profile for dependency updates.
   # Kept out of default system output so it can be built/tested safely.
-  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
+  # Kernel selection is inherited from the host profile; override it here only
+  # when staging intentionally tests a different kernel.
 
   # Optional follow-up for this profile:
   # override Hyprland with lib.mkForce only when staging intentionally tests

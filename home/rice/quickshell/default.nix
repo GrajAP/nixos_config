@@ -1603,8 +1603,8 @@ in {
   systemd.user.services.quickshell = {
     Unit = {
       Description = "Quickshell desktop shell";
-      After = ["hyprland-session.target"];
-      PartOf = ["hyprland-session.target"];
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
     };
     Service = {
       ExecStart = "${pkgs.quickshell}/bin/qs -p ${quickshellConfig}";
@@ -1612,6 +1612,6 @@ in {
       RestartSec = 2;
       Environment = ["QS_NO_RELOAD_POPUP=1"];
     };
-    Install.WantedBy = ["hyprland-session.target"];
+    Install.WantedBy = ["graphical-session.target"];
   };
 }

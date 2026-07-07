@@ -1,6 +1,7 @@
 {
   pkgs,
   config,
+  lib,
   ...
 }: {
   imports = [
@@ -67,6 +68,7 @@
     thermald.enable = true;
   };
   boot = {
+    kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
     kernelModules = ["acpi_call"];
     extraModulePackages = with config.boot.kernelPackages;
       [

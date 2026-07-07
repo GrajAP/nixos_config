@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   lib,
   inputs,
@@ -362,20 +363,17 @@ in {
 
   wayland.windowManager.hyprland = {
     enable = true;
-    #package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+    # Keep the compositor package in one place: the NixOS Hyprland module.
     package = pkgs.hyprland;
     systemd = {
-      variables = ["--all"];
-      extraCommands = [
-        "systemctl --user stop graphical-session.target"
-        "systemctl --user start hyprland-session.target"
-      ];
+      enable = false;
     };
   };
+  xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
   services = {
     hypridle = {
       enable = true;
-      systemdTarget = "hyprland-session.target";
+      systemdTarget = "graphical-session.target";
       settings = {
         general = {
           lock_cmd = "${quickshellIpc}/bin/quickshell-ipc lock lock";
@@ -414,7 +412,7 @@ in {
         day = 6200;
         night = 3000;
       };
-      systemdTarget = "hyprland-session.target";
+      systemdTarget = "graphical-session.target";
     };
   };
   systemd.user = {
@@ -422,15 +420,15 @@ in {
       hyprland-dp2-fix = {
         Unit = {
           Description = "Re-assert DP-2 monitor mode on login.";
-          After = ["hyprland-session.target"];
-          PartOf = ["hyprland-session.target"];
+          After = ["graphical-session.target"];
+          PartOf = ["graphical-session.target"];
         };
         Service = {
           Type = "oneshot";
           ExecStart = lib.getExe ensureDp2Monitor;
         };
         Install = {
-          WantedBy = ["hyprland-session.target"];
+          WantedBy = ["graphical-session.target"];
         };
       };
       hypridle.Service.ExecStartPre = "${pkgs.bash}/bin/bash -c 'hour=\"$(${pkgs.coreutils}/bin/date +%H)\"; test \"$hour\" -lt 7 -o \"$hour\" -ge 22'";
@@ -487,8 +485,8 @@ in {
   systemd.user.services.cliphist-store = {
     Unit = {
       Description = "Store Wayland clipboard history";
-      After = ["hyprland-session.target"];
-      PartOf = ["hyprland-session.target"];
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
     };
     Service = {
       ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store";
@@ -496,7 +494,7 @@ in {
       RestartSec = 2;
     };
     Install = {
-      WantedBy = ["hyprland-session.target"];
+      WantedBy = ["graphical-session.target"];
     };
   };
   systemd.user.targets.tray = {
@@ -508,8 +506,8 @@ in {
   systemd.user.services.auto-shutdown = {
     Unit = {
       Description = "Power off overnight unless cancelled from the Quickshell widget";
-      After = ["hyprland-session.target"];
-      PartOf = ["hyprland-session.target"];
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
     };
     Service = {
       ExecStart = lib.getExe autoShutdown;
@@ -517,7 +515,7 @@ in {
       RestartSec = 10;
     };
     Install = {
-      WantedBy = ["hyprland-session.target"];
+      WantedBy = ["graphical-session.target"];
     };
   };
 }
