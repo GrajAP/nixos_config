@@ -117,28 +117,7 @@ PanelWindow {
 
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 44
-            radius: Theme.radiusSm
-            color: Theme.surfaceAlt
-            border.color: Theme.border
-            border.width: 1
-            Text {
-              anchors.centerIn: parent
-              width: parent.width - 24
-              text: shell.keybindHelpSelectedKey.length > 0
-                ? "Selected key: " + shell.keybindHelpSelectedKey
-                : "Click a key to show every bind that uses it."
-              color: shell.secondaryText
-              font.family: Theme.fontSans
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
-              elide: Text.ElideRight
-            }
-          }
-
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 560
+            Layout.preferredHeight: 604
             radius: Theme.radiusMd
             color: "transparent"
             border.color: Theme.border
