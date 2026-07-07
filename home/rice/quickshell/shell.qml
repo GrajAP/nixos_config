@@ -534,7 +534,9 @@ ShellRoot {
     }
     openWidget(page);
   }
-  function showHoverWidget(page) {
+  function showHoverWidget(page, fromHover) {
+    if (fromHover !== false && (root.keybindHelpVisible || (root.widgetVisible && root.widgetPage === "calendar" && root.widgetPage !== page)))
+      return;
     hoverWidgetCloseTimer.stop();
     root.hoverWidgetOpenPage = page;
     root.hoverWidgetButtonPage = page;
@@ -1705,13 +1707,11 @@ ShellRoot {
                     onClicked: mouse => {
                       root.openWorkspace(workspaceCell.modelData.id);
                     }
-                    onPressed: {
-                      root.workspaceDragClient = parent.modelData;
-                      root.workspaceDragTarget = workspaceCell.modelData.id;
-                    }
+                    onPressed: root.clearWorkspaceInteraction()
                     onPositionChanged: mouse => {
                       if (!pressed) return;
                       if (Math.abs(clientBubble.x) < 5 && Math.abs(clientBubble.y) < 5) return;
+                      root.workspaceDragClient = parent.modelData;
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                       root.workspaceDragTarget = root.workspaceIdAtY(point.y);
                     }
@@ -1780,7 +1780,7 @@ ShellRoot {
           anchors.centerIn: parent
           width: 38
           spacing: 7
-          visible: calendarBarRegion.height >= 82
+          visible: !root.trayExpanded && calendarBarRegion.height >= 82
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
@@ -1939,39 +1939,6 @@ ShellRoot {
           }
         }
 
-        ColumnLayout {
-          visible: root.trayExpanded
-          Layout.alignment: Qt.AlignHCenter
-          spacing: 6
-
-          Repeater {
-            model: SystemTray.items
-            Item {
-              required property var modelData
-              Layout.alignment: Qt.AlignHCenter
-              implicitWidth: 34
-              implicitHeight: 34
-              IconImage {
-                anchors.centerIn: parent
-                implicitSize: 20
-                source: parent.modelData.icon
-              }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                onClicked: mouse => {
-                  root.closeTransientPanels();
-                  if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
-                    parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
-                  else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
-                  else parent.modelData.activate();
-                }
-              }
-            }
-          }
-        }
-
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 34
@@ -2027,7 +1994,7 @@ ShellRoot {
             cursorShape: Qt.PointingHandCursor
             onEntered: root.showHoverWidget("media")
             onExited: root.leaveHoverWidgetButton("media")
-            onClicked: root.showHoverWidget("media")
+            onClicked: root.showHoverWidget("media", false)
           }
         }
 
@@ -2063,7 +2030,7 @@ ShellRoot {
             cursorShape: Qt.PointingHandCursor
             onEntered: root.showHoverWidget("audio")
             onExited: root.leaveHoverWidgetButton("audio")
-            onClicked: root.showHoverWidget("audio")
+            onClicked: root.showHoverWidget("audio", false)
             onWheel: wheel => {
               if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio)
                 Pipewire.defaultAudioSink.audio.volume = Math.max(0, Math.min(1.5, Pipewire.defaultAudioSink.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05)));
@@ -2181,7 +2148,7 @@ ShellRoot {
             cursorShape: Qt.PointingHandCursor
             onEntered: root.showHoverWidget("weather")
             onExited: root.leaveHoverWidgetButton("weather")
-            onClicked: root.showHoverWidget("weather")
+            onClicked: root.showHoverWidget("weather", false)
           }
         }
 
@@ -2209,7 +2176,7 @@ ShellRoot {
             cursorShape: Qt.PointingHandCursor
             onEntered: root.showHoverWidget("codex")
             onExited: root.leaveHoverWidgetButton("codex")
-            onClicked: root.showHoverWidget("codex")
+            onClicked: root.showHoverWidget("codex", false)
           }
         }
 
@@ -2241,7 +2208,7 @@ ShellRoot {
             cursorShape: Qt.PointingHandCursor
             onEntered: root.showHoverWidget("shutdown")
             onExited: root.leaveHoverWidgetButton("shutdown")
-            onClicked: root.showHoverWidget("shutdown")
+            onClicked: root.showHoverWidget("shutdown", false)
           }
         }
 
@@ -2277,9 +2244,75 @@ ShellRoot {
             onClicked: root.toggleWidget("calendar")
           }
         }
+        }
+
+        Item {
+          id: trayOverlay
+          anchors.top: workspaceStack.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: barActionStack.top
+          anchors.topMargin: 8
+          anchors.bottomMargin: 8
+          visible: root.trayExpanded
+          clip: true
+          z: 4
+
+          Flickable {
+            id: trayFlick
+            anchors.fill: parent
+            contentWidth: width
+            contentHeight: trayOverlayColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: contentHeight > height
+            clip: true
+
+            Column {
+              id: trayOverlayColumn
+              width: trayFlick.width
+              y: Math.max(0, trayFlick.height - implicitHeight)
+              spacing: 6
+
+              Repeater {
+                model: SystemTray.items
+                Item {
+                  required property var modelData
+                  width: trayOverlayColumn.width
+                  height: 34
+
+                  Rectangle {
+                    anchors.centerIn: parent
+                    width: 34
+                    height: 34
+                    radius: 8
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                    border.color: "transparent"
+                    border.width: 0
+                  }
+                  IconImage {
+                    anchors.centerIn: parent
+                    implicitSize: 20
+                    source: parent.modelData.icon
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                    onClicked: mouse => {
+                      root.closeTransientPanels();
+                      if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
+                        parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
+                      else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
+                      else parent.modelData.activate();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
-  }
   }
 
   PanelWindow {
