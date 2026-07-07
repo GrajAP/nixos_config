@@ -556,7 +556,7 @@ ShellRoot {
     if (value.includes("steam")) return "";
     if (value.includes("obs")) return "󰻂";
     if (value.includes("ferdium")) return "󰭻";
-    if (value.includes("org.gnome.nautilus") || value.includes("dolphin")) return "󰉋";
+    if (value.includes("org.gnome.nautilus") || value.includes("dolphin") || value.includes("nemo")) return "󰉋";
     return "󰘔";
   }
   function appThemeIconForClient(client) {
@@ -582,11 +582,13 @@ ShellRoot {
     if (value.includes("ferdium")) return "ferdium";
     if (value.includes("dolphin")) return "system-file-manager";
     if (value.includes("org.gnome.nautilus")) return "org.gnome.Nautilus";
+    if (value.includes("nemo")) return "nemo";
     return "application-x-executable";
   }
   function appIconSourceForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
     if (value.includes("helium")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/256x256/apps/helium.png";
+    if (value.includes("nemo")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/nemo.svg";
     if (value.includes("t3code")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/t3code.svg";
     return Quickshell.iconPath(root.appThemeIconForClient(client), "application-x-executable");
   }
@@ -609,7 +611,7 @@ ShellRoot {
     if (value.includes("steam")) return "#1d4ed8";
     if (value.includes("obs")) return "#7c3aed";
     if (value.includes("ferdium")) return "#f59e0b";
-    if (value.includes("org.gnome.nautilus") || value.includes("dolphin")) return "#06b6d4";
+    if (value.includes("org.gnome.nautilus") || value.includes("dolphin") || value.includes("nemo")) return "#06b6d4";
     return Theme.surfaceAlt;
   }
   function workspaceClientList(workspaceId, limit) {
