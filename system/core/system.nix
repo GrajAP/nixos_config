@@ -55,7 +55,6 @@ in {
       packages = with pkgs; [dconf gcr udisks2];
       enable = true;
     };
-    gvfs.enable = true;
     journald.extraConfig = ''
       SystemMaxUse=50M
       RuntimeMaxUse=10M

@@ -1459,6 +1459,10 @@
   '';
   qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
+    CodexUsageWindow 1.0 CodexUsageWindow.qml
+    KeybindHelpWindow 1.0 KeybindHelpWindow.qml
+    LauncherWindow 1.0 LauncherWindow.qml
+    PowerMenuWindow 1.0 PowerMenuWindow.qml
   '';
   quickshellConfig = pkgs.linkFarm "quickshell-config" [
     {
@@ -1468,6 +1472,22 @@
     {
       name = "Theme.qml";
       path = themeConfig;
+    }
+    {
+      name = "CodexUsageWindow.qml";
+      path = ./CodexUsageWindow.qml;
+    }
+    {
+      name = "KeybindHelpWindow.qml";
+      path = ./KeybindHelpWindow.qml;
+    }
+    {
+      name = "LauncherWindow.qml";
+      path = ./LauncherWindow.qml;
+    }
+    {
+      name = "PowerMenuWindow.qml";
+      path = ./PowerMenuWindow.qml;
     }
     {
       name = "qmldir";
@@ -1482,6 +1502,10 @@ in {
 
   xdg.configFile."quickshell/shell.qml".source = shellConfig;
   xdg.configFile."quickshell/Theme.qml".source = themeConfig;
+  xdg.configFile."quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
+  xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
+  xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
+  xdg.configFile."quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
   xdg.configFile."quickshell/qmldir".source = qmldirConfig;
 
   systemd.user.services.quickshell = {

@@ -22,12 +22,11 @@
     openssh.enable = true;
     greetd = {
       enable = true;
-      settings = rec {
-        initial_session = {
-          command = "start-hyprland";
-          user = "grajpap";
+      settings = {
+        default_session = {
+          command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --remember-user-session --cmd start-hyprland";
+          user = "greeter";
         };
-        default_session = initial_session;
       };
     };
 
@@ -40,7 +39,6 @@
       HandleLidSwitchExternalPower = "lock";
     };
 
-    udisks2.enable = true;
     printing.enable = true;
     fstrim.enable = true;
   };
