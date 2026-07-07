@@ -7,213 +7,345 @@ import qs
 
 PanelWindow {
   required property var shell
-    visible: shell.keybindHelpVisible
-    focusable: true
-    color: "transparent"
-    anchors { top: true; left: true; right: true; bottom: true }
-    exclusionMode: ExclusionMode.Ignore
 
-    MouseArea {
+  visible: shell.keybindHelpVisible
+  focusable: true
+  color: "transparent"
+  anchors { top: true; left: true; right: true; bottom: true }
+  exclusionMode: ExclusionMode.Ignore
+
+  Rectangle {
+    id: keybindHelpPanel
+    anchors.fill: parent
+    focus: shell.keybindHelpVisible
+    color: Theme.panel
+
+    ColumnLayout {
       anchors.fill: parent
-      onClicked: mouse => {
-        const point = mapToItem(keybindHelpPanel, mouse.x, mouse.y);
-        if (point.x < 0 || point.y < 0 || point.x > keybindHelpPanel.width || point.y > keybindHelpPanel.height)
-          shell.keybindHelpVisible = false;
-      }
-    }
+      anchors.margins: Theme.padLg
+      spacing: Theme.gapMd
 
-    Rectangle {
-      id: keybindHelpPanel
-      width: Math.min(1180, parent.width - 44)
-      height: Math.min(760, parent.height - 44)
-      focus: shell.keybindHelpVisible
-      anchors.centerIn: parent
-      radius: Theme.radiusLg
-      color: Theme.panel
-      border.color: Theme.border
-      border.width: 1
-      clip: true
-
-      ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: Theme.padLg
+      RowLayout {
+        Layout.fillWidth: true
         spacing: Theme.gapMd
 
-        RowLayout {
+        Text {
+          text: "Keybinds"
+          color: Theme.text
+          font.family: Theme.fontSans
+          font.bold: true
+          font.pixelSize: 22
+          Layout.preferredWidth: 150
+        }
+
+        TextField {
+          id: keybindSearch
           Layout.fillWidth: true
-          Text {
-            text: "Keybinds"
-            color: Theme.text
-            font.family: Theme.fontSans
-            font.bold: true
-            font.pixelSize: 20
-            Layout.fillWidth: true
+          Layout.preferredHeight: 38
+          focus: shell.keybindHelpVisible
+          text: shell.keybindHelpFilter
+          placeholderText: "Search binds"
+          color: Theme.text
+          placeholderTextColor: Theme.muted
+          font.family: Theme.fontSans
+          font.pixelSize: 13
+          cursorDelegate: shell.themedCursor
+          selectionColor: Theme.accent
+          selectedTextColor: Theme.background
+          selectByMouse: true
+          background: Rectangle {
+            radius: Theme.radiusSm
+            color: Theme.surface
+            border.color: parent.activeFocus ? Theme.accent : Theme.border
+            border.width: 1
           }
-          Text {
-            text: "Mod + /"
-            color: shell.secondaryText
-            font.family: Theme.fontSans
-            font.pixelSize: 12
-          }
-          Text {
-            text: "×"
-            color: Theme.muted
-            font.pixelSize: 22
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: shell.keybindHelpVisible = false }
+          onTextChanged: shell.keybindHelpFilter = text
+          Keys.onEscapePressed: {
+            if (shell.keybindHelpFilter.length > 0) shell.keybindHelpFilter = "";
+            else shell.keybindHelpVisible = false;
           }
         }
 
-        RowLayout {
+        Text {
+          text: "Mod + /"
+          color: shell.secondaryText
+          font.family: Theme.fontSans
+          font.pixelSize: 12
+        }
+        Text {
+          text: "×"
+          color: Theme.muted
+          font.pixelSize: 24
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.keybindHelpVisible = false
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        spacing: Theme.gapLg
+
+        ColumnLayout {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          spacing: Theme.gapLg
+          Layout.preferredWidth: 760
+          spacing: Theme.gapSm
 
-          ColumnLayout {
+          Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.maximumWidth: 720
-            spacing: 8
+            Layout.preferredHeight: 44
+            radius: Theme.radiusSm
+            color: Theme.surfaceAlt
+            border.color: Theme.border
+            border.width: 1
+            Text {
+              anchors.centerIn: parent
+              width: parent.width - 24
+              text: shell.keybindHelpSelectedKey.length > 0
+                ? "Selected key: " + shell.keybindHelpSelectedKey
+                : "Click a key to show every bind that uses it."
+              color: shell.secondaryText
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+              elide: Text.ElideRight
+            }
+          }
 
-            Repeater {
-              model: shell.keyboardRows
-              RowLayout {
-                required property var modelData
-                Layout.fillWidth: true
-                spacing: 6
+          Repeater {
+            model: shell.keyboardRows
+            RowLayout {
+              required property var modelData
+              Layout.fillWidth: true
+              spacing: 6
 
-                Repeater {
-                  model: parent.modelData
-                  Rectangle {
-                    required property string modelData
-                    readonly property var matches: shell.keybindsForKey(modelData)
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 52 * shell.keyWidthUnits(modelData)
-                    Layout.preferredHeight: 58
-                    radius: Theme.radiusSm
-                    color: matches.length > 0 ? Theme.accentSoft : Theme.surface
-                    border.color: matches.length > 0 ? Theme.accent : Theme.border
-                    border.width: 1
-                    clip: true
+              Repeater {
+                model: parent.modelData
+                Rectangle {
+                  required property string modelData
+                  readonly property var matches: shell.keybindsForKey(modelData)
+                  readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                  Layout.fillWidth: true
+                  Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
+                  Layout.preferredHeight: 64
+                  radius: Theme.radiusSm
+                  color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
+                  border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                  border.width: 1
+                  clip: true
 
-                    ColumnLayout {
-                      anchors.fill: parent
-                      anchors.margins: 7
-                      spacing: 2
-                      Text {
-                        Layout.fillWidth: true
-                        text: parent.parent.modelData
-                        color: parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText
-                        font.family: Theme.fontSans
-                        font.bold: true
-                        font.pixelSize: 12
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
-                      }
-                      Text {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        text: shell.keybindKeyLabel(parent.parent.modelData)
-                        color: shell.secondaryText
-                        font.family: Theme.fontSans
-                        font.pixelSize: 9
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        wrapMode: Text.Wrap
-                        maximumLineCount: 2
-                        elide: Text.ElideRight
-                      }
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 7
+                    spacing: 2
+                    Text {
+                      Layout.fillWidth: true
+                      text: parent.parent.modelData
+                      color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
+                      font.family: Theme.fontSans
+                      font.bold: true
+                      font.pixelSize: 12
+                      horizontalAlignment: Text.AlignHCenter
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      Layout.fillWidth: true
+                      Layout.fillHeight: true
+                      text: shell.keybindKeyLabel(parent.parent.modelData)
+                      color: parent.parent.selected ? Theme.background : shell.secondaryText
+                      font.family: Theme.fontSans
+                      font.pixelSize: 9
+                      horizontalAlignment: Text.AlignHCenter
+                      verticalAlignment: Text.AlignVCenter
+                      wrapMode: Text.Wrap
+                      maximumLineCount: 2
+                      elide: Text.ElideRight
                     }
                   }
-                }
-              }
-            }
 
-            Rectangle {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 42
-              radius: Theme.radiusSm
-              color: Theme.surfaceAlt
-              border.color: Theme.border
-              border.width: 1
-              Text {
-                anchors.centerIn: parent
-                width: parent.width - 24
-                text: "Highlighted keys have configured Hyprland or Quickshell binds. Full list is on the right."
-                color: shell.secondaryText
-                font.family: Theme.fontSans
-                font.pixelSize: 11
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                  }
+                }
               }
             }
           }
 
-          ScrollView {
-            id: keybindListScroll
-            Layout.preferredWidth: 390
+          Rectangle {
+            Layout.fillWidth: true
             Layout.fillHeight: true
+            radius: Theme.radiusMd
+            color: Theme.surface
+            border.color: Theme.border
+            border.width: 1
             clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
             ColumnLayout {
-              width: keybindListScroll.availableWidth
-              spacing: 12
+              anchors.fill: parent
+              anchors.margins: Theme.padMd
+              spacing: Theme.gapSm
 
-              Repeater {
-                model: shell.keybindHelpCategories()
-                ColumnLayout {
-                  required property string modelData
-                  width: parent.width
-                  spacing: 6
-                  Text {
-                    Layout.fillWidth: true
-                    text: parent.modelData
-                    color: Theme.muted
-                    font.family: Theme.fontSans
-                    font.bold: true
-                    font.pixelSize: 12
+              RowLayout {
+                Layout.fillWidth: true
+                Text {
+                  text: shell.keybindHelpSelectedKey.length > 0 ? "Binds for " + shell.keybindHelpSelectedKey : "No key selected"
+                  color: Theme.text
+                  font.family: Theme.fontSans
+                  font.bold: true
+                  font.pixelSize: 14
+                  Layout.fillWidth: true
+                }
+                Text {
+                  visible: shell.keybindHelpSelectedKey.length > 0
+                  text: "Clear"
+                  color: Theme.accent
+                  font.family: Theme.fontSans
+                  font.pixelSize: 12
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: shell.keybindHelpSelectedKey = ""
                   }
-                  Repeater {
-                    model: shell.keybindsInCategory(parent.modelData)
-                    Rectangle {
-                      required property var modelData
+                }
+              }
+
+              ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 7
+                model: shell.selectedKeybinds()
+                delegate: Rectangle {
+                  required property var modelData
+                  width: ListView.view.width
+                  height: 42
+                  radius: Theme.radiusSm
+                  color: Theme.background
+                  border.color: Theme.border
+                  border.width: 1
+                  RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 9
+                    spacing: 10
+                    Text {
+                      Layout.preferredWidth: 130
+                      text: parent.parent.modelData.combo
+                      color: Theme.accent
+                      font.family: Theme.fontSans
+                      font.pixelSize: 11
+                      font.bold: true
+                      elide: Text.ElideRight
+                    }
+                    Text {
                       Layout.fillWidth: true
-                      implicitHeight: 42
-                      radius: Theme.radiusSm
-                      color: Theme.surface
-                      border.color: Theme.border
-                      border.width: 1
-                      RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 9
-                        spacing: 10
-                        Text {
-                          Layout.preferredWidth: 118
-                          text: parent.parent.modelData.combo
-                          color: Theme.accent
-                          font.family: Theme.fontSans
-                          font.pixelSize: 11
-                          font.bold: true
-                          elide: Text.ElideRight
-                        }
-                        Text {
-                          Layout.fillWidth: true
-                          text: parent.parent.modelData.description
-                          color: Theme.text
-                          font.family: Theme.fontSans
-                          font.pixelSize: 11
-                          elide: Text.ElideRight
-                        }
+                      text: parent.parent.modelData.description
+                      color: Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 11
+                      elide: Text.ElideRight
+                    }
+                  }
+                }
+                Text {
+                  anchors.centerIn: parent
+                  visible: parent.count === 0
+                  text: shell.keybindHelpSelectedKey.length > 0 ? "No binds for this key" : "Select a key above"
+                  color: Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 12
+                }
+              }
+            }
+          }
+        }
+
+        ScrollView {
+          id: keybindListScroll
+          Layout.preferredWidth: 430
+          Layout.fillHeight: true
+          clip: true
+          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+          ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+          ColumnLayout {
+            width: keybindListScroll.availableWidth
+            spacing: Theme.gapMd
+
+            Repeater {
+              model: shell.keybindHelpFilteredCategories()
+              ColumnLayout {
+                required property string modelData
+                width: parent.width
+                spacing: 6
+                Text {
+                  Layout.fillWidth: true
+                  text: parent.modelData
+                  color: Theme.muted
+                  font.family: Theme.fontSans
+                  font.bold: true
+                  font.pixelSize: 12
+                }
+                Repeater {
+                  model: shell.filteredKeybindsInCategory(parent.modelData)
+                  Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    implicitHeight: 42
+                    radius: Theme.radiusSm
+                    color: Theme.surface
+                    border.color: Theme.border
+                    border.width: 1
+                    RowLayout {
+                      anchors.fill: parent
+                      anchors.margins: 9
+                      spacing: 10
+                      Text {
+                        Layout.preferredWidth: 126
+                        text: parent.parent.modelData.combo
+                        color: Theme.accent
+                        font.family: Theme.fontSans
+                        font.pixelSize: 11
+                        font.bold: true
+                        elide: Text.ElideRight
+                      }
+                      Text {
+                        Layout.fillWidth: true
+                        text: parent.parent.modelData.description
+                        color: Theme.text
+                        font.family: Theme.fontSans
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
                       }
                     }
                   }
                 }
               }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: shell.filteredKeybindHelpEntries().length === 0
+              text: "No matching binds"
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
             }
           }
         }
       }
-      Keys.onEscapePressed: shell.keybindHelpVisible = false
+    }
+
+    Keys.onEscapePressed: {
+      if (shell.keybindHelpFilter.length > 0) shell.keybindHelpFilter = "";
+      else if (shell.keybindHelpSelectedKey.length > 0) shell.keybindHelpSelectedKey = "";
+      else shell.keybindHelpVisible = false;
     }
   }
+}

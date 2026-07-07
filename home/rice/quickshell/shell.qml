@@ -92,6 +92,8 @@ ShellRoot {
   property string calendarEndDraft: ""
   property string calendarEditingHref: ""
   property string calendarEditingKind: ""
+  property string keybindHelpFilter: ""
+  property string keybindHelpSelectedKey: ""
   property bool calendarCanUndo: false
   property bool calendarAllDay: false
   property int calendarEventStartMinutes: 540
@@ -382,6 +384,9 @@ ShellRoot {
     codexUsageVisible = !codexUsageVisible;
     if (codexUsageVisible) codexUsageQuery.running = true;
   }
+  function refreshCodexUsage() {
+    if (!codexUsageQuery.running) codexUsageQuery.running = true;
+  }
   function closeTransientPanels() {
     root.closeWidget();
     root.launcherVisible = false;
@@ -418,6 +423,29 @@ ShellRoot {
   }
   function keybindsForKey(key) {
     return root.keybindHelpEntries.filter(entry => root.keybindMatchesKey(entry, key));
+  }
+  function filteredKeybindHelpEntries() {
+    const query = root.keybindHelpFilter.trim().toLowerCase();
+    if (query.length === 0) return root.keybindHelpEntries;
+    return root.keybindHelpEntries.filter(entry =>
+      String(entry.combo || "").toLowerCase().includes(query) ||
+      String(entry.description || "").toLowerCase().includes(query) ||
+      String(entry.category || "").toLowerCase().includes(query));
+  }
+  function keybindHelpFilteredCategories() {
+    const categories = [];
+    for (const entry of root.filteredKeybindHelpEntries()) {
+      if (!categories.includes(entry.category))
+        categories.push(entry.category);
+    }
+    return categories;
+  }
+  function filteredKeybindsInCategory(category) {
+    return root.filteredKeybindHelpEntries().filter(entry => entry.category === category);
+  }
+  function selectedKeybinds() {
+    if (root.keybindHelpSelectedKey.length === 0) return [];
+    return root.keybindsForKey(root.keybindHelpSelectedKey);
   }
   function keybindKeyLabel(key) {
     const matches = root.keybindsForKey(key);
@@ -1369,23 +1397,21 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 34
+          Layout.preferredWidth: 36
           Layout.preferredHeight: 30
-          implicitWidth: 34
+          implicitWidth: 36
           implicitHeight: 30
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: Theme.background
-            border.color: root.codexUsageVisible ? Theme.accent : Theme.border
-            border.width: 1
+            color: root.codexUsageVisible ? Theme.accentSoft : "transparent"
           }
           Text {
             anchors.centerIn: parent
-            text: "◉"
+            text: "Codex"
             color: root.codexUsageVisible ? Theme.accent : Theme.text
             font.family: Theme.fontSans
-            font.pixelSize: 13
+            font.pixelSize: 9
             font.bold: true
           }
           MouseArea {
@@ -1428,35 +1454,6 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          id: toolsButton
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
-          implicitWidth: 34
-          implicitHeight: 30
-          Rectangle {
-            anchors.fill: parent
-            radius: 8
-            color: "transparent"
-            border.color: "transparent"
-            border.width: 1
-          }
-          Text {
-            anchors.centerIn: parent
-            text: "󰒓"
-            color: root.toolBusy ? Theme.accent : Theme.text
-            font.family: Theme.fontIcon
-            font.pixelSize: 17
-          }
-          MouseArea {
-            id: toolsMouse
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.captureScreenshot("edit", true)
-          }
-        }
-
-        Item {
-          Layout.alignment: Qt.AlignHCenter
           id: shutdownButton
           Layout.preferredWidth: 34
           Layout.preferredHeight: 30
@@ -1481,38 +1478,6 @@ ShellRoot {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: root.toggleWidget("shutdown")
-          }
-        }
-
-        Item {
-          Layout.alignment: Qt.AlignHCenter
-          id: notificationsButton
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
-          implicitWidth: 34
-          implicitHeight: 30
-          Rectangle {
-            anchors.fill: parent
-            radius: 8
-            color: "transparent"
-            border.color: "transparent"
-            border.width: 1
-          }
-          Text {
-            anchors.centerIn: parent
-            font.family: Theme.fontIcon
-            font.pixelSize: 16
-            color: Theme.text
-            text: notificationServer.trackedNotifications.values.length > 0 ? "󰂚" : "󰂜"
-          }
-          MouseArea {
-            id: notificationsButtonMouse
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.closeWidget();
-              root.notificationHistoryVisible = !root.notificationHistoryVisible;
-            }
           }
         }
 
