@@ -8,7 +8,6 @@ in {
     ./media.nix
     ./vscode.nix
     ./cursor.nix
-    ./spotify.nix
     ./obsidian.nix
   ];
 

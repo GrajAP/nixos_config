@@ -35,6 +35,5 @@
       };
   in {
     nixosConfigurations.grajpap = mkHost [];
-    nixosConfigurations.grajpap-staging = mkHost [./hosts/grajpap/staging.nix];
   };
 }

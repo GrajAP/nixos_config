@@ -75,7 +75,6 @@ in {
           calendar
           contacts
           notes
-          qownnotesapi
           tasks
           ;
       };
