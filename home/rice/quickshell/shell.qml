@@ -596,13 +596,17 @@ ShellRoot {
   function workspaceIds() {
     return root.workspaceEntries.map(workspace => workspace.id);
   }
+  function workspaceCellHeight(workspaceId) {
+    const clients = root.workspaceClientsById[String(workspaceId)] || [];
+    if (clients.length === 0) return 34;
+    return Math.min(172, 24 + Math.min(clients.length, 5) * 30);
+  }
   function workspaceIdAtY(y) {
     const workspaces = root.workspaceEntries;
     const spacing = 7;
     let top = 0;
     for (const workspace of workspaces) {
-      const clients = root.workspaceClientsById[String(workspace.id)] || [];
-      const cellHeight = clients.length > 2 ? 48 : 38;
+      const cellHeight = root.workspaceCellHeight(workspace.id);
       if (y >= top && y <= top + cellHeight)
         return workspace.id;
       top += cellHeight + spacing;
@@ -1504,12 +1508,12 @@ ShellRoot {
           Rectangle {
             id: workspaceCell
             required property var modelData
-            readonly property var clients: root.workspaceClientList(modelData.id, 4)
+            readonly property var clients: root.workspaceClientList(modelData.id, 5)
             readonly property bool dragTarget: root.workspaceDragTarget === modelData.id
             readonly property bool active: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData.id
             Layout.fillWidth: true
-            implicitHeight: clients.length > 2 ? 48 : 38
-            radius: 16
+            implicitHeight: root.workspaceCellHeight(modelData.id)
+            radius: 18
             color: dragTarget ? Theme.accentSoft : (active ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, clients.length > 0 ? 0.08 : 0.02))
             border.color: dragTarget || active ? Theme.accent : "transparent"
             border.width: 1
@@ -1518,19 +1522,27 @@ ShellRoot {
             Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
             Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
-            Grid {
+            MouseArea {
+              id: workspaceCellMouse
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.closeTransientPanels();
+                Hyprland.dispatch("workspace " + workspaceCell.modelData.id);
+              }
+            }
+
+            Column {
               visible: workspaceCell.clients.length > 0
               anchors.centerIn: parent
-              columns: workspaceCell.clients.length > 2 ? 2 : 1
-              rowSpacing: 3
-              columnSpacing: 3
+              spacing: 6
               Repeater {
                 model: workspaceCell.clients
                 Item {
                   id: clientBubble
                   required property var modelData
-                  width: 19
-                  height: 19
+                  width: 28
+                  height: 28
                   z: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 10 : 1
                   scale: clientMouse.pressed ? 1.16 : (clientMouse.containsMouse ? 1.08 : 1)
                   opacity: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 0.82 : 1
@@ -1539,16 +1551,16 @@ ShellRoot {
 
                   Rectangle {
                     anchors.centerIn: parent
-                    width: 19
-                    height: 19
-                    radius: 7
+                    width: 28
+                    height: 28
+                    radius: 12
                     color: root.appColorForClient(parent.modelData)
                     border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
                     border.width: 1
                   }
                   IconImage {
                     anchors.centerIn: parent
-                    implicitSize: 14
+                    implicitSize: 21
                     source: root.appIconSourceForClient(parent.modelData)
                   }
                   MouseArea {
@@ -1559,11 +1571,15 @@ ShellRoot {
                     drag.target: clientBubble
                     drag.axis: Drag.YAxis
                     drag.threshold: 4
-	                    onEntered: {
-	                      root.workspaceHoverClient = parent.modelData;
-	                      root.workspaceHoverWorkspaceId = workspaceCell.modelData.id;
-	                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + workspaceCell.y + clientBubble.y - 22));
-	                    }
+                    onClicked: mouse => {
+                      root.closeTransientPanels();
+                      Hyprland.dispatch("workspace " + workspaceCell.modelData.id);
+                    }
+                    onEntered: {
+                      root.workspaceHoverClient = parent.modelData;
+                      root.workspaceHoverWorkspaceId = workspaceCell.modelData.id;
+                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + workspaceCell.y + clientBubble.y - 22));
+                    }
                     onExited: {
                       if (!pressed && root.workspaceHoverClient && root.workspaceHoverClient.address === parent.modelData.address)
                         root.workspaceHoverClient = null;
@@ -1573,11 +1589,11 @@ ShellRoot {
                       root.workspaceDragTarget = workspaceCell.modelData.id;
                     }
                     onPositionChanged: mouse => {
-	                      if (!pressed) return;
-	                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
-	                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
-	                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + point.y - 42));
-	                    }
+                      if (!pressed) return;
+                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
+                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
+                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + point.y - 42));
+                    }
                     onReleased: mouse => {
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                       const target = root.workspaceIdAtY(point.y);
@@ -1599,6 +1615,23 @@ ShellRoot {
                   }
                 }
               }
+              Rectangle {
+                visible: (root.workspaceClientsById[String(workspaceCell.modelData.id)] || []).length > workspaceCell.clients.length
+                width: 28
+                height: 20
+                radius: 10
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+                border.color: Theme.border
+                border.width: 1
+                Text {
+                  anchors.centerIn: parent
+                  text: "+" + ((root.workspaceClientsById[String(workspaceCell.modelData.id)] || []).length - workspaceCell.clients.length)
+                  color: Theme.accent
+                  font.family: Theme.fontSans
+                  font.pixelSize: 10
+                  font.bold: true
+                }
+              }
             }
             Rectangle {
               visible: workspaceCell.clients.length === 0
@@ -1607,16 +1640,6 @@ ShellRoot {
               height: 7
               radius: 4
               color: workspaceCell.active ? Theme.accent : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.28)
-            }
-            MouseArea {
-              id: workspaceMouse
-              anchors.fill: parent
-              enabled: workspaceCell.clients.length === 0
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.closeTransientPanels();
-                Hyprland.dispatch("workspace " + parent.modelData.id);
-              }
             }
           }
         }
