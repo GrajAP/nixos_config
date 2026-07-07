@@ -1490,6 +1490,10 @@
       path = ./PowerMenuWindow.qml;
     }
     {
+      name = "assets";
+      path = ./assets;
+    }
+    {
       name = "qmldir";
       path = qmldirConfig;
     }
@@ -1506,6 +1510,7 @@ in {
   xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
   xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
   xdg.configFile."quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
+  xdg.configFile."quickshell/assets".source = ./assets;
   xdg.configFile."quickshell/qmldir".source = qmldirConfig;
 
   systemd.user.services.quickshell = {

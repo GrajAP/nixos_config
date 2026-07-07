@@ -12,7 +12,7 @@ PanelWindow {
   focusable: true
   color: "transparent"
   implicitWidth: 380
-  implicitHeight: 310
+  implicitHeight: 350
   anchors { bottom: true; right: true }
   margins { bottom: 72; right: 54 }
   exclusionMode: ExclusionMode.Ignore
@@ -96,6 +96,7 @@ PanelWindow {
       ColumnLayout {
         visible: !!shell.codexUsage
         Layout.fillWidth: true
+        Layout.fillHeight: true
         spacing: Theme.gapMd
 
         Repeater {
@@ -117,7 +118,7 @@ PanelWindow {
           Rectangle {
             required property var modelData
             Layout.fillWidth: true
-            implicitHeight: 76
+            implicitHeight: 78
             radius: Theme.radiusMd
             color: Theme.surface
             border.color: Theme.border
@@ -186,10 +187,13 @@ PanelWindow {
                   Layout.fillWidth: true
                 }
                 Text {
+                  Layout.preferredWidth: 190
                   text: windowLabel(parent.parent.parent.modelData.windowKey) + " · reset " + shell.codexUsageResetLabel(shell.codexUsageValue(parent.parent.parent.modelData.resetKey))
                   color: shell.secondaryText
                   font.family: Theme.fontSans
                   font.pixelSize: 11
+                  horizontalAlignment: Text.AlignRight
+                  elide: Text.ElideRight
                 }
               }
             }

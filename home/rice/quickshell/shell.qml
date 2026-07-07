@@ -463,7 +463,7 @@ ShellRoot {
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
-    if (widgetPage === "calendar") return 1600;
+    if (widgetPage === "calendar") return Math.max(420, widgetWindow.width - 20);
     if (widgetPage === "weather") return 390;
     if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
@@ -473,7 +473,7 @@ ShellRoot {
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "audio") return 390;
-    if (widgetPage === "calendar") return 1640;
+    if (widgetPage === "calendar") return Math.max(420, widgetWindow.height - 36);
     if (widgetPage === "weather") return 500;
     if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
@@ -513,6 +513,10 @@ ShellRoot {
   function runWidgetTool(command, title, detail) {
     root.closeWidget();
     Qt.callLater(() => root.runTool(command, title, detail));
+  }
+  function runScreenshotEditedTool(action, title, detail) {
+    if (root.screenshotPath.length === 0) return;
+    root.runWidgetTool(root.screenshotEditedArgs(action), title, detail);
   }
   function captureScreenshot(mode, openAfter) {
     root.closeWidget();
@@ -1397,22 +1401,19 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 36
+          Layout.preferredWidth: 34
           Layout.preferredHeight: 30
-          implicitWidth: 36
+          implicitWidth: 34
           implicitHeight: 30
           Rectangle {
             anchors.fill: parent
             radius: 8
             color: root.codexUsageVisible ? Theme.accentSoft : "transparent"
           }
-          Text {
+          IconImage {
             anchors.centerIn: parent
-            text: "Codex"
-            color: root.codexUsageVisible ? Theme.accent : Theme.text
-            font.family: Theme.fontSans
-            font.pixelSize: 9
-            font.bold: true
+            implicitSize: 22
+            source: Qt.resolvedUrl("assets/codex.svg")
           }
           MouseArea {
             anchors.fill: parent
@@ -1542,7 +1543,7 @@ ShellRoot {
       height: Math.min(root.widgetPreferredHeight(), parent.height - 36)
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
+      anchors.rightMargin: 10
       anchors.bottomMargin: 18
       radius: Theme.radiusLg
       color: Theme.panel
@@ -2569,12 +2570,12 @@ ShellRoot {
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Save"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("save-edited"), "Screenshot", "Saved edited image") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runScreenshotEditedTool("save-edited", "Screenshot", "Saved edited image") }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface
               Text { anchors.centerIn: parent; text: "Copy"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.screenshotPath.length > 0) root.runTool(root.screenshotEditedArgs("copy-edited"), "Screenshot", "Copied edited image") }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.runScreenshotEditedTool("copy-edited", "Screenshot", "Copied edited image") }
             }
             Rectangle {
               Layout.fillWidth: true; implicitHeight: 40; radius: Theme.radiusSm; color: Theme.surface

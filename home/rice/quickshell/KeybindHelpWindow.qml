@@ -131,7 +131,7 @@ PanelWindow {
                   readonly property bool selected: shell.keybindHelpSelectedKey === modelData
                   Layout.fillWidth: true
                   Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
-                  Layout.preferredHeight: 64
+                  Layout.preferredHeight: 74
                   radius: Theme.radiusSm
                   color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
                   border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
