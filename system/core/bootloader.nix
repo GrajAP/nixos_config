@@ -44,7 +44,7 @@ in {
       timeout = 1;
       grub = {
         enable = true;
-        default = 0;
+        default = 1;
         device = "nodev";
         useOSProber = true;
         efiSupport = true;
