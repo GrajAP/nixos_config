@@ -508,7 +508,7 @@ ShellRoot {
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
     if (widgetPage === "codex") return 420;
-    if (widgetPage === "calendar") return widgetWindow.width - 20;
+    if (widgetPage === "calendar") return widgetWindow.width;
     if (widgetPage === "weather") return 390;
     if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
@@ -1692,11 +1692,11 @@ ShellRoot {
 
     Rectangle {
       id: widgetPanel
-      width: Math.min(root.widgetPreferredWidth(), parent.width - 20)
+      width: Math.min(root.widgetPreferredWidth(), root.widgetPage === "calendar" ? parent.width : parent.width - 20)
       height: Math.min(root.widgetPreferredHeight(), root.widgetPage === "calendar" ? parent.height : parent.height - 36)
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      anchors.rightMargin: 10
+      anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
       radius: Theme.radiusLg
       color: root.translucentPanel
