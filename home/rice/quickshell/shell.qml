@@ -2392,27 +2392,9 @@ ShellRoot {
           shell: root
         }
 
-        ColumnLayout {
-          visible: root.widgetPage === "media"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
-          Image { visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 220; Layout.preferredHeight: 220; fillMode: Image.PreserveAspectCrop; source: root.mediaPlayer ? root.mediaPlayer.trackArtUrl : "" }
-          Text { visible: root.mediaPlayer === null; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 70; text: ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 82 }
-          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? (root.mediaPlayer.trackTitle || "Unknown title") : "Spotify is not running"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 17; wrapMode: Text.Wrap }
-          Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: root.mediaPlayer ? root.mediaPlayer.trackArtist : ""; color: Theme.muted; font.family: Theme.font }
-          RowLayout {
-            visible: root.mediaPlayer !== null; Layout.alignment: Qt.AlignHCenter; spacing: 28
-            Text { text: "󰒮"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoPrevious) root.mediaPlayer.previous() } }
-            Text { text: root.mediaPlayer && root.mediaPlayer.isPlaying ? "󰏤" : "󰐊"; color: Theme.accent; font.family: Theme.font; font.pixelSize: 30; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canTogglePlaying) root.mediaPlayer.togglePlaying() } }
-            Text { text: "󰒭"; color: Theme.text; font.family: Theme.font; font.pixelSize: 25; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.mediaPlayer && root.mediaPlayer.canGoNext) root.mediaPlayer.next() } }
-          }
-          Rectangle {
-            visible: root.mediaPlayer === null
-            Layout.fillWidth: true
-            Layout.preferredHeight: 42
-            radius: Theme.radiusSm
-            color: Theme.surface
-            Text { anchors.centerIn: parent; text: "  Open Spotify"; color: Theme.accent; font.family: Theme.font }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["spotify"]) }
-          }
+        MediaWidget {
+          visible: root.widgetPage === "media"
+          shell: root
         }
 
         WeatherWidget {
@@ -2425,198 +2407,14 @@ ShellRoot {
           shell: root
         }
 
-        ScrollView {
-          id: toolsScroll
+        ToolsWidget {
           visible: root.widgetPage === "tools"
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-
-          ColumnLayout {
-            width: toolsScroll.availableWidth
-            spacing: 14
-            Text { text: "Screenshot"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
-            Rectangle {
-              Layout.fillWidth: true; implicitHeight: 44; radius: Theme.radiusSm; color: Theme.surface
-              Text { anchors.centerIn: parent; text: "󰄀  Select area and edit"; color: Theme.text; font.family: Theme.font }
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
-            }
-          }
+          shell: root
         }
 
-        ScrollView {
-          id: shutdownScroll
+        ShutdownWidget {
           visible: root.widgetPage === "shutdown"
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-
-          ColumnLayout {
-            width: shutdownScroll.availableWidth
-            spacing: 10
-            Text { text: "Shutdown in"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
-            Rectangle {
-              Layout.fillWidth: true
-              implicitHeight: 78
-              radius: 10
-              color: Theme.surface
-              RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-              Rectangle {
-                Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 8
-                  color: Theme.background
-                  border.color: Theme.border
-                  Text { anchors.centerIn: parent; text: "−"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
-                  MouseArea {
-                    id: minusDelayMouse
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.setShutdownDelay(root.shutdownDelayMinutes - 5)
-                  }
-                }
-                ColumnLayout {
-                  Layout.fillWidth: true
-                  spacing: 0
-                  Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: root.shutdownDelayLabel()
-                    color: Theme.text
-                    font.family: Theme.fontSans
-                    font.pixelSize: 28
-                    font.bold: true
-                  }
-                  Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "relative timer"
-                    color: Theme.muted
-                    font.family: Theme.fontSans
-                    font.pixelSize: 11
-                  }
-                }
-                Rectangle {
-                  Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 8
-                  color: Theme.background
-                  border.color: Theme.border
-                  Text { anchors.centerIn: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20 }
-                  MouseArea {
-                    id: plusDelayMouse
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.setShutdownDelay(root.shutdownDelayMinutes + 5)
-                  }
-                }
-              }
-            }
-
-	            RowLayout {
-	              Layout.fillWidth: true
-	              Layout.alignment: Qt.AlignLeft
-	              spacing: 8
-	              Repeater {
-                model: [15, 30, 60, 120]
-                delegate: Rectangle {
-                  required property int modelData
-                  Layout.fillWidth: true
-                  Layout.preferredHeight: 34
-                  radius: 8
-                  color: root.shutdownDelayMinutes === modelData ? Theme.accent : Theme.surface
-                  Text {
-                    anchors.centerIn: parent
-                    text: parent.modelData < 60 ? parent.modelData + "m" : (parent.modelData / 60) + "h"
-                    color: root.shutdownDelayMinutes === parent.modelData ? Theme.background : Theme.text
-                    font.family: Theme.fontSans
-                    font.pixelSize: 12
-                    font.bold: root.shutdownDelayMinutes === parent.modelData
-                  }
-                  MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setShutdownDelay(parent.modelData) }
-                }
-              }
-            }
-
-            Text {
-              Layout.fillWidth: true
-              text: "Overnight checks still run at 00:00-06:00."
-              color: Theme.muted
-              font.family: Theme.fontSans
-              font.pixelSize: 11
-              wrapMode: Text.Wrap
-            }
-
-            Rectangle {
-              Layout.fillWidth: true
-              implicitHeight: 58
-              radius: 10
-              color: root.shutdownPendingTarget.length > 0 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16) : Theme.surface
-              border.color: root.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.border
-              border.width: 1
-              ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 2
-                Text {
-                  Layout.fillWidth: true
-                  text: root.shutdownPendingTarget.length > 0 ? "Shutdown " + root.shutdownPendingTarget : "No shutdown timer set"
-                  color: root.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.text
-                  font.family: Theme.fontSans
-                  font.bold: true
-                  font.pixelSize: 13
-                  elide: Text.ElideRight
-                }
-                Text {
-                  Layout.fillWidth: true
-                  text: root.shutdownPendingTarget.length > 0 ? root.shutdownRemainingLabel() + " left" : "Use the timer above to schedule one"
-                  color: Theme.muted
-                  font.family: Theme.fontSans
-                  font.pixelSize: 11
-                  elide: Text.ElideRight
-                }
-              }
-            }
-
-            RowLayout {
-              Layout.fillWidth: true
-              spacing: 10
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
-                color: Theme.surface
-                Text { anchors.centerIn: parent; text: "󰐥  Set timer"; color: Theme.text; font.family: Theme.fontSans; font.bold: true }
-                MouseArea {
-                  id: scheduleShutdownMouse
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.scheduleShutdown()
-                }
-              }
-              Rectangle {
-                Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 9
-                enabled: root.shutdownPendingTarget.length > 0
-                opacity: root.shutdownPendingTarget.length > 0 ? 1 : 0.55
-                color: Theme.surface
-                Text {
-                  anchors.centerIn: parent
-                  text: "󰜺  Cancel"
-                  color: Theme.text
-                  font.family: Theme.fontIcon
-                  font.bold: true
-                }
-                MouseArea {
-                  id: cancelShutdownMouse
-                  anchors.fill: parent
-                  enabled: root.shutdownPendingTarget.length > 0
-                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                  onClicked: root.cancelPendingShutdown()
-                }
-              }
-            }
-          }
+          shell: root
         }
 
         ColumnLayout {

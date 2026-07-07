@@ -1,0 +1,234 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import qs
+
+ScrollView {
+  id: shutdownScroll
+  required property var shell
+
+  Layout.fillWidth: true
+  Layout.fillHeight: true
+  clip: true
+  ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+  ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+
+  ColumnLayout {
+    width: shutdownScroll.availableWidth
+    spacing: 10
+
+    Text {
+      text: "Shutdown in"
+      color: Theme.muted
+      font.family: Theme.fontSans
+      font.bold: true
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      implicitHeight: 78
+      radius: 10
+      color: Theme.surface
+
+      RowLayout {
+        anchors.fill: parent
+        anchors.margins: 10
+        spacing: 10
+
+        Rectangle {
+          Layout.preferredWidth: 40
+          Layout.preferredHeight: 40
+          radius: 8
+          color: Theme.background
+          border.color: Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            text: "−"
+            color: Theme.text
+            font.family: Theme.font
+            font.pixelSize: 20
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.setShutdownDelay(shell.shutdownDelayMinutes - 5)
+          }
+        }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
+
+          Text {
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            text: shell.shutdownDelayLabel()
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 28
+            font.bold: true
+          }
+
+          Text {
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            text: "relative timer"
+            color: Theme.muted
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+          }
+        }
+
+        Rectangle {
+          Layout.preferredWidth: 40
+          Layout.preferredHeight: 40
+          radius: 8
+          color: Theme.background
+          border.color: Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            text: "+"
+            color: Theme.text
+            font.family: Theme.font
+            font.pixelSize: 20
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.setShutdownDelay(shell.shutdownDelayMinutes + 5)
+          }
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.alignment: Qt.AlignLeft
+      spacing: 8
+
+      Repeater {
+        model: [15, 30, 60, 120]
+
+        delegate: Rectangle {
+          required property int modelData
+          Layout.fillWidth: true
+          Layout.preferredHeight: 34
+          radius: 8
+          color: shell.shutdownDelayMinutes === modelData ? Theme.accent : Theme.surface
+
+          Text {
+            anchors.centerIn: parent
+            text: parent.modelData < 60 ? parent.modelData + "m" : (parent.modelData / 60) + "h"
+            color: shell.shutdownDelayMinutes === parent.modelData ? Theme.background : Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 12
+            font.bold: shell.shutdownDelayMinutes === parent.modelData
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.setShutdownDelay(parent.modelData)
+          }
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: "Overnight checks still run at 00:00-06:00."
+      color: Theme.muted
+      font.family: Theme.fontSans
+      font.pixelSize: 11
+      wrapMode: Text.Wrap
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      implicitHeight: 58
+      radius: 10
+      color: shell.shutdownPendingTarget.length > 0 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16) : Theme.surface
+      border.color: shell.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.border
+      border.width: 1
+
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 10
+        spacing: 2
+
+        Text {
+          Layout.fillWidth: true
+          text: shell.shutdownPendingTarget.length > 0 ? "Shutdown " + shell.shutdownPendingTarget : "No shutdown timer set"
+          color: shell.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.text
+          font.family: Theme.fontSans
+          font.bold: true
+          font.pixelSize: 13
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: shell.shutdownPendingTarget.length > 0 ? shell.shutdownRemainingLabel() + " left" : "Use the timer above to schedule one"
+          color: Theme.muted
+          font.family: Theme.fontSans
+          font.pixelSize: 11
+          elide: Text.ElideRight
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 10
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        radius: 9
+        color: Theme.surface
+
+        Text {
+          anchors.centerIn: parent
+          text: "󰐥  Set timer"
+          color: Theme.text
+          font.family: Theme.fontSans
+          font.bold: true
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: shell.scheduleShutdown()
+        }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        enabled: shell.shutdownPendingTarget.length > 0
+        opacity: shell.shutdownPendingTarget.length > 0 ? 1 : 0.55
+        radius: 9
+        color: Theme.surface
+
+        Text {
+          anchors.centerIn: parent
+          text: "󰜺  Cancel"
+          color: Theme.text
+          font.family: Theme.fontIcon
+          font.bold: true
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: shell.shutdownPendingTarget.length > 0
+          cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+          onClicked: shell.cancelPendingShutdown()
+        }
+      }
+    }
+  }
+}

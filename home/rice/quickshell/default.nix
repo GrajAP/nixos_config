@@ -1497,7 +1497,10 @@
     CodexUsageWindow 1.0 CodexUsageWindow.qml
     KeybindHelpWindow 1.0 KeybindHelpWindow.qml
     LauncherWindow 1.0 LauncherWindow.qml
+    MediaWidget 1.0 MediaWidget.qml
     PowerMenuWindow 1.0 PowerMenuWindow.qml
+    ShutdownWidget 1.0 ShutdownWidget.qml
+    ToolsWidget 1.0 ToolsWidget.qml
     TrayWidget 1.0 TrayWidget.qml
     WeatherWidget 1.0 WeatherWidget.qml
   '';
@@ -1543,8 +1546,20 @@
       path = ./LauncherWindow.qml;
     }
     {
+      name = "MediaWidget.qml";
+      path = ./MediaWidget.qml;
+    }
+    {
       name = "PowerMenuWindow.qml";
       path = ./PowerMenuWindow.qml;
+    }
+    {
+      name = "ShutdownWidget.qml";
+      path = ./ShutdownWidget.qml;
+    }
+    {
+      name = "ToolsWidget.qml";
+      path = ./ToolsWidget.qml;
     }
     {
       name = "TrayWidget.qml";
@@ -1576,7 +1591,10 @@ in {
   xdg.configFile."quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
   xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
   xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
+  xdg.configFile."quickshell/MediaWidget.qml".source = ./MediaWidget.qml;
   xdg.configFile."quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
+  xdg.configFile."quickshell/ShutdownWidget.qml".source = ./ShutdownWidget.qml;
+  xdg.configFile."quickshell/ToolsWidget.qml".source = ./ToolsWidget.qml;
   xdg.configFile."quickshell/TrayWidget.qml".source = ./TrayWidget.qml;
   xdg.configFile."quickshell/WeatherWidget.qml".source = ./WeatherWidget.qml;
   xdg.configFile."quickshell/assets".source = quickshellAssets;
