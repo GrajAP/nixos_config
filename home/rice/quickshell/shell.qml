@@ -486,7 +486,7 @@ ShellRoot {
   }
   Timer {
     id: hoverWidgetCloseTimer
-    interval: 180
+    interval: 220
     repeat: false
     onTriggered: {
       if (root.hoverWidgetOpenPage.length === 0) return;

@@ -1478,8 +1478,8 @@
 
       readonly property int motionFast: 120
       readonly property int motionMedium: 180
-      readonly property int motionPanel: 220
-      readonly property int motionModal: 280
+      readonly property int motionPanel: 260
+      readonly property int motionModal: 300
 
       readonly property string fontSans: "JetBrainsMono Nerd Font"
       readonly property string fontMono: "JetBrainsMono Nerd Font"
