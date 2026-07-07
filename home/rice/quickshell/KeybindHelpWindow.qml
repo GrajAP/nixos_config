@@ -28,11 +28,11 @@ PanelWindow {
   Rectangle {
     id: keybindHelpPanel
     width: parent.width - 20
-    height: parent.height - 36
+    height: parent.height
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     anchors.rightMargin: 10
-    anchors.bottomMargin: 18
+    anchors.bottomMargin: 0
     focus: shell.keybindHelpVisible
     radius: Theme.radiusLg
     color: shell.translucentPanel

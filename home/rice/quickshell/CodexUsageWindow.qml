@@ -15,11 +15,6 @@ ColumnLayout {
     return value === null ? null : Math.max(0, Math.min(100, Math.round(value)));
   }
 
-  function usageRemaining(key) {
-    const used = usageValue(key);
-    return used === null ? null : Math.max(0, 100 - used);
-  }
-
   function windowLabel(key) {
     return shell.codexUsageWindowLabel(shell.codexUsageValue(key)) + " window";
   }
@@ -89,8 +84,8 @@ ColumnLayout {
           }
           Text {
             text: {
-              const remaining = usageRemaining(parent.parent.parent.modelData.usedKey);
-              return remaining === null ? "-- left" : remaining + "% left";
+              const used = usageValue(parent.parent.parent.modelData.usedKey);
+              return used === null ? "used --" : used + "% used";
             }
             color: Theme.accent
             font.family: Theme.fontSans

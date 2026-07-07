@@ -519,7 +519,7 @@ ShellRoot {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "codex") return 430;
     if (widgetPage === "audio") return 390;
-    if (widgetPage === "calendar") return widgetWindow.height - 36;
+    if (widgetPage === "calendar") return widgetWindow.height;
     if (widgetPage === "weather") return 500;
     if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
@@ -610,12 +610,12 @@ ShellRoot {
   }
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
-    const codexRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("codexPrimaryUsedPercent"));
-    const sparkRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("sparkPrimaryUsedPercent"));
-    if (codexRemaining === null && sparkRemaining === null) return "—";
-    if (codexRemaining === null) return "— / " + sparkRemaining + "%";
-    if (sparkRemaining === null) return codexRemaining + "% / —";
-    return codexRemaining + "% / " + sparkRemaining + "%";
+    const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    if (codexUsed === null && sparkUsed === null) return "—";
+    if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
+    if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
+    return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
@@ -647,15 +647,15 @@ ShellRoot {
       return "Codex usage: " + root.codexUsageError;
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
-    const codexRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("codexPrimaryUsedPercent"));
-    const sparkRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("sparkPrimaryUsedPercent"));
+    const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
     const sparkWindow = root.codexUsageWindowLabel(root.codexUsageValue("sparkPrimaryWindowMinutes"));
     return "Codex usage (" + planType + ")\n" +
-      "Codex: " + (codexRemaining === null ? "—" : codexRemaining + "%, reset " + codexReset) + " (" + codexWindow + ")\n" +
-      "Spark: " + (sparkRemaining === null ? "—" : sparkRemaining + "%, reset " + sparkReset) + " (" + sparkWindow + ")";
+      "Codex: " + (codexUsed === null ? "—" : Math.round(codexUsed) + "% used, reset " + codexReset) + " (" + codexWindow + ")\n" +
+      "Spark: " + (sparkUsed === null ? "—" : Math.round(sparkUsed) + "% used, reset " + sparkReset) + " (" + sparkWindow + ")";
   }
   function codexUsageWindowLabel(minutesValue) {
     const minutes = Number(minutesValue);
@@ -1693,11 +1693,11 @@ ShellRoot {
     Rectangle {
       id: widgetPanel
       width: Math.min(root.widgetPreferredWidth(), parent.width - 20)
-      height: Math.min(root.widgetPreferredHeight(), parent.height - 36)
+      height: Math.min(root.widgetPreferredHeight(), root.widgetPage === "calendar" ? parent.height : parent.height - 36)
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       anchors.rightMargin: 10
-      anchors.bottomMargin: 18
+      anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
       radius: Theme.radiusLg
       color: root.translucentPanel
       border.color: Theme.border
