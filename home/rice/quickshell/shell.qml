@@ -98,6 +98,8 @@ ShellRoot {
   property bool calendarAllDay: false
   property int calendarEventStartMinutes: 540
   property int calendarEventDurationMinutes: 60
+  property string calendarRepeatAction: ""
+  property int calendarRepeatDelta: 0
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   readonly property var keybindHelpEntries: @keybindHelp@
@@ -376,6 +378,12 @@ ShellRoot {
     running: true
     repeat: true
     onTriggered: if (!calendarQuery.running) calendarQuery.running = true
+  }
+  Timer {
+    id: calendarTimeRepeatTimer
+    interval: 115
+    repeat: true
+    onTriggered: root.adjustCalendarTime(root.calendarRepeatAction, root.calendarRepeatDelta)
   }
   Timer {
     id: codexUsageTimer
@@ -1027,6 +1035,21 @@ ShellRoot {
   }
   function adjustCalendarDuration(delta) {
     root.calendarEventDurationMinutes = Math.max(15, Math.min(480, root.calendarEventDurationMinutes + delta));
+  }
+  function adjustCalendarTime(action, delta) {
+    if (action === "start") root.adjustCalendarStart(delta);
+    else if (action === "duration") root.adjustCalendarDuration(delta);
+  }
+  function startCalendarTimeRepeat(action, delta) {
+    root.calendarRepeatAction = action;
+    root.calendarRepeatDelta = delta;
+    root.adjustCalendarTime(action, delta);
+    calendarTimeRepeatTimer.restart();
+  }
+  function stopCalendarTimeRepeat() {
+    calendarTimeRepeatTimer.stop();
+    root.calendarRepeatAction = "";
+    root.calendarRepeatDelta = 0;
   }
   function calendarEndClock() {
     return root.calendarClock(root.calendarEventStartMinutes + root.calendarEventDurationMinutes);
@@ -2934,7 +2957,7 @@ ShellRoot {
 				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
 				                    border.width: 1
 						                    Text { anchors.fill: parent; text: "-"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarStart(-15) }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onPressed: root.startCalendarTimeRepeat("start", -15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
 				                  }
 				                  Rectangle {
 				                    Layout.fillWidth: true
@@ -2953,7 +2976,7 @@ ShellRoot {
 				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
 				                    border.width: 1
 						                    Text { anchors.fill: parent; text: "+"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarStart(15) }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onPressed: root.startCalendarTimeRepeat("start", 15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
 				                  }
 				                }
 				                RowLayout {
@@ -2978,7 +3001,7 @@ ShellRoot {
 				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
 				                    border.width: 1
 						                    Text { anchors.fill: parent; text: "-"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarDuration(-15) }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onPressed: root.startCalendarTimeRepeat("duration", -15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
 				                  }
 				                  Rectangle {
 				                    Layout.fillWidth: true
@@ -2997,7 +3020,7 @@ ShellRoot {
 				                    border.color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.border : "transparent"
 				                    border.width: 1
 						                    Text { anchors.fill: parent; text: "+"; color: root.calendarEntryMode === "event" && !root.calendarAllDay ? Theme.text : "transparent"; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.adjustCalendarDuration(15) }
+				                    MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event" && !root.calendarAllDay; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onPressed: root.startCalendarTimeRepeat("duration", 15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
 				                  }
 				                }
 				              }
@@ -3367,7 +3390,7 @@ ShellRoot {
                 border.color: Theme.border
                 border.width: 1
 	                  Text { anchors.fill: parent; text: "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarStart(-15) }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: root.startCalendarTimeRepeat("start", -15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
               }
               Rectangle {
                 Layout.fillWidth: true
@@ -3386,7 +3409,7 @@ ShellRoot {
                 border.color: Theme.border
                 border.width: 1
 	                  Text { anchors.fill: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarStart(15) }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: root.startCalendarTimeRepeat("start", 15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
               }
               Rectangle {
                 implicitWidth: 30
@@ -3396,7 +3419,7 @@ ShellRoot {
                 border.color: Theme.border
                 border.width: 1
 	                  Text { anchors.fill: parent; text: "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarDuration(-15) }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: root.startCalendarTimeRepeat("duration", -15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
               }
               Rectangle {
                 Layout.fillWidth: true
@@ -3415,7 +3438,7 @@ ShellRoot {
                 border.color: Theme.border
                 border.width: 1
 	                  Text { anchors.fill: parent; text: "+"; color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.adjustCalendarDuration(15) }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: root.startCalendarTimeRepeat("duration", 15); onReleased: root.stopCalendarTimeRepeat(); onCanceled: root.stopCalendarTimeRepeat() }
               }
             }
           }

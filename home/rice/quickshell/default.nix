@@ -684,6 +684,23 @@
                 lines.extend(["END:VEVENT", "END:VCALENDAR", ""])
                 return "\r\n".join(lines)
 
+            def existing_event_identity(original_ics):
+                uid = f"{uuid.uuid4()}@quickshell"
+                preserved = []
+                try:
+                    calendar = Calendar.from_ical(original_ics)
+                    component = next((item for item in calendar.walk("VEVENT")), None)
+                except Exception:
+                    component = None
+                if component is None:
+                    return uid, preserved
+                uid = str(component.get("UID") or uid)
+                for name in ("DESCRIPTION", "LOCATION", "URL", "CATEGORIES"):
+                    value = component.get(name)
+                    if value:
+                        preserved.append(f"{name}:{escape_ics(str(value))}")
+                return uid, preserved
+
             def save_undo(payload):
                 UNDO_FILE.parent.mkdir(parents=True, exist_ok=True)
                 UNDO_FILE.write_text(json.dumps(payload), encoding="utf-8")
@@ -868,7 +885,6 @@
                 if len(args) < 3:
                     raise RuntimeError("Usage: quickshell-calendar edit-event href YYYY-MM-DD title [HH:MM] [HH:MM]")
                 href = writable_href(args[0])
-                event_date = compact_date(args[1])
                 title_parts = args[2:]
                 start_clock = None
                 end_clock = None
@@ -882,27 +898,8 @@
                     raise RuntimeError("Event title is empty")
                 original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
                 save_undo({"mode": "restore", "href": href, "ics": original_ics})
-                ics = unfold_ics(original_ics)
-                ics = upsert_component_line(ics, "VEVENT", "SUMMARY", escape_ics(title))
-                ics = remove_component_line(ics, "VEVENT", "DTSTART")
-                ics = remove_component_line(ics, "VEVENT", "DTEND")
-                if start_clock:
-                    hour, minute = start_clock
-                    start_dt = datetime.combine(date.fromisoformat(args[1]), time(hour, minute))
-                    if end_clock:
-                        end_hour, end_minute = end_clock
-                        end_dt = datetime.combine(date.fromisoformat(args[1]), time(end_hour, end_minute))
-                        if end_dt <= start_dt:
-                            end_dt += timedelta(days=1)
-                    else:
-                        end_dt = start_dt + timedelta(hours=1)
-                    ics = replace_component_date_line(ics, "VEVENT", "DTSTART", "DTSTART;TZID=Europe/Warsaw", start_dt.strftime("%Y%m%dT%H%M%S"))
-                    ics = replace_component_date_line(ics, "VEVENT", "DTEND", "DTEND;TZID=Europe/Warsaw", end_dt.strftime("%Y%m%dT%H%M%S"))
-                else:
-                    next_day = (date.fromisoformat(args[1]) + timedelta(days=1)).strftime("%Y%m%d")
-                    ics = replace_component_date_line(ics, "VEVENT", "DTSTART", "DTSTART;VALUE=DATE", event_date)
-                    ics = replace_component_date_line(ics, "VEVENT", "DTEND", "DTEND;VALUE=DATE", next_day)
-                ics = update_stamp(ics, "VEVENT")
+                uid, extra_lines = existing_event_identity(original_ics)
+                ics = event_ics(uid, args[1], title, start_clock, end_clock, extra_lines)
                 request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
                 print(json.dumps({"ok": True, "type": "event", "edited": True, "undoable": True}))
 
