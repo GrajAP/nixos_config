@@ -3114,8 +3114,8 @@ ShellRoot {
             spacing: 12
 	            ColumnLayout {
                   id: calendarMonthColumn
-                  Layout.preferredWidth: 1560
-                  Layout.maximumWidth: 1560
+                  Layout.preferredWidth: 1700
+                  Layout.maximumWidth: 1700
 	              Layout.fillHeight: true
 	              spacing: 10
 	              RowLayout {
@@ -3179,8 +3179,9 @@ ShellRoot {
 	              }
 	              GridLayout {
                 id: calendarMonthGrid
-                readonly property int cellSize: 168
+                readonly property int cellSize: 184
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter
                 columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
               model: ["M", "T", "W", "T", "F", "S", "S"]

@@ -138,7 +138,7 @@ PanelWindow {
 
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 542
+            Layout.preferredHeight: 560
             radius: Theme.radiusMd
             color: "transparent"
             border.color: Theme.border
@@ -188,7 +188,7 @@ PanelWindow {
                           color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                           font.family: Theme.fontSans
                           font.bold: true
-                          font.pixelSize: 12
+                          font.pixelSize: 14
                           horizontalAlignment: Text.AlignHCenter
                           elide: Text.ElideRight
                         }
@@ -198,7 +198,7 @@ PanelWindow {
                           text: shell.keybindKeyLabel(parent.parent.modelData)
                           color: parent.parent.selected ? Theme.background : shell.secondaryText
                           font.family: Theme.fontSans
-                          font.pixelSize: 9
+                          font.pixelSize: 10
                           horizontalAlignment: Text.AlignHCenter
                           verticalAlignment: Text.AlignVCenter
                           wrapMode: Text.Wrap
@@ -261,7 +261,7 @@ PanelWindow {
                             color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                             font.family: Theme.fontSans
                             font.bold: true
-                            font.pixelSize: 11
+                            font.pixelSize: 12
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                           }
@@ -271,7 +271,7 @@ PanelWindow {
                             text: shell.keybindKeyLabel(parent.parent.modelData)
                             color: parent.parent.selected ? Theme.background : shell.secondaryText
                             font.family: Theme.fontSans
-                            font.pixelSize: 8
+                            font.pixelSize: 9
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             wrapMode: Text.Wrap
@@ -331,7 +331,7 @@ PanelWindow {
                             color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                             font.family: Theme.fontSans
                             font.bold: true
-                            font.pixelSize: 11
+                            font.pixelSize: 12
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                           }
@@ -341,7 +341,7 @@ PanelWindow {
                             text: shell.keybindKeyLabel(parent.parent.modelData)
                             color: parent.parent.selected ? Theme.background : shell.secondaryText
                             font.family: Theme.fontSans
-                            font.pixelSize: 8
+                            font.pixelSize: 9
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             wrapMode: Text.Wrap
@@ -417,7 +417,7 @@ PanelWindow {
                       text: modelData === "Mouse Left" ? "Left" : "Right"
                       color: parent.selected ? Theme.background : Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 11
+                      font.pixelSize: 12
                       font.bold: true
                       horizontalAlignment: Text.AlignHCenter
                       elide: Text.ElideRight
@@ -455,7 +455,7 @@ PanelWindow {
                       text: modelData === "Wheel Up" ? "Wheel up" : "Wheel down"
                       color: parent.selected ? Theme.background : Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 10
+                      font.pixelSize: 11
                       font.bold: true
                     }
                     MouseArea {
@@ -473,6 +473,7 @@ PanelWindow {
           Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.preferredHeight: 560
             radius: Theme.radiusMd
             color: Theme.surface
             border.color: Theme.border
@@ -491,7 +492,7 @@ PanelWindow {
                   color: Theme.text
                   font.family: Theme.fontSans
                   font.bold: true
-                  font.pixelSize: 14
+                  font.pixelSize: 16
                   Layout.fillWidth: true
                 }
                 Text {
@@ -499,7 +500,7 @@ PanelWindow {
                   text: "Clear"
                   color: Theme.accent
                   font.family: Theme.fontSans
-                  font.pixelSize: 12
+                  font.pixelSize: 13
                   MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
@@ -531,7 +532,7 @@ PanelWindow {
                       text: parent.parent.modelData.combo
                       color: Theme.accent
                       font.family: Theme.fontSans
-                      font.pixelSize: 11
+                      font.pixelSize: 12
                       font.bold: true
                       elide: Text.ElideRight
                     }
@@ -540,7 +541,7 @@ PanelWindow {
                       text: parent.parent.modelData.description
                       color: Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 11
+                      font.pixelSize: 12
                       elide: Text.ElideRight
                     }
                   }
@@ -551,7 +552,7 @@ PanelWindow {
                   text: shell.keybindHelpSelectedKey.length > 0 ? "No binds for this key" : "Select a key above"
                   color: Theme.muted
                   font.family: Theme.fontSans
-                  font.pixelSize: 12
+                  font.pixelSize: 13
                 }
               }
             }
