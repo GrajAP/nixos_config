@@ -1132,6 +1132,20 @@ ShellRoot {
     if ([95, 96, 99].includes(codeValue)) return "󰖓";
     return "󰖙";
   }
+  function weatherIconKindForCode(code) {
+    const value = Number(code);
+    if (!Number.isFinite(value)) return "cloud";
+    const codeValue = Math.trunc(value);
+    if (codeValue === 0) return "sun";
+    if ([1, 2].includes(codeValue)) return "partly";
+    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(codeValue)) return "rain";
+    if ([71, 73, 75, 77].includes(codeValue)) return "snow";
+    if ([95, 96, 99].includes(codeValue)) return "storm";
+    return "cloud";
+  }
+  function weatherIconKind() {
+    return root.weatherIconKindForCode(root.weatherData ? root.weatherData.weatherCode : NaN);
+  }
   function weatherColorForCode(code) {
     const value = Number(code);
     if (!Number.isFinite(value)) return Theme.accent;
@@ -1976,35 +1990,88 @@ ShellRoot {
             border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
-          ColumnLayout {
+          Column {
             anchors.centerIn: parent
             width: 30
-            height: 29
+            height: 28
             spacing: 0
 
-            Text {
+            Canvas {
               id: barWeatherGlyph
-              Layout.fillWidth: true
-              Layout.preferredHeight: 15
-              text: root.weatherGlyph()
-              color: root.barWidgetText("weather", Theme.text)
-              font.family: Theme.fontIcon
-              font.pixelSize: 14
-              lineHeightMode: Text.FixedHeight
-              lineHeight: 15
-              horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: 18
+              height: 15
+              readonly property color iconColor: root.barWidgetText("weather", Theme.text)
+              readonly property string iconKind: root.weatherIconKind()
+              onIconColorChanged: requestPaint()
+              onIconKindChanged: requestPaint()
+              onPaint: {
+                const ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = iconColor;
+                ctx.fillStyle = iconColor;
+                ctx.lineWidth = 1.35;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+
+                const kind = iconKind;
+                if (kind === "sun" || kind === "partly") {
+                  ctx.beginPath();
+                  ctx.arc(kind === "partly" ? 6 : 9, kind === "partly" ? 5 : 6, kind === "partly" ? 2.8 : 3.4, 0, Math.PI * 2);
+                  ctx.stroke();
+                  for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 * i) / 8;
+                    const cx = kind === "partly" ? 6 : 9;
+                    const cy = kind === "partly" ? 5 : 6;
+                    const inner = kind === "partly" ? 4.2 : 5;
+                    const outer = kind === "partly" ? 5.6 : 6.5;
+                    ctx.beginPath();
+                    ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+                    ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+                    ctx.stroke();
+                  }
+                }
+                if (kind !== "sun") {
+                  ctx.beginPath();
+                  ctx.moveTo(4.2, 11.8);
+                  ctx.lineTo(13.4, 11.8);
+                  ctx.bezierCurveTo(15.4, 11.8, 16.6, 10.5, 16.6, 8.9);
+                  ctx.bezierCurveTo(16.6, 7.2, 15.2, 5.9, 13.3, 6.1);
+                  ctx.bezierCurveTo(12.4, 3.7, 10.3, 2.5, 8.1, 2.9);
+                  ctx.bezierCurveTo(6.1, 3.2, 4.8, 4.5, 4.2, 6.4);
+                  ctx.bezierCurveTo(2.4, 6.6, 1.3, 7.8, 1.3, 9.3);
+                  ctx.bezierCurveTo(1.3, 10.8, 2.5, 11.8, 4.2, 11.8);
+                  ctx.stroke();
+                  if (kind === "rain" || kind === "storm") {
+                    for (const x of [5.5, 9, 12.5]) {
+                      ctx.beginPath();
+                      ctx.moveTo(x, 13.2);
+                      ctx.lineTo(x - 0.9, 14.4);
+                      ctx.stroke();
+                    }
+                  } else if (kind === "snow") {
+                    for (const x of [6.2, 11.8]) {
+                      ctx.beginPath();
+                      ctx.moveTo(x - 0.9, 13.7);
+                      ctx.lineTo(x + 0.9, 13.7);
+                      ctx.moveTo(x, 12.8);
+                      ctx.lineTo(x, 14.6);
+                      ctx.stroke();
+                    }
+                  }
+                }
+              }
             }
             Text {
-              Layout.fillWidth: true
-              Layout.preferredHeight: 14
+              width: parent.width
+              height: 13
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
               font.pixelSize: 10
               font.bold: true
               lineHeightMode: Text.FixedHeight
-              lineHeight: 14
+              lineHeight: 13
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
               minimumPixelSize: 9
