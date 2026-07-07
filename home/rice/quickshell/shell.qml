@@ -2541,7 +2541,7 @@ ShellRoot {
                   acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                   onClicked: mouse => {
                     if (mouse.button === Qt.RightButton && parent.modelData.hasMenu) {
-                      parent.modelData.display(widgetWindow, 0, 0);
+                      parent.modelData.display(trayItem, mouse.x, mouse.y);
                     } else if (mouse.button === Qt.MiddleButton) {
                       parent.modelData.secondaryActivate();
                       root.closeWidget();
