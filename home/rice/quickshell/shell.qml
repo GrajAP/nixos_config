@@ -822,12 +822,11 @@ ShellRoot {
     return 1;
   }
   function isSmallWidget(page) {
-    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown" || page === "tray";
+    return page === "audio" || page === "media" || page === "weather" || page === "clipboard" || page === "codex" || page === "shutdown" || page === "tray";
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
     if (widgetPage === "calendar") return widgetWindow.width;
-    if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
     if (root.isSmallWidget(widgetPage)) return 430;
     return 420;
@@ -835,7 +834,6 @@ ShellRoot {
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "calendar") return widgetWindow.height;
-    if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
     if (root.isSmallWidget(widgetPage)) return 500;
     return 620;
@@ -2541,7 +2539,8 @@ ShellRoot {
                   acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                   onClicked: mouse => {
                     if (mouse.button === Qt.RightButton && parent.modelData.hasMenu) {
-                      parent.modelData.display(trayItem, mouse.x, mouse.y);
+                      const point = trayItem.mapToItem(widgetWindow.contentItem, mouse.x, mouse.y);
+                      parent.modelData.display(widgetWindow, point.x, point.y);
                     } else if (mouse.button === Qt.MiddleButton) {
                       parent.modelData.secondaryActivate();
                       root.closeWidget();
@@ -2842,14 +2841,14 @@ ShellRoot {
           visible: root.widgetPage === "clipboard"
           Layout.fillWidth: true
           Layout.fillHeight: true
-          spacing: 10
+          spacing: 9
 
-	            RowLayout {
-	              Layout.alignment: Qt.AlignLeft
-	              spacing: 8
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
             TextField {
               Layout.fillWidth: true
-              implicitHeight: 38
+              implicitHeight: 36
               text: root.clipboardFilter
               placeholderText: "Search history"
               color: Theme.text
@@ -2873,8 +2872,8 @@ ShellRoot {
               }
             }
             Rectangle {
-              Layout.preferredWidth: 38
-              Layout.preferredHeight: 38
+              Layout.preferredWidth: 36
+              Layout.preferredHeight: 36
               radius: 9
               color: Theme.surface
               Text { anchors.centerIn: parent; text: "󰑐"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
@@ -2886,8 +2885,8 @@ ShellRoot {
               }
             }
             Rectangle {
-              Layout.preferredWidth: 38
-              Layout.preferredHeight: 38
+              Layout.preferredWidth: 36
+              Layout.preferredHeight: 36
               radius: 9
               color: Theme.surface
               Text { anchors.centerIn: parent; text: "󰆴"; color: Theme.text; font.family: Theme.font; font.pixelSize: 14 }
@@ -2907,14 +2906,14 @@ ShellRoot {
             spacing: 7
             model: root.filteredClipboardEntries()
             delegate: Rectangle {
-            id: clipboardRow
-            required property var modelData
-            width: ListView.view.width
-            height: 58
-            radius: 10
-            color: Theme.surface
-            border.color: Theme.border
-            border.width: 1
+              id: clipboardRow
+              required property var modelData
+              width: ListView.view.width
+              height: 54
+              radius: 10
+              color: clipboardRowMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+              border.color: clipboardRowMouse.containsMouse ? Theme.accent : Theme.border
+              border.width: 1
               RowLayout {
                 z: 1
                 anchors.fill: parent

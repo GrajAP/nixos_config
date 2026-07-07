@@ -11,6 +11,13 @@ Rules:
 - Hover/press feedback should be subtle: color shift plus tiny scale, never large bounce.
 - Add visual effects only when they communicate state or hierarchy.
 
+## Widget Surfaces
+
+- Bar-launched widgets must use one of two surface classes.
+- Fullscreen widgets fill the screen area outside the bar and are reserved for dense work surfaces such as Calendar and the keybind helper.
+- Small widgets use the shared compact panel size and anchored bar behavior used by Spotify, audio, weather, clipboard, Codex, shutdown and tray.
+- Do not introduce one-off widget dimensions unless the surface is promoted to fullscreen or deliberately moved out of the bar widget system.
+
 ## Motion
 
 - Use shared theme timing tokens instead of literal durations when possible.
