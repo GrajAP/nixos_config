@@ -26,6 +26,7 @@ ShellRoot {
   property string hoverWidgetOpenPage: ""
   property string hoverWidgetButtonPage: ""
   property bool hoverWidgetPanelHovered: false
+  property bool hoverWidgetMenuOpen: false
   property var latestNotification: null
   property string pendingPassword: ""
   property string authMessage: ""
@@ -494,7 +495,7 @@ ShellRoot {
         root.hoverWidgetOpenPage = "";
         return;
       }
-      if (root.hoverWidgetButtonPage !== root.hoverWidgetOpenPage && !root.hoverWidgetPanelHovered) {
+      if (root.hoverWidgetButtonPage !== root.hoverWidgetOpenPage && !root.hoverWidgetPanelHovered && !root.hoverWidgetMenuOpen) {
         root.closeWidget();
         root.hoverWidgetOpenPage = "";
       }
@@ -523,6 +524,7 @@ ShellRoot {
     root.hoverWidgetOpenPage = "";
     root.hoverWidgetButtonPage = "";
     root.hoverWidgetPanelHovered = false;
+    root.hoverWidgetMenuOpen = false;
     widgetVisible = false;
     widgetCloseTimer.restart();
   }
@@ -548,8 +550,15 @@ ShellRoot {
     root.scheduleHoverWidgetClose(page);
   }
   function scheduleHoverWidgetClose(page) {
-    if (root.hoverWidgetOpenPage === page && root.widgetVisible && root.widgetPage === page)
+    if (root.hoverWidgetOpenPage === page && root.widgetVisible && root.widgetPage === page && !root.hoverWidgetMenuOpen)
       hoverWidgetCloseTimer.restart();
+  }
+  function setHoverWidgetMenuOpen(open) {
+    root.hoverWidgetMenuOpen = open;
+    if (open)
+      hoverWidgetCloseTimer.stop();
+    else
+      root.scheduleHoverWidgetClose(root.widgetPage);
   }
   function toggleKeybindHelp() {
     const nextVisible = !root.keybindHelpVisible;
@@ -2353,6 +2362,8 @@ ShellRoot {
               id: outputMenu
               y: outputPicker.height + 4
               width: outputPicker.width
+              onOpened: root.setHoverWidgetMenuOpen(true)
+              onClosed: root.setHoverWidgetMenuOpen(microphoneMenu.opened)
               background: Rectangle {
                 color: Theme.background
                 border.color: Theme.border
@@ -2442,6 +2453,8 @@ ShellRoot {
               id: microphoneMenu
               y: microphonePicker.height + 4
               width: microphonePicker.width
+              onOpened: root.setHoverWidgetMenuOpen(true)
+              onClosed: root.setHoverWidgetMenuOpen(outputMenu.opened)
               background: Rectangle {
                 color: Theme.background
                 border.color: Theme.border
