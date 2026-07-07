@@ -1497,6 +1497,18 @@
     LauncherWindow 1.0 LauncherWindow.qml
     PowerMenuWindow 1.0 PowerMenuWindow.qml
   '';
+  codexIcon = pkgs.writeText "codex.svg" (
+    builtins.replaceStrings
+    ["fill=\"#fff\"" "fill=\"url(#codex-gradient)\""]
+    ["fill=\"none\"" "fill=\"${config.lib.stylix.colors.withHashtag.base05}\""]
+    (builtins.readFile ./assets/codex.svg)
+  );
+  quickshellAssets = pkgs.linkFarm "quickshell-assets" [
+    {
+      name = "codex.svg";
+      path = codexIcon;
+    }
+  ];
   quickshellConfig = pkgs.linkFarm "quickshell-config" [
     {
       name = "shell.qml";
@@ -1524,7 +1536,7 @@
     }
     {
       name = "assets";
-      path = ./assets;
+      path = quickshellAssets;
     }
     {
       name = "qmldir";
@@ -1543,7 +1555,7 @@ in {
   xdg.configFile."quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
   xdg.configFile."quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
   xdg.configFile."quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
-  xdg.configFile."quickshell/assets".source = ./assets;
+  xdg.configFile."quickshell/assets".source = quickshellAssets;
   xdg.configFile."quickshell/qmldir".source = qmldirConfig;
 
   systemd.user.services.quickshell = {

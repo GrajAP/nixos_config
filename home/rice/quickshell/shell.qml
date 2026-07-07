@@ -34,7 +34,6 @@ ShellRoot {
   property bool toolBusy: false
   property string toolStatusTitle: ""
   property string toolStatusDetail: ""
-  property bool codexUsageVisible: false
   property string screenshotPath: ""
   property bool screenshotOpenAfterCapture: false
   property string pendingScreenshotMode: ""
@@ -59,6 +58,7 @@ ShellRoot {
   readonly property color faintText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.48)
   readonly property color elevatedSurface: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
   readonly property color hoverSurface: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+  readonly property color translucentPanel: Qt.rgba(Theme.panel.r, Theme.panel.g, Theme.panel.b, 0.97)
   readonly property color textCursorColor: {
     const surfaceLuma = Theme.surface.r * 0.299 + Theme.surface.g * 0.587 + Theme.surface.b * 0.114
     return surfaceLuma < 0.5 ? Theme.text : Theme.background
@@ -393,7 +393,6 @@ ShellRoot {
     root.launcherVisible = false;
     root.powerVisible = false;
     root.notificationHistoryVisible = false;
-    root.codexUsageVisible = false;
     root.keybindHelpVisible = false;
   }
   function keybindHelpCategories() {
@@ -465,7 +464,7 @@ ShellRoot {
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
     if (widgetPage === "codex") return 420;
-    if (widgetPage === "calendar") return Math.max(420, widgetWindow.width - 20);
+    if (widgetPage === "calendar") return widgetWindow.width - 20;
     if (widgetPage === "weather") return 390;
     if (widgetPage === "clipboard") return 460;
     if (widgetPage === "tools") return 340;
@@ -476,7 +475,7 @@ ShellRoot {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "codex") return 430;
     if (widgetPage === "audio") return 390;
-    if (widgetPage === "calendar") return Math.max(420, widgetWindow.height - 36);
+    if (widgetPage === "calendar") return widgetWindow.height - 36;
     if (widgetPage === "weather") return 500;
     if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
@@ -567,18 +566,16 @@ ShellRoot {
   }
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
-    const primaryUsed = root.codexUsageValue("primaryUsedPercent");
-    const secondaryUsed = root.codexUsageValue("secondaryUsedPercent");
-    const primaryRemaining = root.codexUsageRemainingPercent(primaryUsed);
-    const secondaryRemaining = root.codexUsageRemainingPercent(secondaryUsed);
-    if (primaryRemaining === null && secondaryRemaining === null) return "—";
-    if (primaryRemaining === null) return "— / " + secondaryRemaining + "%";
-    if (secondaryRemaining === null) return primaryRemaining + "% / —";
-    return primaryRemaining + "% / " + secondaryRemaining + "%";
+    const codexRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("codexPrimaryUsedPercent"));
+    const sparkRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("sparkPrimaryUsedPercent"));
+    if (codexRemaining === null && sparkRemaining === null) return "—";
+    if (codexRemaining === null) return "— / " + sparkRemaining + "%";
+    if (sparkRemaining === null) return codexRemaining + "% / —";
+    return codexRemaining + "% / " + sparkRemaining + "%";
   }
   function codexUsageColor() {
-    const primaryUsed = root.codexUsageValue("primaryUsedPercent");
-    const secondaryUsed = root.codexUsageValue("secondaryUsedPercent");
+    const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
+    const secondaryUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const used = Math.max(
       Number.isFinite(primaryUsed) ? primaryUsed : -1,
       Number.isFinite(secondaryUsed) ? secondaryUsed : -1
@@ -593,26 +590,38 @@ ShellRoot {
     if (!Number.isFinite(target) || target <= 0) return "—";
     const seconds = Math.floor(target - Date.now() / 1000);
     if (seconds <= 0) return "now";
-    if (seconds >= 86400) return Math.floor(seconds / 86400) + "d";
-    if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
-    return Math.max(1, Math.floor(seconds / 60)) + "m";
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.max(1, Math.floor((seconds % 3600) / 60));
+    const clockText = Qt.formatDateTime(new Date(target * 1000), "HH:mm");
+    if (days > 0) return days + "d " + hours + "h (" + clockText + ")";
+    if (hours > 0) return hours + "h " + minutes + "m (" + clockText + ")";
+    return minutes + "m (" + clockText + ")";
   }
   function codexUsageTooltipText() {
     if (root.codexUsageError.length > 0)
       return "Codex usage: " + root.codexUsageError;
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
-    const primaryRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("primaryUsedPercent"));
-    const secondaryRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("secondaryUsedPercent"));
-    const primaryReset = root.codexUsageResetLabel(root.codexUsageValue("primaryResetsAt"));
-    const secondaryReset = root.codexUsageResetLabel(root.codexUsageValue("secondaryResetsAt"));
-    const primaryWindow = root.codexUsageValue("primaryWindowMinutes");
-    const secondaryWindow = root.codexUsageValue("secondaryWindowMinutes");
-    const primaryWindowText = Number.isFinite(primaryWindow) ? Math.round(primaryWindow / 60) + "h" : "—";
-    const secondaryWindowText = Number.isFinite(secondaryWindow) ? Math.round(secondaryWindow / 60) + "h" : "—";
+    const codexRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("codexPrimaryUsedPercent"));
+    const sparkRemaining = root.codexUsageRemainingPercent(root.codexUsageValue("sparkPrimaryUsedPercent"));
+    const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
+    const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
+    const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
+    const sparkWindow = root.codexUsageWindowLabel(root.codexUsageValue("sparkPrimaryWindowMinutes"));
     return "Codex usage (" + planType + ")\n" +
-      "Primary: " + (primaryRemaining === null ? "—" : primaryRemaining + "%, reset " + primaryReset) + " (" + primaryWindowText + ")\n" +
-      "Secondary: " + (secondaryRemaining === null ? "—" : secondaryRemaining + "%, reset " + secondaryReset) + " (" + secondaryWindowText + ")";
+      "Codex: " + (codexRemaining === null ? "—" : codexRemaining + "%, reset " + codexReset) + " (" + codexWindow + ")\n" +
+      "Spark: " + (sparkRemaining === null ? "—" : sparkRemaining + "%, reset " + sparkReset) + " (" + sparkWindow + ")";
+  }
+  function codexUsageWindowLabel(minutesValue) {
+    const minutes = Number(minutesValue);
+    if (!Number.isFinite(minutes)) return "—";
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor((minutes % 1440) / 60);
+    const rest = Math.round(minutes % 60);
+    if (days > 0) return days + "d " + hours + "h";
+    if (hours > 0) return hours + "h " + rest + "m";
+    return rest + "m";
   }
   function setShutdownDelay(minutes) {
     root.shutdownDelayMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
@@ -1549,7 +1558,7 @@ ShellRoot {
       anchors.rightMargin: 10
       anchors.bottomMargin: 18
       radius: Theme.radiusLg
-      color: Theme.panel
+      color: root.translucentPanel
       border.color: Theme.border
       border.width: 1
       clip: true

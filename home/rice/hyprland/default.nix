@@ -145,6 +145,7 @@
       coreutils
       hyprland
       ripgrep
+      syncSpecialWorkspacesMonitor
     ];
     text = ''
       set -eu
@@ -165,12 +166,33 @@
         if [ "$found" -eq 1 ]; then
           hyprctl keyword monitor DP-2,2560x1440@144,-1440x0,1,transform,1 || true
           hyprctl keyword monitor DP-2,addreserved,0,955,0,0 || true
+          sync-special-workspaces-monitor || true
           exit 0
         fi
 
+        sync-special-workspaces-monitor || true
         echo "hyprland-dp2-fix: DP-2 monitor not detected on login" >&2
         exit 0
       ) &
+    '';
+  };
+  syncSpecialWorkspacesMonitor = pkgs.writeShellApplication {
+    name = "sync-special-workspaces-monitor";
+    runtimeInputs = with pkgs; [
+      hyprland
+      ripgrep
+    ];
+    text = ''
+      set -euo pipefail
+
+      monitor=DP-1
+      if hyprctl monitors | rg -q '^Monitor DP-2 '; then
+        monitor=DP-2
+      fi
+
+      for workspace in social obs tools scratchpad; do
+        hyprctl dispatch moveworkspacetomonitor "special:$workspace" "$monitor" >/dev/null 2>&1 || true
+      done
     '';
   };
 in {
@@ -194,6 +216,7 @@ in {
     uair
     hypridle
     autoShutdown
+    syncSpecialWorkspacesMonitor
     (writeShellApplication {
       name = "launch-obsidian-tools";
       runtimeInputs = with pkgs; [
@@ -206,12 +229,13 @@ in {
       text = ''
         set -euo pipefail
 
-        for _ in $(seq 1 20); do
+        special_monitor() {
           if hyprctl monitors | rg -q '^Monitor DP-2 '; then
-            break
+            printf '%s\n' DP-2
+          else
+            printf '%s\n' DP-1
           fi
-          sleep 1
-        done
+        }
 
         if ! pgrep -fi '(^|/)(obsidian)( |$)' >/dev/null 2>&1; then
           env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE obsidian >/dev/null 2>&1 &
@@ -219,8 +243,9 @@ in {
 
         for _ in $(seq 1 30); do
           if hyprctl clients | rg -q 'class: (obsidian|Obsidian)$'; then
+            monitor="$(special_monitor)"
             hyprctl dispatch movetoworkspacesilent 'special:tools,class:^(obsidian|Obsidian)$' >/dev/null 2>&1 || true
-            hyprctl dispatch moveworkspacetomonitor 'special:tools' DP-2 >/dev/null 2>&1 || true
+            hyprctl dispatch moveworkspacetomonitor 'special:tools' "$monitor" >/dev/null 2>&1 || true
             exit 0
           fi
           sleep 1
@@ -243,7 +268,7 @@ in {
       ''
     )
     (
-      writeShellScriptBin "toggle-special-dp2"
+      writeShellScriptBin "toggle-special-workspace"
       ''
         set -eu
 
@@ -251,19 +276,28 @@ in {
           exit 2
         fi
 
+        special_monitor() {
+          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
+            printf '%s\n' DP-2
+          else
+            printf '%s\n' DP-1
+          fi
+        }
+
         ws="$1"
+        monitor="$(special_monitor)"
         current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
 
-        if [ "''${current_monitor:-}" != "DP-2" ]; then
-          hyprctl dispatch focusmonitor DP-2
+        if [ "''${current_monitor:-}" != "$monitor" ]; then
+          hyprctl dispatch focusmonitor "$monitor"
         fi
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" DP-2 >/dev/null 2>&1 || true
+        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
         hyprctl dispatch togglespecialworkspace "$ws"
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" DP-2 >/dev/null 2>&1 || true
+        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
       ''
     )
     (
-      writeShellScriptBin "move-special-dp2"
+      writeShellScriptBin "move-special-workspace"
       ''
         set -eu
 
@@ -271,9 +305,18 @@ in {
           exit 2
         fi
 
+        special_monitor() {
+          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
+            printf '%s\n' DP-2
+          else
+            printf '%s\n' DP-1
+          fi
+        }
+
         ws="$1"
+        monitor="$(special_monitor)"
         hyprctl dispatch movetoworkspacesilent "special:$ws"
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" DP-2 >/dev/null 2>&1 || true
+        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
       ''
     )
     (
@@ -281,20 +324,29 @@ in {
       ''
         set -eu
 
+        special_monitor() {
+          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
+            printf '%s\n' DP-2
+          else
+            printf '%s\n' DP-1
+          fi
+        }
+
+        monitor="$(special_monitor)"
         current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
-        if [ "''${current_monitor:-}" != "DP-2" ]; then
-          hyprctl dispatch focusmonitor DP-2
+        if [ "''${current_monitor:-}" != "$monitor" ]; then
+          hyprctl dispatch focusmonitor "$monitor"
         fi
 
         if hyprctl clients | rg -q 'class: (obs|OBS|com.obsproject.Studio)$'; then
           hyprctl dispatch movetoworkspacesilent "special:obs,class:^(obs|OBS|com\\.obsproject\\.Studio)$"
-          hyprctl dispatch moveworkspacetomonitor "special:obs" DP-2 >/dev/null 2>&1 || true
+          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
           hyprctl dispatch togglespecialworkspace obs
-          hyprctl dispatch moveworkspacetomonitor "special:obs" DP-2 >/dev/null 2>&1 || true
+          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
         else
-          hyprctl dispatch moveworkspacetomonitor "special:obs" DP-2 >/dev/null 2>&1 || true
+          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
           hyprctl dispatch togglespecialworkspace obs
-          hyprctl dispatch moveworkspacetomonitor "special:obs" DP-2 >/dev/null 2>&1 || true
+          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
           hyprctl dispatch exec "obs"
         fi
 

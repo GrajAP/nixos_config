@@ -15,11 +15,30 @@ PanelWindow {
   margins.right: 44
   exclusionMode: ExclusionMode.Ignore
 
+  MouseArea {
+    anchors.fill: parent
+    enabled: shell.keybindHelpVisible
+    onClicked: mouse => {
+      const point = mapToItem(keybindHelpPanel, mouse.x, mouse.y);
+      if (point.x < 0 || point.y < 0 || point.x > keybindHelpPanel.width || point.y > keybindHelpPanel.height)
+        shell.keybindHelpVisible = false;
+    }
+  }
+
   Rectangle {
     id: keybindHelpPanel
-    anchors.fill: parent
+    width: parent.width - 20
+    height: parent.height - 36
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.rightMargin: 10
+    anchors.bottomMargin: 18
     focus: shell.keybindHelpVisible
-    color: Theme.panel
+    radius: Theme.radiusLg
+    color: shell.translucentPanel
+    border.color: Theme.border
+    border.width: 1
+    clip: true
 
     ColumnLayout {
       anchors.fill: parent
@@ -140,7 +159,7 @@ PanelWindow {
                       readonly property bool selected: shell.keybindHelpSelectedKey === modelData
                       Layout.fillWidth: true
                       Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
-                      Layout.preferredHeight: 70
+                      Layout.preferredHeight: 82
                       radius: Theme.radiusSm
                       color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
                       border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
@@ -189,7 +208,7 @@ PanelWindow {
 
             Rectangle {
               Layout.preferredWidth: 138
-              Layout.preferredHeight: 214
+              Layout.preferredHeight: 250
               Layout.alignment: Qt.AlignTop
               radius: 42
               color: Theme.surface
@@ -230,7 +249,7 @@ PanelWindow {
                     readonly property var matches: shell.keybindsForKey(modelData)
                     readonly property bool selected: shell.keybindHelpSelectedKey === modelData
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 72
+                    Layout.preferredHeight: 84
                     radius: 28
                     color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surfaceAlt)
                     border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
@@ -269,7 +288,7 @@ PanelWindow {
                     readonly property var matches: shell.keybindsForKey(modelData)
                     readonly property bool selected: shell.keybindHelpSelectedKey === modelData
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 42
+                    Layout.preferredHeight: 50
                     radius: Theme.radiusSm
                     color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surfaceAlt)
                     border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)

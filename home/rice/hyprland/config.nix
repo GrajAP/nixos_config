@@ -18,6 +18,7 @@
         "spotify &"
         "t3code-desktop &"
         "find ~/.config/obsidian -maxdepth 1 -type f -name 'obsidian-*.asar' -delete"
+        "sync-special-workspaces-monitor &"
         "launch-obsidian-tools &"
         "helium &"
       ];

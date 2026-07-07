@@ -21,11 +21,7 @@ ColumnLayout {
   }
 
   function windowLabel(key) {
-    const value = shell.codexUsageValue(key);
-    if (!Number.isFinite(value)) return "window --";
-    if (value >= 1440) return Math.round(value / 1440) + "d window";
-    if (value >= 60) return Math.round(value / 60) + "h window";
-    return Math.round(value) + "m window";
+    return shell.codexUsageWindowLabel(shell.codexUsageValue(key)) + " window";
   }
 
   Text {
@@ -139,7 +135,7 @@ ColumnLayout {
             Layout.fillWidth: true
           }
           Text {
-          Layout.preferredWidth: 178
+            Layout.preferredWidth: 220
             text: windowLabel(parent.parent.parent.modelData.windowKey) + " · reset " + shell.codexUsageResetLabel(shell.codexUsageValue(parent.parent.parent.modelData.resetKey))
             color: shell.secondaryText
             font.family: Theme.fontSans
