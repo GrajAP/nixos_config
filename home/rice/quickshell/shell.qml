@@ -79,6 +79,11 @@ ShellRoot {
   property bool kanataActive: false
   property bool kanataKnown: false
   property var workspaceClientsById: ({})
+  property var workspaceHoverClient: null
+  property int workspaceHoverWorkspaceId: 0
+  property int workspacePreviewY: 120
+  property var workspaceDragClient: null
+  property int workspaceDragTarget: 0
   property var weatherData: null
   property var calendarEvents: []
   property string calendarError: ""
@@ -254,8 +259,10 @@ ShellRoot {
             const key = String(client.workspace.id);
             if (!byWorkspace[key]) byWorkspace[key] = [];
             byWorkspace[key].push({
+              address: client.address || "",
               className: client.class || client.initialClass || "",
-              title: client.title || client.initialTitle || ""
+              title: client.title || client.initialTitle || "",
+              workspaceId: client.workspace.id
             });
           }
           root.workspaceClientsById = byWorkspace;
@@ -509,6 +516,25 @@ ShellRoot {
     if (value.includes("org.gnome.nautilus") || value.includes("dolphin")) return "󰉋";
     return "󰘔";
   }
+  function appColorForClient(client) {
+    const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (value.includes("firefox")) return "#f97316";
+    if (value.includes("chromium") || value.includes("chrome") || value.includes("brave")) return "#60a5fa";
+    if (value.includes("spotify")) return "#22c55e";
+    if (value.includes("discord") || value.includes("vesktop")) return "#8b5cf6";
+    if (value.includes("signal")) return "#38bdf8";
+    if (value.includes("obsidian")) return "#a78bfa";
+    if (value.includes("code") || value.includes("codium")) return "#3b82f6";
+    if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "#64748b";
+    if (value.includes("steam")) return "#1d4ed8";
+    if (value.includes("obs")) return "#7c3aed";
+    if (value.includes("ferdium")) return "#f59e0b";
+    if (value.includes("org.gnome.nautilus") || value.includes("dolphin")) return "#06b6d4";
+    return Theme.surfaceAlt;
+  }
+  function workspaceClientList(workspaceId, limit) {
+    return (root.workspaceClientsById[String(workspaceId)] || []).slice(0, limit);
+  }
   function workspaceClientIcons(workspaceId, limit) {
     const clients = root.workspaceClientsById[String(workspaceId)] || [];
     const icons = [];
@@ -518,6 +544,32 @@ ShellRoot {
       if (icons.length >= limit) break;
     }
     return icons;
+  }
+  function workspaceIds() {
+    return Hyprland.workspaces.values
+      .filter(workspace => workspace.id > 0)
+      .sort((a, b) => a.id - b.id)
+      .map(workspace => workspace.id);
+  }
+  function workspaceIdAtY(y) {
+    const ids = root.workspaceIds();
+    const cellHeight = 34;
+    const spacing = 7;
+    for (let index = 0; index < ids.length; index++) {
+      const top = index * (cellHeight + spacing);
+      if (y >= top && y <= top + cellHeight)
+        return ids[index];
+    }
+    return 0;
+  }
+  function moveWorkspaceClient(client, workspaceId) {
+    if (!client || !client.address || workspaceId <= 0 || client.workspaceId === workspaceId) return;
+    Quickshell.execDetached(["hyprctl", "dispatch", "movetoworkspacesilent", String(workspaceId) + ",address:" + client.address]);
+    root.workspaceDragTarget = 0;
+    root.workspaceDragClient = null;
+    Qt.callLater(() => {
+      if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true;
+    });
   }
   function refreshCodexUsage() {
     if (!codexUsageQuery.running) codexUsageQuery.running = true;
@@ -1409,45 +1461,115 @@ ShellRoot {
           Rectangle {
             id: workspaceCell
             required property var modelData
-            readonly property var appIcons: root.workspaceClientIcons(modelData.id, 4)
+            readonly property var clients: root.workspaceClientList(modelData.id, 4)
+            readonly property bool dragTarget: root.workspaceDragTarget === modelData.id
             Layout.fillWidth: true
             implicitHeight: 34
-            radius: 7
-            color: modelData.active ? Theme.accent : "transparent"
-            border.color: "transparent"
+            radius: 14
+            color: dragTarget ? Theme.accentSoft : (modelData.active ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, clients.length > 0 ? 0.08 : 0.02))
+            border.color: dragTarget || modelData.active ? Theme.accent : "transparent"
             border.width: 1
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              y: parent.appIcons.length > 0 ? 2 : Math.round((parent.height - height) / 2)
-              text: root.numerals[parent.modelData.id] || parent.modelData.id
-              color: modelData.active ? Theme.background : Theme.text
-              font.family: Theme.fontSans
-              font.pixelSize: parent.appIcons.length > 0 ? 12 : 14
-              font.bold: parent.appIcons.length > 0
-            }
-            Row {
-              visible: workspaceCell.appIcons.length > 0
-              anchors.horizontalCenter: parent.horizontalCenter
-              anchors.bottom: parent.bottom
-              anchors.bottomMargin: 3
-              spacing: 0
+            scale: dragTarget ? 1.06 : 1
+            Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
+            Column {
+              visible: workspaceCell.clients.length > 0
+              anchors.centerIn: parent
+              spacing: -3
               Repeater {
-                model: workspaceCell.appIcons
-                Text {
-                  required property string modelData
-                  width: 8
-                  text: modelData
-                  color: workspaceCell.modelData.active ? Theme.background : Theme.accent
-                  font.family: Theme.fontIcon
-                  font.pixelSize: 8
-                  horizontalAlignment: Text.AlignHCenter
-                  verticalAlignment: Text.AlignVCenter
+                model: workspaceCell.clients
+                Item {
+                  id: clientBubble
+                  required property var modelData
+                  width: 24
+                  height: 24
+                  z: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 10 : 1
+                  scale: clientMouse.pressed ? 1.16 : (clientMouse.containsMouse ? 1.08 : 1)
+                  opacity: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 0.82 : 1
+                  Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                  Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+                  Rectangle {
+                    anchors.centerIn: parent
+                    width: 22
+                    height: 22
+                    radius: 11
+                    color: root.appColorForClient(parent.modelData)
+                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
+                    border.width: 1
+                  }
+                  Text {
+                    anchors.centerIn: parent
+                    text: root.appIconForClient(parent.modelData)
+                    color: Theme.background
+                    font.family: Theme.fontIcon
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    id: clientMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    drag.target: clientBubble
+                    drag.axis: Drag.YAxis
+                    drag.threshold: 4
+	                    onEntered: {
+	                      root.workspaceHoverClient = parent.modelData;
+	                      root.workspaceHoverWorkspaceId = workspaceCell.modelData.id;
+	                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + workspaceCell.y + clientBubble.y - 22));
+	                    }
+                    onExited: {
+                      if (!pressed && root.workspaceHoverClient && root.workspaceHoverClient.address === parent.modelData.address)
+                        root.workspaceHoverClient = null;
+                    }
+                    onPressed: {
+                      root.workspaceDragClient = parent.modelData;
+                      root.workspaceDragTarget = workspaceCell.modelData.id;
+                    }
+                    onPositionChanged: mouse => {
+	                      if (!pressed) return;
+	                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
+	                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
+	                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + point.y - 42));
+	                    }
+                    onReleased: mouse => {
+                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
+                      const target = root.workspaceIdAtY(point.y);
+                      clientBubble.x = 0;
+                      clientBubble.y = 0;
+                      if (target > 0)
+                        root.moveWorkspaceClient(parent.modelData, target);
+                      else {
+                        root.workspaceDragTarget = 0;
+                        root.workspaceDragClient = null;
+                      }
+                    }
+                    onCanceled: {
+                      clientBubble.x = 0;
+                      clientBubble.y = 0;
+                      root.workspaceDragTarget = 0;
+                      root.workspaceDragClient = null;
+                    }
+                  }
                 }
               }
+            }
+            Rectangle {
+              visible: workspaceCell.clients.length === 0
+              anchors.centerIn: parent
+              width: 7
+              height: 7
+              radius: 4
+              color: workspaceCell.modelData.active ? Theme.accent : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.28)
             }
             MouseArea {
               id: workspaceMouse
               anchors.fill: parent
+              enabled: workspaceCell.clients.length === 0
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 root.closeTransientPanels();
@@ -1890,6 +2012,85 @@ ShellRoot {
       }
     }
   }
+  }
+
+  PanelWindow {
+    id: workspacePreviewWindow
+    readonly property var client: root.workspaceDragClient || root.workspaceHoverClient
+    visible: root.barVisible && client !== null
+    color: "transparent"
+    implicitWidth: 270
+    implicitHeight: 96
+    anchors { top: true; right: true }
+    margins.right: 54
+    margins.top: root.workspacePreviewY
+    exclusionMode: ExclusionMode.Ignore
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Theme.radiusMd
+      color: root.translucentPanel
+      border.color: Theme.border
+      border.width: 1
+      opacity: 0.98
+
+      RowLayout {
+        anchors.fill: parent
+        anchors.margins: 12
+        spacing: 12
+
+        Rectangle {
+          Layout.preferredWidth: 48
+          Layout.preferredHeight: 48
+          radius: 14
+          color: root.appColorForClient(workspacePreviewWindow.client)
+          border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: root.appIconForClient(workspacePreviewWindow.client)
+            color: Theme.background
+            font.family: Theme.fontIcon
+            font.pixelSize: 25
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+          }
+        }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 3
+          Text {
+            Layout.fillWidth: true
+            text: workspacePreviewWindow.client ? (workspacePreviewWindow.client.className || "Window") : ""
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 13
+            font.bold: true
+            elide: Text.ElideRight
+          }
+          Text {
+            Layout.fillWidth: true
+            text: workspacePreviewWindow.client ? (workspacePreviewWindow.client.title || "Untitled") : ""
+            color: root.secondaryText
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+            maximumLineCount: 2
+            wrapMode: Text.Wrap
+            elide: Text.ElideRight
+          }
+          Text {
+            Layout.fillWidth: true
+            text: root.workspaceDragClient ? ("Drop on workspace " + root.workspaceDragTarget) : ("Workspace " + root.workspaceHoverWorkspaceId)
+            color: Theme.accent
+            font.family: Theme.fontSans
+            font.pixelSize: 10
+            font.bold: true
+            elide: Text.ElideRight
+          }
+        }
+      }
+    }
   }
 
   PanelWindow {
