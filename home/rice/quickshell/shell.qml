@@ -1609,10 +1609,11 @@ ShellRoot {
         Item {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 42
-          Layout.preferredHeight: 36
+          Layout.preferredHeight: 30
           implicitWidth: 42
-          implicitHeight: 36
+          implicitHeight: 30
           id: weatherButton
+          clip: true
           Rectangle {
             anchors.fill: parent
             radius: 8
@@ -1620,28 +1621,36 @@ ShellRoot {
             border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
-          Text {
-            id: barWeatherGlyph
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: -2
-            y: 0
-            text: root.weatherGlyph()
-            color: root.barWidgetText("weather", Theme.text)
-            font.family: Theme.fontSans
-            font.pixelSize: 17
-            horizontalAlignment: Text.AlignHCenter
-          }
-          Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: 2
-            anchors.top: barWeatherGlyph.bottom
-            anchors.topMargin: -1
-            text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
-            color: root.barWidgetText("weather", Theme.text)
-            font.family: Theme.fontSans
-            font.pixelSize: 13
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
+          Row {
+            anchors.centerIn: parent
+            width: parent.width - 8
+            height: parent.height
+            spacing: 2
+
+            Text {
+              id: barWeatherGlyph
+              width: 16
+              height: parent.height
+              text: root.weatherGlyph()
+              color: root.barWidgetText("weather", Theme.text)
+              font.family: Theme.fontSans
+              font.pixelSize: 15
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              elide: Text.ElideRight
+            }
+            Text {
+              width: parent.width - barWeatherGlyph.width - parent.spacing
+              height: parent.height
+              text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
+              color: root.barWidgetText("weather", Theme.text)
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              font.bold: true
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              elide: Text.ElideRight
+            }
           }
           MouseArea {
             id: weatherMouse
