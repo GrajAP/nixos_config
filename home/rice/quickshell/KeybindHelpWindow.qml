@@ -12,6 +12,7 @@ PanelWindow {
   focusable: true
   color: "transparent"
   anchors { top: true; left: true; right: true; bottom: true }
+  margins.right: 44
   exclusionMode: ExclusionMode.Ignore
 
   Rectangle {
@@ -116,61 +117,176 @@ PanelWindow {
             }
           }
 
-          Repeater {
-            model: shell.keyboardRows
-            RowLayout {
-              required property var modelData
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.gapMd
+
+            ColumnLayout {
               Layout.fillWidth: true
               spacing: 6
 
               Repeater {
-                model: parent.modelData
-                Rectangle {
-                  required property string modelData
-                  readonly property var matches: shell.keybindsForKey(modelData)
-                  readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                model: shell.keyboardRows
+                RowLayout {
+                  required property var modelData
                   Layout.fillWidth: true
-                  Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
-                  Layout.preferredHeight: 74
-                  radius: Theme.radiusSm
-                  color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
-                  border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
-                  border.width: 1
-                  clip: true
+                  spacing: 6
 
-                  ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 7
-                    spacing: 2
-                    Text {
+                  Repeater {
+                    model: parent.modelData
+                    Rectangle {
+                      required property string modelData
+                      readonly property var matches: shell.keybindsForKey(modelData)
+                      readonly property bool selected: shell.keybindHelpSelectedKey === modelData
                       Layout.fillWidth: true
-                      text: parent.parent.modelData
-                      color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
-                      font.family: Theme.fontSans
-                      font.bold: true
-                      font.pixelSize: 12
-                      horizontalAlignment: Text.AlignHCenter
-                      elide: Text.ElideRight
-                    }
-                    Text {
-                      Layout.fillWidth: true
-                      Layout.fillHeight: true
-                      text: shell.keybindKeyLabel(parent.parent.modelData)
-                      color: parent.parent.selected ? Theme.background : shell.secondaryText
-                      font.family: Theme.fontSans
-                      font.pixelSize: 9
-                      horizontalAlignment: Text.AlignHCenter
-                      verticalAlignment: Text.AlignVCenter
-                      wrapMode: Text.Wrap
-                      maximumLineCount: 2
-                      elide: Text.ElideRight
+                      Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
+                      Layout.preferredHeight: 70
+                      radius: Theme.radiusSm
+                      color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
+                      border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                      border.width: 1
+                      clip: true
+
+                      ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 7
+                        spacing: 2
+                        Text {
+                          Layout.fillWidth: true
+                          text: parent.parent.modelData
+                          color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
+                          font.family: Theme.fontSans
+                          font.bold: true
+                          font.pixelSize: 12
+                          horizontalAlignment: Text.AlignHCenter
+                          elide: Text.ElideRight
+                        }
+                        Text {
+                          Layout.fillWidth: true
+                          Layout.fillHeight: true
+                          text: shell.keybindKeyLabel(parent.parent.modelData)
+                          color: parent.parent.selected ? Theme.background : shell.secondaryText
+                          font.family: Theme.fontSans
+                          font.pixelSize: 9
+                          horizontalAlignment: Text.AlignHCenter
+                          verticalAlignment: Text.AlignVCenter
+                          wrapMode: Text.Wrap
+                          maximumLineCount: 2
+                          elide: Text.ElideRight
+                        }
+                      }
+
+                      MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                      }
                     }
                   }
+                }
+              }
+            }
 
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: shell.keybindHelpSelectedKey = parent.modelData
+            Rectangle {
+              Layout.preferredWidth: 138
+              Layout.preferredHeight: 214
+              Layout.alignment: Qt.AlignTop
+              radius: 42
+              color: Theme.surface
+              border.color: Theme.border
+              border.width: 1
+              clip: true
+
+              Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 12
+                width: 8
+                height: 32
+                radius: 4
+                color: shell.keybindsForKey("Wheel Up").length > 0 || shell.keybindsForKey("Wheel Down").length > 0 ? Theme.accentSoft : Theme.surfaceAlt
+                border.color: Theme.border
+                border.width: 1
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: shell.keybindHelpSelectedKey = "Wheel Up"
+                  onWheel: wheel => shell.keybindHelpSelectedKey = wheel.angleDelta.y > 0 ? "Wheel Up" : "Wheel Down"
+                }
+              }
+
+              RowLayout {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.topMargin: 12
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                spacing: 8
+
+                Repeater {
+                  model: ["Mouse Left", "Mouse Right"]
+                  Rectangle {
+                    required property string modelData
+                    readonly property var matches: shell.keybindsForKey(modelData)
+                    readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 72
+                    radius: 28
+                    color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surfaceAlt)
+                    border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                    border.width: 1
+                    Text {
+                      anchors.centerIn: parent
+                      width: parent.width - 12
+                      text: modelData === "Mouse Left" ? "Left" : "Right"
+                      color: parent.selected ? Theme.background : Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 11
+                      font.bold: true
+                      horizontalAlignment: Text.AlignHCenter
+                      elide: Text.ElideRight
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                    }
+                  }
+                }
+              }
+
+              ColumnLayout {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: 12
+                spacing: 8
+
+                Repeater {
+                  model: ["Wheel Up", "Wheel Down"]
+                  Rectangle {
+                    required property string modelData
+                    readonly property var matches: shell.keybindsForKey(modelData)
+                    readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 42
+                    radius: Theme.radiusSm
+                    color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surfaceAlt)
+                    border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                    border.width: 1
+                    Text {
+                      anchors.centerIn: parent
+                      text: modelData === "Wheel Up" ? "Wheel up" : "Wheel down"
+                      color: parent.selected ? Theme.background : Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 10
+                      font.bold: true
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                    }
                   }
                 }
               }

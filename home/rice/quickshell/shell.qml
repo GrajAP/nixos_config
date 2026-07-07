@@ -107,8 +107,9 @@ ShellRoot {
     ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
     ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
     ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
-    ["Ctrl", "Mod", "Alt", "Space", "Alt", "Ctrl", "Mouse Left", "Mouse Right", "Wheel Up", "Wheel Down"]
+    ["Ctrl", "Mod", "Alt", "Space", "Alt", "Ctrl"]
   ]
+  readonly property var mouseBindKeys: ["Mouse Left", "Mouse Right", "Wheel Up", "Wheel Down"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
 
   GlobalShortcut {
@@ -381,8 +382,8 @@ ShellRoot {
     openWidget(page);
   }
   function toggleCodexUsage() {
-    codexUsageVisible = !codexUsageVisible;
-    if (codexUsageVisible) codexUsageQuery.running = true;
+    root.toggleWidget("codex");
+    codexUsageQuery.running = true;
   }
   function refreshCodexUsage() {
     if (!codexUsageQuery.running) codexUsageQuery.running = true;
@@ -463,6 +464,7 @@ ShellRoot {
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
+    if (widgetPage === "codex") return 420;
     if (widgetPage === "calendar") return Math.max(420, widgetWindow.width - 20);
     if (widgetPage === "weather") return 390;
     if (widgetPage === "clipboard") return 460;
@@ -472,6 +474,7 @@ ShellRoot {
   }
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
+    if (widgetPage === "codex") return 430;
     if (widgetPage === "audio") return 390;
     if (widgetPage === "calendar") return Math.max(420, widgetWindow.height - 36);
     if (widgetPage === "weather") return 500;
@@ -1408,7 +1411,7 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: root.codexUsageVisible ? Theme.accentSoft : "transparent"
+            color: root.widgetPage === "codex" && root.widgetVisible ? Theme.accentSoft : "transparent"
           }
           IconImage {
             anchors.centerIn: parent
@@ -1567,7 +1570,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot"})[root.widgetPage]
+            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot", codex: "Codex usage"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
@@ -1753,6 +1756,13 @@ ShellRoot {
             }
             Text { text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
           }
+        }
+
+        CodexUsageWindow {
+          visible: root.widgetPage === "codex"
+          shell: root
+          Layout.fillWidth: true
+          Layout.fillHeight: true
         }
 
         ColumnLayout {
@@ -3544,8 +3554,6 @@ ShellRoot {
       }
     }
   }
-
-    CodexUsageWindow { shell: root }
 
   PanelWindow {
     visible: root.notificationHistoryVisible

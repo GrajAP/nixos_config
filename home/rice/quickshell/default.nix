@@ -151,42 +151,75 @@
         exit 0
       fi
 
-      latest_file="$(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort -nr | awk 'NR==1 {print $2}')"
-      if [[ -z "$latest_file" ]]; then
+      if ! find "$sessions_root" -type f -name "*.jsonl" -print -quit | grep -q .; then
         echo '{"ok":false,"error":"No Codex session files found"}'
         exit 0
       fi
 
-      found_entry=""
-      while IFS= read -r latest_line; do
-        [[ -z "$latest_line" ]] && continue
+      general_entry=""
+      spark_entry=""
+      while IFS= read -r session_file; do
+        [[ -z "$session_file" ]] && continue
+        while IFS= read -r latest_line; do
+          [[ -z "$latest_line" ]] && continue
 
-        if parsed="$(printf '%s\n' "$latest_line" | jq -e -c '
-          .payload.rate_limits as $limits
-          | select(($limits | type) == "object")
-          | {
-              ok: true,
-              primaryUsedPercent: ($limits.primary.used_percent // null),
-              primaryWindowMinutes: ($limits.primary.window_minutes // null),
-              primaryResetsAt: ($limits.primary.resets_at // null),
-              secondaryUsedPercent: ($limits.secondary.used_percent // null),
-              secondaryWindowMinutes: ($limits.secondary.window_minutes // null),
-              secondaryResetsAt: ($limits.secondary.resets_at // null),
-              planType: ($limits.plan_type // null),
-              credits: ($limits.credits // null),
-              generatedAt: (now | floor)
-            }' 2>/dev/null)"; then
-          found_entry="$parsed"
-          break
-        fi
-      done < <(tac "$latest_file")
+          if parsed="$(printf '%s\n' "$latest_line" | jq -e -c '
+            .payload.rate_limits as $limits
+            | select(($limits | type) == "object")
+            | {
+                limitId: ($limits.limit_id // null),
+                limitName: ($limits.limit_name // null),
+                primaryUsedPercent: ($limits.primary.used_percent // null),
+                primaryWindowMinutes: ($limits.primary.window_minutes // null),
+                primaryResetsAt: ($limits.primary.resets_at // null),
+                secondaryUsedPercent: ($limits.secondary.used_percent // null),
+                secondaryWindowMinutes: ($limits.secondary.window_minutes // null),
+                secondaryResetsAt: ($limits.secondary.resets_at // null),
+                planType: ($limits.plan_type // null)
+              }' 2>/dev/null)"; then
+            limit_id="$(printf '%s\n' "$parsed" | jq -r '.limitId // ""')"
+            limit_name="$(printf '%s\n' "$parsed" | jq -r '.limitName // ""')"
+            if [[ -z "$spark_entry" && ( "$limit_id" == "codex_bengalfox" || "$limit_name" == *"Spark"* ) ]]; then
+              spark_entry="$parsed"
+            elif [[ -z "$general_entry" && "$limit_id" == "codex" ]]; then
+              general_entry="$parsed"
+            fi
+          fi
 
-      if [[ -z "$found_entry" ]]; then
+          if [[ -n "$general_entry" && -n "$spark_entry" ]]; then
+            break 2
+          fi
+        done < <(tac "$session_file")
+      done < <(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
+
+      if [[ -z "$general_entry" && -z "$spark_entry" ]]; then
         echo '{"ok":false,"error":"No session entry with rate limits"}'
         exit 0
       fi
 
-      echo "$found_entry"
+      jq -n -c \
+        --argjson general "''${general_entry:-null}" \
+        --argjson spark "''${spark_entry:-null}" '
+          def flatten($prefix; $item):
+            if $item == null then {}
+            else {
+              ($prefix + "LimitId"): ($item.limitId // null),
+              ($prefix + "LimitName"): ($item.limitName // null),
+              ($prefix + "PrimaryUsedPercent"): ($item.primaryUsedPercent // null),
+              ($prefix + "PrimaryWindowMinutes"): ($item.primaryWindowMinutes // null),
+              ($prefix + "PrimaryResetsAt"): ($item.primaryResetsAt // null),
+              ($prefix + "SecondaryUsedPercent"): ($item.secondaryUsedPercent // null),
+              ($prefix + "SecondaryWindowMinutes"): ($item.secondaryWindowMinutes // null),
+              ($prefix + "SecondaryResetsAt"): ($item.secondaryResetsAt // null)
+            }
+            end;
+          {
+            ok: true,
+            planType: (($general.planType // $spark.planType) // null),
+            generatedAt: (now | floor)
+          }
+          + flatten("codex"; $general)
+          + flatten("spark"; $spark)'
     '';
   };
   calendarTool = pkgs.writeShellApplication {
