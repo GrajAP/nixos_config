@@ -510,6 +510,12 @@ ShellRoot {
     }
     openWidget(page);
   }
+  function showInfoWidget(page) {
+    if (root.widgetVisible && root.widgetPage === page) return;
+    root.openWidget(page);
+    if (page === "codex" && !codexUsageQuery.running)
+      codexUsageQuery.running = true;
+  }
   function toggleKeybindHelp() {
     const nextVisible = !root.keybindHelpVisible;
     root.closeWidget();
@@ -2079,8 +2085,10 @@ ShellRoot {
           MouseArea {
             id: weatherMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("weather")
+            onEntered: root.showInfoWidget("weather")
+            onClicked: root.showInfoWidget("weather")
           }
         }
 
@@ -2136,8 +2144,10 @@ ShellRoot {
           }
           MouseArea {
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleCodexUsage()
+            onEntered: root.showInfoWidget("codex")
+            onClicked: root.showInfoWidget("codex")
           }
         }
 
