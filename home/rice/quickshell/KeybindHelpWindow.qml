@@ -136,9 +136,18 @@ PanelWindow {
             }
           }
 
-          RowLayout {
+          Rectangle {
             Layout.fillWidth: true
-            spacing: Theme.gapMd
+            Layout.preferredHeight: 542
+            radius: Theme.radiusMd
+            color: "transparent"
+            border.color: Theme.border
+            border.width: 1
+
+            RowLayout {
+              anchors.fill: parent
+              anchors.margins: 10
+              spacing: Theme.gapMd
 
             ColumnLayout {
               Layout.fillWidth: true
@@ -212,6 +221,7 @@ PanelWindow {
 
             ColumnLayout {
               Layout.preferredWidth: 168
+              Layout.fillHeight: true
               Layout.alignment: Qt.AlignTop
               spacing: 18
 
@@ -281,7 +291,7 @@ PanelWindow {
                 }
               }
 
-              Item { Layout.preferredHeight: 18 }
+              Item { Layout.fillHeight: true }
 
               ColumnLayout {
                 Layout.fillWidth: true
@@ -356,7 +366,7 @@ PanelWindow {
             Rectangle {
               Layout.preferredWidth: 138
               Layout.preferredHeight: 250
-              Layout.alignment: Qt.AlignTop
+              Layout.alignment: Qt.AlignVCenter
               radius: 42
               color: Theme.surface
               border.color: Theme.border
@@ -457,11 +467,12 @@ PanelWindow {
                 }
               }
             }
+            }
           }
 
           Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 150
+            Layout.fillHeight: true
             radius: Theme.radiusMd
             color: Theme.surface
             border.color: Theme.border
