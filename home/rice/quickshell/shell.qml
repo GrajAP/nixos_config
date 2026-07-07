@@ -1671,10 +1671,12 @@ ShellRoot {
                 Item {
                   id: clientBubble
                   required property var modelData
+                  property real pressStackY: 0
+                  property bool draggingWorkspaceClient: false
                   width: 30
                   height: 30
-                  scale: clientMouse.containsMouse ? 1.06 : 1
-                  opacity: 1
+                  scale: draggingWorkspaceClient ? 1.10 : (clientMouse.containsMouse ? 1.06 : 1)
+                  opacity: draggingWorkspaceClient ? 0.82 : 1
                   Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                   Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
@@ -1696,9 +1698,37 @@ ShellRoot {
                     id: clientMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: mouse => {
-                      root.openWorkspace(workspaceCell.modelData.id);
+                    cursorShape: pressed || clientBubble.draggingWorkspaceClient ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                    onPressed: mouse => {
+                      clientBubble.pressStackY = mapToItem(workspaceStack, mouse.x, mouse.y).y;
+                      clientBubble.draggingWorkspaceClient = false;
+                      root.clearWorkspaceInteraction();
+                    }
+                    onPositionChanged: mouse => {
+                      if (!pressed) return;
+                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
+                      if (!clientBubble.draggingWorkspaceClient && Math.abs(point.y - clientBubble.pressStackY) < 8) return;
+                      clientBubble.draggingWorkspaceClient = true;
+                      root.workspaceDragClient = parent.modelData;
+                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
+                    }
+                    onReleased: mouse => {
+                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
+                      const target = root.workspaceIdAtY(point.y);
+                      if (clientBubble.draggingWorkspaceClient) {
+                        if (target !== 0)
+                          root.moveWorkspaceClient(parent.modelData, target);
+                        else
+                          root.clearWorkspaceInteraction();
+                      } else {
+                        root.clearWorkspaceInteraction();
+                        root.openWorkspace(workspaceCell.modelData.id);
+                      }
+                      clientBubble.draggingWorkspaceClient = false;
+                    }
+                    onCanceled: {
+                      clientBubble.draggingWorkspaceClient = false;
+                      root.clearWorkspaceInteraction();
                     }
                   }
                 }
@@ -1891,7 +1921,7 @@ ShellRoot {
           border.width: 1
           Text {
             anchors.centerIn: parent
-            text: "󰅂"
+            text: "󰅁"
             color: root.barWidgetText("tray", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 16
