@@ -1328,10 +1328,16 @@ ShellRoot {
         onClicked: root.closeTransientPanels()
       }
 
-      ColumnLayout {
+      Item {
         anchors.fill: parent
         anchors.margins: 3
-        spacing: 7
+
+        ColumnLayout {
+          id: workspaceStack
+          anchors.top: parent.top
+          anchors.left: parent.left
+          anchors.right: parent.right
+          spacing: 7
 
         Repeater {
           model: ScriptModel {
@@ -1365,8 +1371,13 @@ ShellRoot {
             }
           }
         }
+        }
 
-        Item { Layout.fillHeight: true }
+        ColumnLayout {
+          id: calendarBarStack
+          anchors.centerIn: parent
+          width: 38
+          spacing: 7
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
@@ -1489,16 +1500,23 @@ ShellRoot {
           }
         }
 
-        Item { Layout.fillHeight: true }
+        }
+
+        ColumnLayout {
+          id: barActionStack
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          spacing: 7
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          implicitWidth: 32
-          implicitHeight: 30
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
           id: trayToggle
           radius: 8
-          color: root.trayExpanded ? Theme.surfaceAlt : "transparent"
-          border.color: root.trayExpanded ? Theme.border : "transparent"
+          color: root.trayExpanded ? Theme.accentSoft : "transparent"
+          border.color: root.trayExpanded ? Theme.accent : "transparent"
           border.width: 1
           Text {
             anchors.centerIn: parent
@@ -1528,8 +1546,8 @@ ShellRoot {
             Item {
               required property var modelData
               Layout.alignment: Qt.AlignHCenter
-              implicitWidth: 32
-              implicitHeight: 30
+              implicitWidth: 34
+              implicitHeight: 34
               IconImage {
                 anchors.centerIn: parent
                 implicitSize: 20
@@ -1683,7 +1701,7 @@ ShellRoot {
             text: ""
             color: root.kanataActive ? Theme.background : (root.kanataKnown ? Theme.text : Theme.danger)
             font.family: Theme.fontIcon
-            font.pixelSize: 14
+            font.pixelSize: 16
             font.bold: true
           }
           MouseArea {
@@ -1786,6 +1804,7 @@ ShellRoot {
         }
       }
     }
+  }
   }
 
   PanelWindow {
