@@ -16,7 +16,7 @@ ColumnLayout {
   }
   function displayValue(metric, value) {
     if (value === null) return null;
-    return value;
+    return metric === "available-as-used" ? 100 - value : value;
   }
   function metricLabel(metric, value) {
     const display = displayValue(metric, value);
@@ -68,14 +68,14 @@ ColumnLayout {
       },
       {
         label: "GPT-5.3-Codex-Spark",
-        metric: "used",
+        metric: "available-as-used",
         usedKey: "sparkPrimaryUsedPercent",
         resetKey: "sparkPrimaryResetsAt",
         windowKey: "sparkPrimaryWindowMinutes"
       },
       {
         label: "Spark secondary",
-        metric: "used",
+        metric: "available-as-used",
         usedKey: "sparkSecondaryUsedPercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"

@@ -923,7 +923,8 @@ ShellRoot {
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
     if (codexUsed === null && sparkUsed === null) return "—";
     if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
     if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
@@ -931,7 +932,8 @@ ShellRoot {
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
     const codexRisk = Number.isFinite(primaryUsed) ? primaryUsed : -1;
     const sparkRisk = Number.isFinite(sparkUsed) ? sparkUsed : -1;
     const risk = Math.max(codexRisk, sparkRisk);
@@ -959,7 +961,8 @@ ShellRoot {
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
+    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
@@ -1948,6 +1951,38 @@ ShellRoot {
           }
         }
 
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          id: kanataIcon
+          radius: 8
+          color: {
+            if (!root.kanataKnown) return Theme.surface;
+            return root.kanataActive ? Theme.accent : "transparent";
+          }
+          border.color: !root.kanataKnown ? Theme.danger : (root.kanataActive ? Theme.accent : Theme.border)
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: ""
+            color: root.kanataActive ? Theme.background : (root.kanataKnown ? Theme.text : Theme.danger)
+            font.family: Theme.fontIcon
+            font.pixelSize: 18
+            font.bold: true
+          }
+          MouseArea {
+            anchors.fill: parent
+            id: kanataMouse
+            cursorShape: Qt.PointingHandCursor
+            propagateComposedEvents: true
+            onClicked: {
+              if (kanataToggleAction.running) return;
+              kanataToggleAction.running = true;
+            }
+          }
+        }
+
         Item {
           Layout.alignment: Qt.AlignHCenter
           id: mediaButton
@@ -2126,38 +2161,6 @@ ShellRoot {
             onEntered: root.showHoverWidget("weather")
             onExited: root.leaveHoverWidgetButton("weather")
             onClicked: root.showHoverWidget("weather")
-          }
-        }
-
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 34
-          id: kanataIcon
-          radius: 8
-          color: {
-            if (!root.kanataKnown) return Theme.surface;
-            return root.kanataActive ? Theme.accent : "transparent";
-          }
-          border.color: !root.kanataKnown ? Theme.danger : (root.kanataActive ? Theme.accent : Theme.border)
-          border.width: 1
-          Text {
-            anchors.centerIn: parent
-            text: ""
-            color: root.kanataActive ? Theme.background : (root.kanataKnown ? Theme.text : Theme.danger)
-            font.family: Theme.fontIcon
-            font.pixelSize: 18
-            font.bold: true
-          }
-          MouseArea {
-            anchors.fill: parent
-            id: kanataMouse
-            cursorShape: Qt.PointingHandCursor
-            propagateComposedEvents: true
-            onClicked: {
-              if (kanataToggleAction.running) return;
-              kanataToggleAction.running = true;
-            }
           }
         }
 

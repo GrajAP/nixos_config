@@ -54,8 +54,8 @@ PanelWindow {
           color: Theme.text
           font.family: Theme.fontSans
           font.bold: true
-          font.pixelSize: 22
-          Layout.preferredWidth: 150
+          font.pixelSize: 26
+          Layout.preferredWidth: 170
         }
 
         TextField {
@@ -68,7 +68,7 @@ PanelWindow {
           color: Theme.text
           placeholderTextColor: Theme.muted
           font.family: Theme.fontSans
-          font.pixelSize: 13
+          font.pixelSize: 15
           cursorDelegate: shell.themedCursor
           selectionColor: Theme.accent
           selectedTextColor: Theme.background
@@ -90,7 +90,7 @@ PanelWindow {
           text: "Mod + /"
           color: shell.secondaryText
           font.family: Theme.fontSans
-          font.pixelSize: 12
+          font.pixelSize: 14
         }
         Text {
           text: "×"
@@ -167,7 +167,7 @@ PanelWindow {
                           color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                           font.family: Theme.fontSans
                           font.bold: true
-                          font.pixelSize: 14
+                          font.pixelSize: 17
                           horizontalAlignment: Text.AlignHCenter
                           elide: Text.ElideRight
                         }
@@ -177,7 +177,7 @@ PanelWindow {
                           text: shell.keybindKeyLabel(parent.parent.modelData)
                           color: parent.parent.selected ? Theme.background : shell.secondaryText
                           font.family: Theme.fontSans
-                          font.pixelSize: 10
+                          font.pixelSize: 12
                           horizontalAlignment: Text.AlignHCenter
                           verticalAlignment: Text.AlignVCenter
                           wrapMode: Text.Wrap
@@ -240,7 +240,7 @@ PanelWindow {
                             color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                             font.family: Theme.fontSans
                             font.bold: true
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                           }
@@ -250,7 +250,7 @@ PanelWindow {
                             text: shell.keybindKeyLabel(parent.parent.modelData)
                             color: parent.parent.selected ? Theme.background : shell.secondaryText
                             font.family: Theme.fontSans
-                            font.pixelSize: 9
+                            font.pixelSize: 10
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             wrapMode: Text.Wrap
@@ -310,7 +310,7 @@ PanelWindow {
                             color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
                             font.family: Theme.fontSans
                             font.bold: true
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                           }
@@ -320,7 +320,7 @@ PanelWindow {
                             text: shell.keybindKeyLabel(parent.parent.modelData)
                             color: parent.parent.selected ? Theme.background : shell.secondaryText
                             font.family: Theme.fontSans
-                            font.pixelSize: 9
+                            font.pixelSize: 10
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             wrapMode: Text.Wrap
@@ -396,7 +396,7 @@ PanelWindow {
                       text: modelData === "Mouse Left" ? "Left" : "Right"
                       color: parent.selected ? Theme.background : Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 12
+                      font.pixelSize: 14
                       font.bold: true
                       horizontalAlignment: Text.AlignHCenter
                       elide: Text.ElideRight
@@ -434,7 +434,7 @@ PanelWindow {
                       text: modelData === "Wheel Up" ? "Wheel up" : "Wheel down"
                       color: parent.selected ? Theme.background : Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 11
+                      font.pixelSize: 13
                       font.bold: true
                     }
                     MouseArea {
@@ -471,7 +471,7 @@ PanelWindow {
                   color: Theme.text
                   font.family: Theme.fontSans
                   font.bold: true
-                  font.pixelSize: 16
+                  font.pixelSize: 18
                   Layout.fillWidth: true
                 }
                 Text {
@@ -479,7 +479,7 @@ PanelWindow {
                   text: "Clear"
                   color: Theme.accent
                   font.family: Theme.fontSans
-                  font.pixelSize: 13
+                  font.pixelSize: 14
                   MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
@@ -511,7 +511,7 @@ PanelWindow {
                       text: parent.parent.modelData.combo
                       color: Theme.accent
                       font.family: Theme.fontSans
-                      font.pixelSize: 12
+                      font.pixelSize: 13
                       font.bold: true
                       elide: Text.ElideRight
                     }
@@ -520,7 +520,7 @@ PanelWindow {
                       text: parent.parent.modelData.description
                       color: Theme.text
                       font.family: Theme.fontSans
-                      font.pixelSize: 12
+                      font.pixelSize: 13
                       elide: Text.ElideRight
                     }
                   }
@@ -531,7 +531,7 @@ PanelWindow {
                   text: shell.keybindHelpSelectedKey.length > 0 ? "No binds for this key" : "Select a key above"
                   color: Theme.muted
                   font.family: Theme.fontSans
-                  font.pixelSize: 13
+                  font.pixelSize: 15
                 }
               }
             }
@@ -562,7 +562,7 @@ PanelWindow {
                   color: Theme.muted
                   font.family: Theme.fontSans
                   font.bold: true
-                  font.pixelSize: 12
+                  font.pixelSize: 14
                 }
                 Repeater {
                   model: shell.filteredKeybindsInCategory(parent.modelData)
@@ -583,7 +583,7 @@ PanelWindow {
                         text: parent.parent.modelData.combo
                         color: Theme.accent
                         font.family: Theme.fontSans
-                        font.pixelSize: 11
+                        font.pixelSize: 12
                         font.bold: true
                         elide: Text.ElideRight
                       }
@@ -592,7 +592,7 @@ PanelWindow {
                         text: parent.parent.modelData.description
                         color: Theme.text
                         font.family: Theme.fontSans
-                        font.pixelSize: 11
+                        font.pixelSize: 12
                         elide: Text.ElideRight
                       }
                     }
@@ -607,7 +607,7 @@ PanelWindow {
               text: "No matching binds"
               color: Theme.muted
               font.family: Theme.fontSans
-              font.pixelSize: 12
+              font.pixelSize: 14
               horizontalAlignment: Text.AlignHCenter
             }
           }
