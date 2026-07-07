@@ -33,7 +33,6 @@ ShellRoot {
   property bool osdVisible: false
   property string osdKind: "volume"
   property real osdValue: 0
-  property bool trayExpanded: false
   property bool toolStatusVisible: false
   property bool toolBusy: false
   property string toolStatusTitle: ""
@@ -823,7 +822,7 @@ ShellRoot {
     return 1;
   }
   function isSmallWidget(page) {
-    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown";
+    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown" || page === "tray";
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
@@ -1676,9 +1675,8 @@ ShellRoot {
                   required property var modelData
                   width: 30
                   height: 30
-                  z: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 10 : 1
-                  scale: clientMouse.pressed ? 1.16 : (clientMouse.containsMouse ? 1.08 : 1)
-                  opacity: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 0.82 : 1
+                  scale: clientMouse.containsMouse ? 1.06 : 1
+                  opacity: 1
                   Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                   Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
 
@@ -1687,8 +1685,8 @@ ShellRoot {
                     width: 30
                     height: 30
                     radius: 15
-                    color: clientMouse.containsMouse || (root.workspaceDragClient && root.workspaceDragClient.address === parent.modelData.address) ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
-                    border.color: clientMouse.containsMouse || (root.workspaceDragClient && root.workspaceDragClient.address === parent.modelData.address) ? Theme.border : "transparent"
+                    color: clientMouse.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
+                    border.color: clientMouse.containsMouse ? Theme.border : "transparent"
                     border.width: 1
                   }
                   IconImage {
@@ -1700,37 +1698,9 @@ ShellRoot {
                     id: clientMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                    drag.target: clientBubble
-                    drag.axis: Drag.YAxis
-                    drag.threshold: 4
+                    cursorShape: Qt.PointingHandCursor
                     onClicked: mouse => {
                       root.openWorkspace(workspaceCell.modelData.id);
-                    }
-                    onPressed: root.clearWorkspaceInteraction()
-                    onPositionChanged: mouse => {
-                      if (!pressed) return;
-                      if (Math.abs(clientBubble.x) < 5 && Math.abs(clientBubble.y) < 5) return;
-                      root.workspaceDragClient = parent.modelData;
-                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
-                      root.workspaceDragTarget = root.workspaceIdAtY(point.y);
-                    }
-                    onReleased: mouse => {
-                      const point = mapToItem(workspaceStack, mouse.x, mouse.y);
-                      const target = root.workspaceIdAtY(point.y);
-                      const wasDragged = Math.abs(clientBubble.x) >= 5 || Math.abs(clientBubble.y) >= 5;
-                      clientBubble.x = 0;
-                      clientBubble.y = 0;
-                      if (wasDragged && target !== 0)
-                        root.moveWorkspaceClient(parent.modelData, target);
-                      else {
-                        root.clearWorkspaceInteraction();
-                      }
-                    }
-                    onCanceled: {
-                      clientBubble.x = 0;
-                      clientBubble.y = 0;
-                      root.clearWorkspaceInteraction();
                     }
                   }
                 }
@@ -1780,7 +1750,7 @@ ShellRoot {
           anchors.centerIn: parent
           width: 38
           spacing: 7
-          visible: !root.trayExpanded && calendarBarRegion.height >= 82
+          visible: calendarBarRegion.height >= 82
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
@@ -1918,13 +1888,13 @@ ShellRoot {
           Layout.preferredHeight: 34
           id: trayToggle
           radius: 8
-          color: root.trayExpanded ? Theme.accentSoft : "transparent"
-          border.color: root.trayExpanded ? Theme.accent : "transparent"
+          color: root.barWidgetBackground("tray")
+          border.color: root.barWidgetBorder("tray")
           border.width: 1
           Text {
             anchors.centerIn: parent
-            text: root.trayExpanded ? "󰅀" : "󰅂"
-            color: root.trayExpanded ? Theme.accent : Theme.text
+            text: "󰅂"
+            color: root.barWidgetText("tray", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 16
           }
@@ -1932,10 +1902,7 @@ ShellRoot {
             id: trayToggleMouse
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.closeTransientPanels();
-              root.trayExpanded = !root.trayExpanded;
-            }
+            onClicked: root.toggleWidget("tray")
           }
         }
 
@@ -2246,71 +2213,6 @@ ShellRoot {
         }
         }
 
-        Item {
-          id: trayOverlay
-          anchors.top: workspaceStack.bottom
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.bottom: barActionStack.top
-          anchors.topMargin: 8
-          anchors.bottomMargin: 8
-          visible: root.trayExpanded
-          clip: true
-          z: 4
-
-          Flickable {
-            id: trayFlick
-            anchors.fill: parent
-            contentWidth: width
-            contentHeight: trayOverlayColumn.implicitHeight
-            boundsBehavior: Flickable.StopAtBounds
-            interactive: contentHeight > height
-            clip: true
-
-            Column {
-              id: trayOverlayColumn
-              width: trayFlick.width
-              y: Math.max(0, trayFlick.height - implicitHeight)
-              spacing: 6
-
-              Repeater {
-                model: SystemTray.items
-                Item {
-                  required property var modelData
-                  width: trayOverlayColumn.width
-                  height: 34
-
-                  Rectangle {
-                    anchors.centerIn: parent
-                    width: 34
-                    height: 34
-                    radius: 8
-                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-                    border.color: "transparent"
-                    border.width: 0
-                  }
-                  IconImage {
-                    anchors.centerIn: parent
-                    implicitSize: 20
-                    source: parent.modelData.icon
-                  }
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                    onClicked: mouse => {
-                      root.closeTransientPanels();
-                      if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
-                        parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
-                      else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
-                      else parent.modelData.activate();
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     }
   }
@@ -2373,7 +2275,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot", codex: "Codex usage"})[root.widgetPage]
+            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
@@ -2570,6 +2472,99 @@ ShellRoot {
           shell: root
           Layout.fillWidth: true
           Layout.fillHeight: true
+        }
+
+        ScrollView {
+          id: trayScroll
+          visible: root.widgetPage === "tray"
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+          ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+
+          ColumnLayout {
+            width: trayScroll.availableWidth
+            spacing: 10
+
+            Repeater {
+              id: trayRepeater
+              model: SystemTray.items
+              Rectangle {
+                id: trayItem
+                required property var modelData
+                Layout.fillWidth: true
+                implicitHeight: 52
+                radius: 10
+                color: trayItemMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                border.color: trayItemMouse.containsMouse ? Theme.accent : Theme.border
+                border.width: 1
+
+                RowLayout {
+                  anchors.fill: parent
+                  anchors.margins: 10
+                  spacing: 10
+                  IconImage {
+                    Layout.preferredWidth: 26
+                    Layout.preferredHeight: 26
+                    implicitSize: 24
+                    source: trayItem.modelData.icon
+                  }
+                  ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    Text {
+                      Layout.fillWidth: true
+                      text: trayItem.modelData.title || trayItem.modelData.id || "Tray item"
+                      color: Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 13
+                      font.bold: true
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      Layout.fillWidth: true
+                      text: trayItem.modelData.hasMenu ? "Left click activate, right click menu" : "Left click activate"
+                      color: Theme.muted
+                      font.family: Theme.fontSans
+                      font.pixelSize: 10
+                      elide: Text.ElideRight
+                    }
+                  }
+                }
+
+                MouseArea {
+                  id: trayItemMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                  onClicked: mouse => {
+                    if (mouse.button === Qt.RightButton && parent.modelData.hasMenu) {
+                      parent.modelData.display(widgetWindow, 0, 0);
+                    } else if (mouse.button === Qt.MiddleButton) {
+                      parent.modelData.secondaryActivate();
+                      root.closeWidget();
+                    } else {
+                      parent.modelData.activate();
+                      root.closeWidget();
+                    }
+                  }
+                }
+              }
+            }
+
+            Text {
+              visible: trayRepeater.count === 0
+              Layout.fillWidth: true
+              Layout.topMargin: 120
+              text: "Tray is empty"
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 13
+              horizontalAlignment: Text.AlignHCenter
+            }
+          }
         }
 
         ColumnLayout {
