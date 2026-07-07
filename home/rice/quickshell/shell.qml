@@ -1894,33 +1894,40 @@ ShellRoot {
             border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
-          Column {
+          Item {
             anchors.centerIn: parent
-            width: parent.width
-            height: 30
-            spacing: -1
+            width: parent.width - 4
+            height: 27
 
             Text {
               id: barWeatherGlyph
+              anchors.top: parent.top
+              anchors.horizontalCenter: parent.horizontalCenter
               width: parent.width
-              height: 16
+              height: 13
               text: root.weatherGlyph()
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontIcon
-              font.pixelSize: 15
+              font.pixelSize: 13
+              lineHeightMode: Text.FixedHeight
+              lineHeight: 13
               horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
+              verticalAlignment: Text.AlignBottom
             }
             Text {
+              anchors.top: barWeatherGlyph.bottom
+              anchors.horizontalCenter: parent.horizontalCenter
               width: parent.width
-              height: 15
+              height: 14
               text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
-              font.pixelSize: 11
+              font.pixelSize: 10
               font.bold: true
+              lineHeightMode: Text.FixedHeight
+              lineHeight: 14
               horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
+              verticalAlignment: Text.AlignTop
               minimumPixelSize: 9
               fontSizeMode: Text.Fit
             }
