@@ -3114,8 +3114,8 @@ ShellRoot {
             spacing: 12
 	            ColumnLayout {
                   id: calendarMonthColumn
-                  Layout.fillWidth: true
-                  Layout.preferredWidth: 2
+                  Layout.preferredWidth: 1560
+                  Layout.maximumWidth: 1560
 	              Layout.fillHeight: true
 	              spacing: 10
 	              RowLayout {
@@ -3179,7 +3179,7 @@ ShellRoot {
 	              }
 	              GridLayout {
                 id: calendarMonthGrid
-                readonly property int cellSize: Math.max(92, Math.floor(Math.min((calendarMonthColumn.width - columnSpacing * 6) / 7, (calendarMonthColumn.height - 112 - rowSpacing * 6) / 6)))
+                readonly property int cellSize: 168
                 Layout.fillWidth: true
                 columns: 7; rowSpacing: 8; columnSpacing: 8
             Repeater {
@@ -3288,7 +3288,6 @@ ShellRoot {
             }
             ColumnLayout {
               Layout.fillWidth: true
-              Layout.preferredWidth: 1
               Layout.fillHeight: true
               spacing: 10
               Text {
