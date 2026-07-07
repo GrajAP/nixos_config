@@ -23,6 +23,9 @@ ShellRoot {
   property bool notificationHistoryVisible: false
   property bool keybindHelpVisible: false
   property bool notificationPopupVisible: false
+  property string hoverWidgetOpenPage: ""
+  property string hoverWidgetButtonPage: ""
+  property bool hoverWidgetPanelHovered: false
   property var latestNotification: null
   property string pendingPassword: ""
   property string authMessage: ""
@@ -481,6 +484,22 @@ ShellRoot {
     repeat: true
     onTriggered: if (!codexUsageQuery.running) codexUsageQuery.running = true
   }
+  Timer {
+    id: hoverWidgetCloseTimer
+    interval: 180
+    repeat: false
+    onTriggered: {
+      if (root.hoverWidgetOpenPage.length === 0) return;
+      if (!root.widgetVisible || root.widgetPage !== root.hoverWidgetOpenPage) {
+        root.hoverWidgetOpenPage = "";
+        return;
+      }
+      if (root.hoverWidgetButtonPage !== root.hoverWidgetOpenPage && !root.hoverWidgetPanelHovered) {
+        root.closeWidget();
+        root.hoverWidgetOpenPage = "";
+      }
+    }
+  }
 
   function openWidget(page) {
     widgetCloseTimer.stop();
@@ -500,6 +519,10 @@ ShellRoot {
     root.toggleWidget("clipboard");
   }
   function closeWidget() {
+    hoverWidgetCloseTimer.stop();
+    root.hoverWidgetOpenPage = "";
+    root.hoverWidgetButtonPage = "";
+    root.hoverWidgetPanelHovered = false;
     widgetVisible = false;
     widgetCloseTimer.restart();
   }
@@ -510,11 +533,23 @@ ShellRoot {
     }
     openWidget(page);
   }
-  function showInfoWidget(page) {
+  function showHoverWidget(page) {
+    hoverWidgetCloseTimer.stop();
+    root.hoverWidgetOpenPage = page;
+    root.hoverWidgetButtonPage = page;
     if (root.widgetVisible && root.widgetPage === page) return;
     root.openWidget(page);
     if (page === "codex" && !codexUsageQuery.running)
       codexUsageQuery.running = true;
+  }
+  function leaveHoverWidgetButton(page) {
+    if (root.hoverWidgetButtonPage === page)
+      root.hoverWidgetButtonPage = "";
+    root.scheduleHoverWidgetClose(page);
+  }
+  function scheduleHoverWidgetClose(page) {
+    if (root.hoverWidgetOpenPage === page && root.widgetVisible && root.widgetPage === page)
+      hoverWidgetCloseTimer.restart();
   }
   function toggleKeybindHelp() {
     const nextVisible = !root.keybindHelpVisible;
@@ -1937,8 +1972,11 @@ ShellRoot {
           MouseArea {
             id: mediaMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("media")
+            onEntered: root.showHoverWidget("media")
+            onExited: root.leaveHoverWidgetButton("media")
+            onClicked: root.showHoverWidget("media")
           }
         }
 
@@ -1970,8 +2008,11 @@ ShellRoot {
           MouseArea {
             id: audioMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("audio")
+            onEntered: root.showHoverWidget("audio")
+            onExited: root.leaveHoverWidgetButton("audio")
+            onClicked: root.showHoverWidget("audio")
             onWheel: wheel => {
               if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio)
                 Pipewire.defaultAudioSink.audio.volume = Math.max(0, Math.min(1.5, Pipewire.defaultAudioSink.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05)));
@@ -2087,8 +2128,9 @@ ShellRoot {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onEntered: root.showInfoWidget("weather")
-            onClicked: root.showInfoWidget("weather")
+            onEntered: root.showHoverWidget("weather")
+            onExited: root.leaveHoverWidgetButton("weather")
+            onClicked: root.showHoverWidget("weather")
           }
         }
 
@@ -2146,8 +2188,9 @@ ShellRoot {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onEntered: root.showInfoWidget("codex")
-            onClicked: root.showInfoWidget("codex")
+            onEntered: root.showHoverWidget("codex")
+            onExited: root.leaveHoverWidgetButton("codex")
+            onClicked: root.showHoverWidget("codex")
           }
         }
 
@@ -2175,8 +2218,11 @@ ShellRoot {
           MouseArea {
             id: shutdownMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("shutdown")
+            onEntered: root.showHoverWidget("shutdown")
+            onExited: root.leaveHoverWidgetButton("shutdown")
+            onClicked: root.showHoverWidget("shutdown")
           }
         }
 
@@ -2256,6 +2302,15 @@ ShellRoot {
       transform: Translate {
         y: root.widgetVisible ? 0 : 14
         Behavior on y { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      }
+      HoverHandler {
+        onHoveredChanged: {
+          root.hoverWidgetPanelHovered = hovered;
+          if (hovered)
+            hoverWidgetCloseTimer.stop();
+          else
+            root.scheduleHoverWidgetClose(root.widgetPage);
+        }
       }
       Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       Behavior on scale { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
