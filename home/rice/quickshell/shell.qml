@@ -448,6 +448,18 @@ ShellRoot {
     root.toggleWidget("codex");
     codexUsageQuery.running = true;
   }
+  function barWidgetActive(page) {
+    return root.widgetVisible && root.widgetPage === page;
+  }
+  function barWidgetBackground(page) {
+    return root.barWidgetActive(page) ? Theme.accentSoft : "transparent";
+  }
+  function barWidgetBorder(page) {
+    return root.barWidgetActive(page) ? Theme.accent : "transparent";
+  }
+  function barWidgetText(page, inactiveColor) {
+    return root.barWidgetActive(page) ? Theme.accent : inactiveColor;
+  }
   function refreshCodexUsage() {
     if (!codexUsageQuery.running) codexUsageQuery.running = true;
   }
@@ -1544,11 +1556,11 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: "transparent"
-            border.color: "transparent"
+            color: root.barWidgetBackground("media")
+            border.color: root.barWidgetBorder("media")
             border.width: 1
           }
-          Text { anchors.centerIn: parent; text: ""; color: root.mediaPlayer ? Theme.text : Theme.muted; font.family: Theme.fontIcon; font.pixelSize: 17 }
+          Text { anchors.centerIn: parent; text: ""; color: root.barWidgetText("media", root.mediaPlayer ? Theme.text : Theme.muted); font.family: Theme.fontIcon; font.pixelSize: 17 }
           MouseArea {
             id: mediaMouse
             anchors.fill: parent
@@ -1567,8 +1579,8 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: "transparent"
-            border.color: "transparent"
+            color: root.barWidgetBackground("audio")
+            border.color: root.barWidgetBorder("audio")
             border.width: 1
           }
           Text {
@@ -1578,7 +1590,7 @@ ShellRoot {
               ? (Pipewire.defaultAudioSink.audio.muted ? "󰝟" : "") : ""
             color: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted
               ? Theme.danger
-              : Theme.text
+              : root.barWidgetText("audio", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 16
           }
@@ -1604,8 +1616,8 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: "transparent"
-            border.color: "transparent"
+            color: root.barWidgetBackground("weather")
+            border.color: root.barWidgetBorder("weather")
             border.width: 1
           }
           Text {
@@ -1614,7 +1626,7 @@ ShellRoot {
             anchors.horizontalCenterOffset: -2
             y: 0
             text: root.weatherGlyph()
-            color: Theme.text
+            color: root.barWidgetText("weather", Theme.text)
             font.family: Theme.fontSans
             font.pixelSize: 17
             horizontalAlignment: Text.AlignHCenter
@@ -1625,7 +1637,7 @@ ShellRoot {
             anchors.top: barWeatherGlyph.bottom
             anchors.topMargin: -1
             text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
-            color: Theme.text
+            color: root.barWidgetText("weather", Theme.text)
             font.family: Theme.fontSans
             font.pixelSize: 13
             font.bold: true
@@ -1680,7 +1692,9 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: root.widgetPage === "codex" && root.widgetVisible ? Theme.accentSoft : "transparent"
+            color: root.barWidgetBackground("codex")
+            border.color: root.barWidgetBorder("codex")
+            border.width: 1
           }
           IconImage {
             anchors.centerIn: parent
@@ -1704,14 +1718,14 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: "transparent"
-            border.color: "transparent"
+            color: root.barWidgetBackground("shutdown")
+            border.color: root.barWidgetBorder("shutdown")
             border.width: 1
           }
           Text {
             anchors.centerIn: parent
             text: "󰐥"
-            color: root.widgetPage === "shutdown" && root.widgetVisible ? Theme.accent : Theme.text
+            color: root.barWidgetText("shutdown", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 17
           }
@@ -1733,14 +1747,14 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: "transparent"
-            border.color: "transparent"
+            color: root.barWidgetBackground("calendar")
+            border.color: root.barWidgetBorder("calendar")
             border.width: 1
           }
           Text {
             anchors.fill: parent
             text: Qt.formatDateTime(clock.date, "HH\nmm")
-            color: Theme.text
+            color: root.barWidgetText("calendar", Theme.text)
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             lineHeight: 0.82
