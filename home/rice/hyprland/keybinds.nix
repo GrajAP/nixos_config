@@ -67,6 +67,8 @@
       (binding "bind" "Quickshell" "${mod}, B" "global, quickshell:toggleBar" "Toggle desktop bar")
       (binding "bind" "Quickshell" "${mod}, N" "global, quickshell:notifications" "Toggle notification history")
       (binding "bind" "Quickshell" "${modshift}, N" "exec, ${ipc} notifications clear" "Clear notification history")
+      (binding "bind" "Quickshell" "${mod}, P" "global, quickshell:clipboardHistory" "Toggle clipboard history")
+      (binding "bind" "Quickshell" "${modshift}, P" "exec, ${ipc} clipboard clear" "Clear clipboard history")
       (binding "bind" "Quickshell" ", PRINT" "exec, ${ipc} tools screenshotEdit" "Select screenshot area and edit")
       (binding "bind" "Quickshell" ", PAUSE" "exec, ${ipc} tools voiceStart" "Start voice dictation")
       (binding "bindr" "Quickshell" ", PAUSE" "exec, ${ipc} tools voiceStop" "Stop voice dictation")

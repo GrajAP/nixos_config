@@ -34,15 +34,15 @@ PanelWindow {
     anchors.rightMargin: 0
     anchors.bottomMargin: 0
     focus: shell.keybindHelpVisible
-    radius: Theme.radiusLg
+    radius: 0
     color: shell.translucentPanel
-    border.color: Theme.border
-    border.width: 1
+    border.color: "transparent"
+    border.width: 0
     clip: true
 
     ColumnLayout {
       anchors.fill: parent
-      anchors.margins: Theme.padLg
+      anchors.margins: 28
       spacing: Theme.gapMd
 
       RowLayout {

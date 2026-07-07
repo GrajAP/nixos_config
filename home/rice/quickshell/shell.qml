@@ -148,6 +148,11 @@ ShellRoot {
     description: "Toggle keybind help"
     onPressed: root.toggleKeybindHelp()
   }
+  GlobalShortcut {
+    name: "clipboardHistory"
+    description: "Toggle clipboard history"
+    onPressed: root.toggleClipboardHistory()
+  }
 
   IpcHandler {
     target: "notifications"
@@ -156,6 +161,11 @@ ShellRoot {
       for (const notification of copy) notification.dismiss();
       root.notificationHistoryVisible = false;
     }
+  }
+  IpcHandler {
+    target: "clipboard"
+    function clear(): void { root.runClipboardAction("wipe", null); }
+    function toggle(): void { root.toggleClipboardHistory(); }
   }
   IpcHandler {
     target: "osd"
@@ -406,6 +416,9 @@ ShellRoot {
     if (page === "calendar") calendarQuery.running = true;
     if (page === "clipboard") clipboardQuery.running = true;
     if (page === "shutdown") root.refreshShutdownStatus();
+  }
+  function toggleClipboardHistory() {
+    root.toggleWidget("clipboard");
   }
   function closeWidget() {
     widgetVisible = false;
@@ -765,6 +778,7 @@ ShellRoot {
     if (action === "wipe") {
       clipboardAction.exec(["@clipboardTool@", "wipe"]);
       root.clipboardStatus = "Clearing history...";
+      root.closeWidget();
       return;
     }
     if (!entry || !entry.line) return;
@@ -992,6 +1006,14 @@ ShellRoot {
       startTime: item.event.startTime || "",
       minutes: item.minutes
     };
+  }
+  function todayActiveTasks(limit) {
+    const today = root.dateKey(clock.date);
+    const tasks = root.calendarEvents
+      .filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today)
+      .slice()
+      .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+    return limit === undefined ? tasks : tasks.slice(0, limit);
   }
   function calendarAlertTimeLabel(alert) {
     if (!alert) return "";
@@ -1273,7 +1295,7 @@ ShellRoot {
 
       MouseArea {
         anchors.fill: parent
-        onClicked: root.closeWidget()
+        onClicked: root.closeTransientPanels()
       }
 
       ColumnLayout {
@@ -1307,7 +1329,7 @@ ShellRoot {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                root.closeWidget();
+                root.closeTransientPanels();
                 Hyprland.dispatch("workspace " + parent.modelData.id);
               }
             }
@@ -1319,33 +1341,43 @@ ShellRoot {
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 38
-          Layout.preferredHeight: 92
+          Layout.preferredHeight: 118
           readonly property var alert: root.calendarUpcomingAlert()
           visible: alert !== null
-          radius: 10
-          color: Theme.accentSoft
-          border.color: Theme.accent
-          border.width: 1
+          radius: 8
+          color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
+          border.color: "transparent"
+          border.width: 0
           clip: true
 
           ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 5
-            spacing: 3
+            anchors.margins: 4
+            spacing: 2
             Text {
               Layout.fillWidth: true
               text: "󰃭"
               color: Theme.accent
               font.family: Theme.fontIcon
-              font.pixelSize: 14
+              font.pixelSize: 13
               horizontalAlignment: Text.AlignHCenter
             }
             Text {
               Layout.fillWidth: true
-              text: parent.parent.alert ? root.calendarAlertTimeLabel(parent.parent.alert) : ""
+              text: parent.parent.alert ? (parent.parent.alert.startTime || root.calendarAlertTimeLabel(parent.parent.alert)) : ""
               color: Theme.text
               font.family: Theme.fontSans
-              font.pixelSize: 11
+              font.pixelSize: 10
+              font.bold: true
+              horizontalAlignment: Text.AlignHCenter
+              elide: Text.ElideRight
+            }
+            Text {
+              Layout.fillWidth: true
+              text: parent.parent.alert ? root.calendarAlertTimeLabel(parent.parent.alert) : ""
+              color: Theme.accent
+              font.family: Theme.fontSans
+              font.pixelSize: 9
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
               elide: Text.ElideRight
@@ -1354,13 +1386,13 @@ ShellRoot {
               Layout.fillWidth: true
               Layout.fillHeight: true
               text: parent.parent.alert ? parent.parent.alert.title : ""
-              color: root.secondaryText
+              color: Theme.text
               font.family: Theme.fontSans
-              font.pixelSize: 9
+              font.pixelSize: 8
               horizontalAlignment: Text.AlignHCenter
               verticalAlignment: Text.AlignVCenter
               wrapMode: Text.Wrap
-              maximumLineCount: 3
+              maximumLineCount: 4
               elide: Text.ElideRight
             }
           }
@@ -1398,7 +1430,7 @@ ShellRoot {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              root.closeWidget();
+              root.closeTransientPanels();
               root.trayExpanded = !root.trayExpanded;
             }
           }
@@ -1426,7 +1458,7 @@ ShellRoot {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 onClicked: mouse => {
-                  root.closeWidget();
+                  root.closeTransientPanels();
                   if (mouse.button === Qt.RightButton && parent.modelData.hasMenu)
                     parent.modelData.display(bar, 0, mapToItem(bar.contentItem, 0, 0).y);
                   else if (mouse.button === Qt.MiddleButton) parent.modelData.secondaryActivate();
@@ -1458,6 +1490,56 @@ ShellRoot {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: root.toggleWidget("media")
+          }
+        }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 38
+          Layout.preferredHeight: Math.min(98, 28 + root.todayActiveTasks(3).length * 22)
+          readonly property var tasks: root.todayActiveTasks(3)
+          visible: tasks.length > 0
+          radius: 8
+          color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+          border.color: "transparent"
+          border.width: 0
+          clip: true
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 4
+            spacing: 2
+            Text {
+              Layout.fillWidth: true
+              text: "󰄬 " + parent.parent.tasks.length
+              color: Theme.accent
+              font.family: Theme.fontIcon
+              font.pixelSize: 12
+              horizontalAlignment: Text.AlignHCenter
+            }
+            Repeater {
+              model: parent.parent.tasks
+              Text {
+                required property var modelData
+                Layout.fillWidth: true
+                text: modelData.title || "Task"
+                color: Theme.text
+                font.family: Theme.fontSans
+                font.pixelSize: 8
+                horizontalAlignment: Text.AlignHCenter
+                maximumLineCount: 2
+                wrapMode: Text.Wrap
+                elide: Text.ElideRight
+              }
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              root.calendarSelectedDate = root.dateKey(clock.date);
+              root.toggleWidget("calendar");
+            }
           }
         }
 
@@ -1600,37 +1682,6 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          id: clipboardButton
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 30
-          implicitWidth: 34
-          implicitHeight: 30
-          Rectangle {
-            anchors.fill: parent
-            radius: 8
-            color: "transparent"
-            border.color: "transparent"
-            border.width: 1
-          }
-          Text {
-            anchors.centerIn: parent
-            font.family: Theme.fontIcon
-            font.pixelSize: 17
-            color: root.widgetPage === "clipboard" && root.widgetVisible
-              ? Theme.accent
-              : Theme.text
-            text: "󰅇"
-          }
-          MouseArea {
-            id: clipboardMouse
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleWidget("clipboard")
-          }
-        }
-
-        Item {
-          Layout.alignment: Qt.AlignHCenter
           id: shutdownButton
           Layout.preferredWidth: 34
           Layout.preferredHeight: 30
@@ -1721,10 +1772,10 @@ ShellRoot {
       anchors.bottom: parent.bottom
       anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
-      radius: Theme.radiusLg
+      radius: root.widgetPage === "calendar" ? 0 : Theme.radiusLg
       color: root.translucentPanel
-      border.color: Theme.border
-      border.width: 1
+      border.color: root.widgetPage === "calendar" ? "transparent" : Theme.border
+      border.width: root.widgetPage === "calendar" ? 0 : 1
       clip: true
       focus: root.widgetVisible
       opacity: root.widgetVisible ? 1 : 0
@@ -1739,7 +1790,7 @@ ShellRoot {
       Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       ColumnLayout {
-        anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
+        anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd
         RowLayout {
           Layout.fillWidth: true
           Text {
