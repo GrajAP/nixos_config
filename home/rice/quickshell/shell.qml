@@ -21,6 +21,7 @@ ShellRoot {
   property bool launcherVisible: false
   property bool powerVisible: false
   property bool notificationHistoryVisible: false
+  property bool keybindHelpVisible: false
   property bool notificationPopupVisible: false
   property var latestNotification: null
   property string pendingPassword: ""
@@ -97,6 +98,15 @@ ShellRoot {
   property int calendarEventDurationMinutes: 60
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+  readonly property var keybindHelpEntries: @keybindHelp@
+  readonly property var keyboardRows: [
+    ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Print"],
+    ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"],
+    ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
+    ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
+    ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
+    ["Ctrl", "Mod", "Alt", "Space", "Alt", "Ctrl", "Mouse Left", "Mouse Right", "Wheel Up", "Wheel Down"]
+  ]
   SystemClock { id: clock; precision: SystemClock.Seconds }
 
   GlobalShortcut {
@@ -108,6 +118,11 @@ ShellRoot {
     name: "notifications"
     description: "Toggle notification history"
     onPressed: root.notificationHistoryVisible = !root.notificationHistoryVisible
+  }
+  GlobalShortcut {
+    name: "keybindHelp"
+    description: "Toggle keybind help"
+    onPressed: root.keybindHelpVisible = !root.keybindHelpVisible
   }
 
   IpcHandler {
@@ -366,6 +381,57 @@ ShellRoot {
   function toggleCodexUsage() {
     codexUsageVisible = !codexUsageVisible;
     if (codexUsageVisible) codexUsageQuery.running = true;
+  }
+  function closeTransientPanels() {
+    root.closeWidget();
+    root.launcherVisible = false;
+    root.powerVisible = false;
+    root.notificationHistoryVisible = false;
+    root.codexUsageVisible = false;
+    root.keybindHelpVisible = false;
+  }
+  function keybindHelpCategories() {
+    const categories = [];
+    for (const entry of root.keybindHelpEntries) {
+      if (!categories.includes(entry.category))
+        categories.push(entry.category);
+    }
+    return categories;
+  }
+  function keybindsInCategory(category) {
+    return root.keybindHelpEntries.filter(entry => entry.category === category);
+  }
+  function keybindMatchesKey(entry, key) {
+    if (!entry || !entry.combo || !key) return false;
+    const combo = String(entry.combo).toUpperCase();
+    const label = String(key).toUpperCase();
+    if (label === "MOD") return combo.includes("MOD");
+    if (label === "CTRL") return combo.includes("CTRL");
+    if (label === "ALT") return combo.includes("ALT");
+    if (label === "SHIFT") return combo.includes("SHIFT");
+    if (label === "SPACE") return combo.includes("SPACE");
+    if (label === "ENTER") return combo.includes("ENTER");
+    if (label === "PRINT") return combo.includes("PRINT");
+    if (label === "MOUSE LEFT" || label === "MOUSE RIGHT" || label === "WHEEL UP" || label === "WHEEL DOWN")
+      return combo.includes(label);
+    return combo.split(",").map(part => part.trim().toUpperCase()).includes(label);
+  }
+  function keybindsForKey(key) {
+    return root.keybindHelpEntries.filter(entry => root.keybindMatchesKey(entry, key));
+  }
+  function keybindKeyLabel(key) {
+    const matches = root.keybindsForKey(key);
+    if (matches.length === 0) return "";
+    if (matches.length === 1) return matches[0].description;
+    return matches.length + " binds";
+  }
+  function keyWidthUnits(key) {
+    if (key === "Space") return 5.4;
+    if (key === "Backspace") return 1.7;
+    if (key === "Tab" || key === "Caps" || key === "Enter") return 1.45;
+    if (key === "Shift") return 1.75;
+    if (key === "Mouse Left" || key === "Mouse Right" || key === "Wheel Up" || key === "Wheel Down") return 1.8;
+    return 1;
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
@@ -3529,6 +3595,7 @@ ShellRoot {
     Rectangle {
       width: parent.width
       height: parent.height
+      focus: root.codexUsageVisible
       radius: Theme.radiusLg
       color: Theme.panel
       border.color: Theme.border
@@ -3568,6 +3635,7 @@ ShellRoot {
           elide: Text.ElideRight
         }
       }
+      Keys.onEscapePressed: root.codexUsageVisible = false
     }
   }
 
@@ -3654,6 +3722,218 @@ ShellRoot {
   }
 
   PanelWindow {
+    visible: root.keybindHelpVisible
+    focusable: true
+    color: "transparent"
+    anchors { top: true; left: true; right: true; bottom: true }
+    exclusionMode: ExclusionMode.Ignore
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: mouse => {
+        const point = mapToItem(keybindHelpPanel, mouse.x, mouse.y);
+        if (point.x < 0 || point.y < 0 || point.x > keybindHelpPanel.width || point.y > keybindHelpPanel.height)
+          root.keybindHelpVisible = false;
+      }
+    }
+
+    Rectangle {
+      id: keybindHelpPanel
+      width: Math.min(1180, parent.width - 44)
+      height: Math.min(760, parent.height - 44)
+      focus: root.keybindHelpVisible
+      anchors.centerIn: parent
+      radius: Theme.radiusLg
+      color: Theme.panel
+      border.color: Theme.border
+      border.width: 1
+      clip: true
+
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: Theme.padLg
+        spacing: Theme.gapMd
+
+        RowLayout {
+          Layout.fillWidth: true
+          Text {
+            text: "Keybinds"
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.bold: true
+            font.pixelSize: 20
+            Layout.fillWidth: true
+          }
+          Text {
+            text: "Mod + /"
+            color: root.secondaryText
+            font.family: Theme.fontSans
+            font.pixelSize: 12
+          }
+          Text {
+            text: "×"
+            color: Theme.muted
+            font.pixelSize: 22
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.keybindHelpVisible = false }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          spacing: Theme.gapLg
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.maximumWidth: 720
+            spacing: 8
+
+            Repeater {
+              model: root.keyboardRows
+              RowLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: 6
+
+                Repeater {
+                  model: parent.modelData
+                  Rectangle {
+                    required property string modelData
+                    readonly property var matches: root.keybindsForKey(modelData)
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 52 * root.keyWidthUnits(modelData)
+                    Layout.preferredHeight: 58
+                    radius: Theme.radiusSm
+                    color: matches.length > 0 ? Theme.accentSoft : Theme.surface
+                    border.color: matches.length > 0 ? Theme.accent : Theme.border
+                    border.width: 1
+                    clip: true
+
+                    ColumnLayout {
+                      anchors.fill: parent
+                      anchors.margins: 7
+                      spacing: 2
+                      Text {
+                        Layout.fillWidth: true
+                        text: parent.parent.modelData
+                        color: parent.parent.matches.length > 0 ? Theme.text : root.secondaryText
+                        font.family: Theme.fontSans
+                        font.bold: true
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                      }
+                      Text {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        text: root.keybindKeyLabel(parent.parent.modelData)
+                        color: root.secondaryText
+                        font.family: Theme.fontSans
+                        font.pixelSize: 9
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 42
+              radius: Theme.radiusSm
+              color: Theme.surfaceAlt
+              border.color: Theme.border
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                width: parent.width - 24
+                text: "Highlighted keys have configured Hyprland or Quickshell binds. Full list is on the right."
+                color: root.secondaryText
+                font.family: Theme.fontSans
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideRight
+              }
+            }
+          }
+
+          ScrollView {
+            id: keybindListScroll
+            Layout.preferredWidth: 390
+            Layout.fillHeight: true
+            clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+            ColumnLayout {
+              width: keybindListScroll.availableWidth
+              spacing: 12
+
+              Repeater {
+                model: root.keybindHelpCategories()
+                ColumnLayout {
+                  required property string modelData
+                  width: parent.width
+                  spacing: 6
+                  Text {
+                    Layout.fillWidth: true
+                    text: parent.modelData
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.bold: true
+                    font.pixelSize: 12
+                  }
+                  Repeater {
+                    model: root.keybindsInCategory(parent.modelData)
+                    Rectangle {
+                      required property var modelData
+                      Layout.fillWidth: true
+                      implicitHeight: 42
+                      radius: Theme.radiusSm
+                      color: Theme.surface
+                      border.color: Theme.border
+                      border.width: 1
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 9
+                        spacing: 10
+                        Text {
+                          Layout.preferredWidth: 118
+                          text: parent.parent.modelData.combo
+                          color: Theme.accent
+                          font.family: Theme.fontSans
+                          font.pixelSize: 11
+                          font.bold: true
+                          elide: Text.ElideRight
+                        }
+                        Text {
+                          Layout.fillWidth: true
+                          text: parent.parent.modelData.description
+                          color: Theme.text
+                          font.family: Theme.fontSans
+                          font.pixelSize: 11
+                          elide: Text.ElideRight
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      Keys.onEscapePressed: root.keybindHelpVisible = false
+    }
+  }
+
+  PanelWindow {
     id: launcher
     visible: root.launcherVisible
     focusable: true
@@ -3663,7 +3943,17 @@ ShellRoot {
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
+    MouseArea {
+      anchors.fill: parent
+      onClicked: mouse => {
+        const point = mapToItem(launcherPanel, mouse.x, mouse.y);
+        if (point.x < 0 || point.y < 0 || point.x > launcherPanel.width || point.y > launcherPanel.height)
+          root.launcherVisible = false;
+      }
+    }
+
     Rectangle {
+      id: launcherPanel
       width: 500; height: 530; anchors.centerIn: parent
       radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
       ColumnLayout {
@@ -3722,10 +4012,16 @@ ShellRoot {
     MouseArea {
       anchors.fill: parent
       enabled: root.powerVisible
-      onClicked: root.powerVisible = false
+      onClicked: mouse => {
+        const point = mapToItem(powerPanel, mouse.x, mouse.y);
+        if (point.x < 0 || point.y < 0 || point.x > powerPanel.width || point.y > powerPanel.height)
+          root.powerVisible = false;
+      }
     }
     Rectangle {
+      id: powerPanel
       width: 450; height: 140; anchors.centerIn: parent
+      focus: root.powerVisible
       radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
       RowLayout {
         anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
@@ -3758,6 +4054,7 @@ ShellRoot {
           }
         }
       }
+      Keys.onEscapePressed: root.powerVisible = false
     }
   }
 }

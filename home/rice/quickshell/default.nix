@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: let
@@ -1396,6 +1397,10 @@
       exec qs ipc --pid "$pid" call "$@"
     '';
   };
+  keybinds = import ../hyprland/keybinds.nix {
+    inherit config lib pkgs;
+    ipc = "${quickshellIpc}/bin/quickshell-ipc";
+  };
   shellConfig = pkgs.replaceVars ./shell.qml {
     weatherQuery = "${weatherQuery}/bin/quickshell-weather-query";
     codexUsageQuery = "${codexUsageQuery}/bin/quickshell-codex-usage";
@@ -1406,6 +1411,7 @@
     screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
+    keybindHelp = builtins.toJSON keybinds.help;
   };
   themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton

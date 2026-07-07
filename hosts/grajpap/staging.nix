@@ -8,8 +8,7 @@
   boot.kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
 
   # Optional follow-up for this profile:
-  # replace this with a tracked Hyprland source package once you add a dedicated input.
-  home-manager.users.grajpap.wayland.windowManager.hyprland.package = pkgs.hyprland;
-  # Optional follow-up for a Lua trackable bump:
-  # home-manager.users.grajpap.wayland.windowManager.hyprland.package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+  # override Hyprland with lib.mkForce only when staging intentionally tests
+  # a different package than home/rice/hyprland/default.nix.
+  # home-manager.users.grajpap.wayland.windowManager.hyprland.package = lib.mkForce pkgs.hyprland;
 }
