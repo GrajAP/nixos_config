@@ -112,7 +112,7 @@ PanelWindow {
         ColumnLayout {
           Layout.fillWidth: true
           Layout.fillHeight: true
-          Layout.preferredWidth: 760
+          Layout.preferredWidth: 900
           spacing: Theme.gapSm
 
           Rectangle {
@@ -142,10 +142,11 @@ PanelWindow {
 
             ColumnLayout {
               Layout.fillWidth: true
+              Layout.preferredWidth: 760
               spacing: 6
 
               Repeater {
-                model: shell.keyboardRows
+                model: shell.keyboardMainRows
                 RowLayout {
                   required property var modelData
                   Layout.fillWidth: true
@@ -157,6 +158,7 @@ PanelWindow {
                       required property string modelData
                       readonly property var matches: shell.keybindsForKey(modelData)
                       readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                      readonly property bool isSpacer: modelData.length === 0
                       Layout.fillWidth: true
                       Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
                       Layout.preferredHeight: 82
@@ -165,6 +167,7 @@ PanelWindow {
                       border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
                       border.width: 1
                       clip: true
+                      opacity: isSpacer ? 0 : 1
 
                       ColumnLayout {
                         anchors.fill: parent
@@ -197,8 +200,152 @@ PanelWindow {
 
                       MouseArea {
                         anchors.fill: parent
+                        enabled: !parent.isSpacer
                         cursorShape: Qt.PointingHandCursor
                         onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            ColumnLayout {
+              Layout.preferredWidth: 168
+              Layout.alignment: Qt.AlignTop
+              spacing: 18
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Repeater {
+                  model: shell.keyboardNavRows
+                  RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Repeater {
+                      model: parent.modelData
+                      Rectangle {
+                        required property string modelData
+                        readonly property var matches: shell.keybindsForKey(modelData)
+                        readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 50
+                        Layout.preferredHeight: 62
+                        radius: Theme.radiusSm
+                        color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
+                        border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                        border.width: 1
+                        clip: true
+
+                        ColumnLayout {
+                          anchors.fill: parent
+                          anchors.margins: 6
+                          spacing: 2
+                          Text {
+                            Layout.fillWidth: true
+                            text: parent.parent.modelData
+                            color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
+                            font.family: Theme.fontSans
+                            font.bold: true
+                            font.pixelSize: 11
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                          }
+                          Text {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            text: shell.keybindKeyLabel(parent.parent.modelData)
+                            color: parent.parent.selected ? Theme.background : shell.secondaryText
+                            font.family: Theme.fontSans
+                            font.pixelSize: 8
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                          }
+                        }
+
+                        MouseArea {
+                          anchors.fill: parent
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              Item { Layout.preferredHeight: 18 }
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Repeater {
+                  model: shell.keyboardArrowRows
+                  RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Repeater {
+                      model: parent.modelData
+                      Rectangle {
+                        required property string modelData
+                        readonly property var matches: shell.keybindsForKey(modelData)
+                        readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                        readonly property bool isSpacer: modelData.length === 0
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 50
+                        Layout.preferredHeight: 62
+                        radius: Theme.radiusSm
+                        color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
+                        border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
+                        border.width: 1
+                        clip: true
+                        opacity: isSpacer ? 0 : 1
+
+                        ColumnLayout {
+                          anchors.fill: parent
+                          anchors.margins: 6
+                          spacing: 2
+                          Text {
+                            Layout.fillWidth: true
+                            text: parent.parent.modelData
+                            color: parent.parent.selected ? Theme.background : (parent.parent.matches.length > 0 ? Theme.text : shell.secondaryText)
+                            font.family: Theme.fontSans
+                            font.bold: true
+                            font.pixelSize: 11
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                          }
+                          Text {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            text: shell.keybindKeyLabel(parent.parent.modelData)
+                            color: parent.parent.selected ? Theme.background : shell.secondaryText
+                            font.family: Theme.fontSans
+                            font.pixelSize: 8
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                          }
+                        }
+
+                        MouseArea {
+                          anchors.fill: parent
+                          enabled: !parent.isSpacer
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: shell.keybindHelpSelectedKey = parent.modelData
+                        }
                       }
                     }
                   }
@@ -314,7 +461,7 @@ PanelWindow {
 
           Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: 150
             radius: Theme.radiusMd
             color: Theme.surface
             border.color: Theme.border

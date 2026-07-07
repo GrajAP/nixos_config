@@ -101,13 +101,23 @@ ShellRoot {
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   readonly property var keybindHelpEntries: @keybindHelp@
-  readonly property var keyboardRows: [
-    ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Print"],
+  readonly property var keyboardMainRows: [
+    ["Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"],
     ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"],
     ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
     ["Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
     ["Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift"],
     ["Ctrl", "Mod", "Alt", "Space", "Alt", "Ctrl"]
+  ]
+  readonly property var keyboardRows: keyboardMainRows
+  readonly property var keyboardNavRows: [
+    ["Print", "Scroll", "Pause"],
+    ["Ins", "Home", "PgUp"],
+    ["Del", "End", "PgDn"]
+  ]
+  readonly property var keyboardArrowRows: [
+    ["", "Up", ""],
+    ["Left", "Down", "Right"]
   ]
   readonly property var mouseBindKeys: ["Mouse Left", "Mouse Right", "Wheel Up", "Wheel Down"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
@@ -115,17 +125,26 @@ ShellRoot {
   GlobalShortcut {
     name: "launcher"
     description: "Toggle application launcher"
-    onPressed: { root.powerVisible = false; root.launcherVisible = !root.launcherVisible; }
+    onPressed: {
+      root.closeWidget();
+      root.keybindHelpVisible = false;
+      root.powerVisible = false;
+      root.launcherVisible = !root.launcherVisible;
+    }
   }
   GlobalShortcut {
     name: "notifications"
     description: "Toggle notification history"
-    onPressed: root.notificationHistoryVisible = !root.notificationHistoryVisible
+    onPressed: {
+      root.closeWidget();
+      root.keybindHelpVisible = false;
+      root.notificationHistoryVisible = !root.notificationHistoryVisible;
+    }
   }
   GlobalShortcut {
     name: "keybindHelp"
     description: "Toggle keybind help"
-    onPressed: root.keybindHelpVisible = !root.keybindHelpVisible
+    onPressed: root.toggleKeybindHelp()
   }
 
   IpcHandler {
@@ -353,6 +372,12 @@ ShellRoot {
     onTriggered: weatherQuery.running = true
   }
   Timer {
+    interval: 5 * 60 * 1000
+    running: true
+    repeat: true
+    onTriggered: if (!calendarQuery.running) calendarQuery.running = true
+  }
+  Timer {
     id: codexUsageTimer
     interval: 4 * 60 * 1000
     running: true
@@ -362,6 +387,10 @@ ShellRoot {
 
   function openWidget(page) {
     widgetCloseTimer.stop();
+    root.keybindHelpVisible = false;
+    root.launcherVisible = false;
+    root.powerVisible = false;
+    root.notificationHistoryVisible = false;
     widgetWindowShown = true;
     widgetPage = page;
     widgetVisible = true;
@@ -380,6 +409,19 @@ ShellRoot {
       return;
     }
     openWidget(page);
+  }
+  function toggleKeybindHelp() {
+    const nextVisible = !root.keybindHelpVisible;
+    root.closeWidget();
+    root.widgetWindowShown = false;
+    root.launcherVisible = false;
+    root.powerVisible = false;
+    root.notificationHistoryVisible = false;
+    root.keybindHelpVisible = nextVisible;
+    if (nextVisible) {
+      root.keybindHelpFilter = "";
+      root.keybindHelpSelectedKey = "";
+    }
   }
   function toggleCodexUsage() {
     root.toggleWidget("codex");
@@ -417,6 +459,7 @@ ShellRoot {
     if (label === "SPACE") return combo.includes("SPACE");
     if (label === "ENTER") return combo.includes("ENTER");
     if (label === "PRINT") return combo.includes("PRINT");
+    if (label === "PAUSE") return combo.includes("PAUSE");
     if (label === "MOUSE LEFT" || label === "MOUSE RIGHT" || label === "WHEEL UP" || label === "WHEEL DOWN")
       return combo.includes(label);
     return combo.split(",").map(part => part.trim().toUpperCase()).includes(label);
@@ -454,6 +497,7 @@ ShellRoot {
     return matches.length + " binds";
   }
   function keyWidthUnits(key) {
+    if (key === "") return 1;
     if (key === "Space") return 5.4;
     if (key === "Backspace") return 1.7;
     if (key === "Tab" || key === "Caps" || key === "Enter") return 1.45;
@@ -916,6 +960,36 @@ ShellRoot {
   function calendarCurrentDayProgress() {
     return (clock.date.getHours() * 60 + clock.date.getMinutes()) / 1440;
   }
+  function calendarEventStartDate(event) {
+    if (!event || !event.date || !event.startTime || event.allDay || event.task || event.completed)
+      return null;
+    const date = new Date(event.date + "T" + event.startTime + ":00");
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+  function calendarEventMinutesUntil(event) {
+    const date = root.calendarEventStartDate(event);
+    if (!date) return null;
+    return Math.ceil((date.getTime() - clock.date.getTime()) / 60000);
+  }
+  function calendarUpcomingAlert() {
+    const candidates = root.calendarEvents
+      .map(event => ({ event: event, minutes: root.calendarEventMinutesUntil(event) }))
+      .filter(item => item.minutes !== null && item.minutes >= 0 && item.minutes <= 30)
+      .sort((a, b) => a.minutes - b.minutes || String(a.event.title || "").localeCompare(String(b.event.title || "")));
+    if (candidates.length === 0) return null;
+    const item = candidates[0];
+    return {
+      title: item.event.title || "Event",
+      date: item.event.date,
+      startTime: item.event.startTime || "",
+      minutes: item.minutes
+    };
+  }
+  function calendarAlertTimeLabel(alert) {
+    if (!alert) return "";
+    if (alert.minutes <= 0) return "now";
+    return alert.minutes + "m";
+  }
   function upcomingEvents(limit, fromDate) {
     const firstDate = fromDate || dateKey(clock.date);
     return root.calendarEvents
@@ -1146,7 +1220,13 @@ ShellRoot {
   GlobalShortcut {
     name: "powerMenu"
     description: "Toggle power menu"
-    onPressed: { root.launcherVisible = false; root.powerVisible = !root.powerVisible; }
+    onPressed: {
+      root.closeWidget();
+      root.keybindHelpVisible = false;
+      root.launcherVisible = false;
+      root.notificationHistoryVisible = false;
+      root.powerVisible = !root.powerVisible;
+    }
   }
   GlobalShortcut {
     name: "toggleBar"
@@ -1207,6 +1287,67 @@ ShellRoot {
                 root.closeWidget();
                 Hyprland.dispatch("workspace " + parent.modelData.id);
               }
+            }
+          }
+        }
+
+        Item { Layout.fillHeight: true }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 38
+          Layout.preferredHeight: 92
+          readonly property var alert: root.calendarUpcomingAlert()
+          visible: alert !== null
+          radius: 10
+          color: Theme.accentSoft
+          border.color: Theme.accent
+          border.width: 1
+          clip: true
+
+          ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 5
+            spacing: 3
+            Text {
+              Layout.fillWidth: true
+              text: "󰃭"
+              color: Theme.accent
+              font.family: Theme.fontIcon
+              font.pixelSize: 14
+              horizontalAlignment: Text.AlignHCenter
+            }
+            Text {
+              Layout.fillWidth: true
+              text: parent.parent.alert ? root.calendarAlertTimeLabel(parent.parent.alert) : ""
+              color: Theme.text
+              font.family: Theme.fontSans
+              font.pixelSize: 11
+              font.bold: true
+              horizontalAlignment: Text.AlignHCenter
+              elide: Text.ElideRight
+            }
+            Text {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              text: parent.parent.alert ? parent.parent.alert.title : ""
+              color: root.secondaryText
+              font.family: Theme.fontSans
+              font.pixelSize: 9
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              wrapMode: Text.Wrap
+              maximumLineCount: 3
+              elide: Text.ElideRight
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (parent.alert && parent.alert.date)
+                root.calendarSelectedDate = parent.alert.date;
+              root.toggleWidget("calendar");
             }
           }
         }
