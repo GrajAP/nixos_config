@@ -78,6 +78,7 @@ ShellRoot {
   property string codexUsageError: ""
   property bool kanataActive: false
   property bool kanataKnown: false
+  property var workspaceClientsById: ({})
   property var weatherData: null
   property var calendarEvents: []
   property string calendarError: ""
@@ -204,6 +205,12 @@ ShellRoot {
     repeat: true
     onTriggered: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
   }
+  Timer {
+    interval: 1500
+    running: true
+    repeat: true
+    onTriggered: if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true
+  }
   Process {
     id: brightnessQuery
     command: ["brightnessctl", "-m"]
@@ -232,6 +239,31 @@ ShellRoot {
     id: kanataToggleAction
     command: ["@katanaSwitchTool@"]
     onExited: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
+  }
+  Process {
+    id: workspaceClientsQuery
+    command: ["hyprctl", "clients", "-j"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const clients = JSON.parse(text);
+          const byWorkspace = {};
+          for (const client of clients) {
+            if (!client || !client.mapped || !client.workspace || client.workspace.id <= 0)
+              continue;
+            const key = String(client.workspace.id);
+            if (!byWorkspace[key]) byWorkspace[key] = [];
+            byWorkspace[key].push({
+              className: client.class || client.initialClass || "",
+              title: client.title || client.initialTitle || ""
+            });
+          }
+          root.workspaceClientsById = byWorkspace;
+        } catch (error) {
+          root.workspaceClientsById = {};
+        }
+      }
+    }
   }
   Process {
     id: codexUsageQuery
@@ -376,6 +408,7 @@ ShellRoot {
     weatherQuery.running = true;
     calendarQuery.running = true;
     codexUsageQuery.running = true;
+    workspaceClientsQuery.running = true;
   }
   Timer {
     interval: 15 * 60 * 1000
@@ -459,6 +492,32 @@ ShellRoot {
   }
   function barWidgetText(page, inactiveColor) {
     return root.barWidgetActive(page) ? Theme.accent : inactiveColor;
+  }
+  function appIconForClient(client) {
+    const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (value.includes("firefox")) return "󰈹";
+    if (value.includes("chromium") || value.includes("chrome") || value.includes("brave")) return "";
+    if (value.includes("spotify")) return "";
+    if (value.includes("discord") || value.includes("vesktop")) return "󰙯";
+    if (value.includes("signal")) return "󰭹";
+    if (value.includes("obsidian")) return "󰠮";
+    if (value.includes("code") || value.includes("codium")) return "󰨞";
+    if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "";
+    if (value.includes("steam")) return "";
+    if (value.includes("obs")) return "󰻂";
+    if (value.includes("ferdium")) return "󰭻";
+    if (value.includes("org.gnome.nautilus") || value.includes("dolphin")) return "󰉋";
+    return "󰘔";
+  }
+  function workspaceClientIcons(workspaceId, limit) {
+    const clients = root.workspaceClientsById[String(workspaceId)] || [];
+    const icons = [];
+    for (const client of clients) {
+      const icon = root.appIconForClient(client);
+      if (!icons.includes(icon)) icons.push(icon);
+      if (icons.length >= limit) break;
+    }
+    return icons;
   }
   function refreshCodexUsage() {
     if (!codexUsageQuery.running) codexUsageQuery.running = true;
@@ -604,8 +663,10 @@ ShellRoot {
     root.runScreenshotEditedTool("copy-edited", "Screenshot", "Copied edited image");
   }
   function captureScreenshot(mode, openAfter) {
-    root.closeWidget();
-    root.widgetWindowShown = false;
+    if (root.widgetVisible && root.widgetPage === "screenshot") {
+      root.closeWidget();
+      root.widgetWindowShown = false;
+    }
     root.screenshotPath = "";
     root.screenshotAnnotations = [];
     root.screenshotCurrentStroke = null;
@@ -1346,7 +1407,9 @@ ShellRoot {
               .sort((a, b) => a.id - b.id)
           }
           Rectangle {
+            id: workspaceCell
             required property var modelData
+            readonly property var appIcons: root.workspaceClientIcons(modelData.id, 4)
             Layout.fillWidth: true
             implicitHeight: 34
             radius: 7
@@ -1354,11 +1417,33 @@ ShellRoot {
             border.color: "transparent"
             border.width: 1
             Text {
-              anchors.centerIn: parent
+              anchors.horizontalCenter: parent.horizontalCenter
+              y: parent.appIcons.length > 0 ? 2 : Math.round((parent.height - height) / 2)
               text: root.numerals[parent.modelData.id] || parent.modelData.id
               color: modelData.active ? Theme.background : Theme.text
               font.family: Theme.fontSans
-              font.pixelSize: 14
+              font.pixelSize: parent.appIcons.length > 0 ? 12 : 14
+              font.bold: parent.appIcons.length > 0
+            }
+            Row {
+              visible: workspaceCell.appIcons.length > 0
+              anchors.horizontalCenter: parent.horizontalCenter
+              anchors.bottom: parent.bottom
+              anchors.bottomMargin: 3
+              spacing: 0
+              Repeater {
+                model: workspaceCell.appIcons
+                Text {
+                  required property string modelData
+                  width: 8
+                  text: modelData
+                  color: workspaceCell.modelData.active ? Theme.background : Theme.accent
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 8
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                }
+              }
             }
             MouseArea {
               id: workspaceMouse
