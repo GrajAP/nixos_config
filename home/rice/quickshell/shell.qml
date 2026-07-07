@@ -642,6 +642,21 @@ ShellRoot {
     const workspace = root.workspaceEntryById(workspaceId);
     return workspace && workspace.name ? String(workspace.name) : String(workspaceId);
   }
+  function workspaceIsSpecial(workspaceId) {
+    return root.workspaceDispatchName(workspaceId).indexOf("special:") === 0;
+  }
+  function specialWorkspaceName(workspaceId) {
+    const name = root.workspaceDispatchName(workspaceId);
+    return name.indexOf("special:") === 0 ? name.slice(8) : name;
+  }
+  function openWorkspace(workspaceId) {
+    root.closeTransientPanels();
+    root.clearWorkspaceInteraction();
+    if (root.workspaceIsSpecial(workspaceId))
+      Quickshell.execDetached(["toggle-special-workspace", root.specialWorkspaceName(workspaceId)]);
+    else
+      Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceId));
+  }
   function workspaceDisplayName(workspaceId) {
     const name = root.workspaceDispatchName(workspaceId);
     return name.indexOf("special:") === 0 ? name.slice(8) : name;
@@ -675,6 +690,8 @@ ShellRoot {
       return;
     }
     Quickshell.execDetached(["hyprctl", "dispatch", "movetoworkspacesilent", root.workspaceDispatchName(workspaceId) + ",address:" + client.address]);
+    if (root.workspaceIsSpecial(workspaceId))
+      Quickshell.execDetached(["sync-special-workspaces-monitor"]);
     root.clearWorkspaceInteraction();
     Qt.callLater(() => {
       if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true;
@@ -1600,9 +1617,7 @@ ShellRoot {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                root.closeTransientPanels();
-                root.clearWorkspaceInteraction();
-                Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceCell.modelData.id));
+                root.openWorkspace(workspaceCell.modelData.id);
               }
             }
 
@@ -1615,8 +1630,8 @@ ShellRoot {
                 Item {
                   id: clientBubble
                   required property var modelData
-                  width: 28
-                  height: 28
+                  width: 30
+                  height: 30
                   z: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 10 : 1
                   scale: clientMouse.pressed ? 1.16 : (clientMouse.containsMouse ? 1.08 : 1)
                   opacity: root.workspaceDragClient && root.workspaceDragClient.address === modelData.address ? 0.82 : 1
@@ -1625,16 +1640,16 @@ ShellRoot {
 
                   Rectangle {
                     anchors.centerIn: parent
-                    width: 28
-                    height: 28
-                    radius: 12
-                    color: root.appColorForClient(parent.modelData)
-                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
+                    width: 30
+                    height: 30
+                    radius: 15
+                    color: clientMouse.containsMouse || (root.workspaceDragClient && root.workspaceDragClient.address === parent.modelData.address) ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
+                    border.color: clientMouse.containsMouse || (root.workspaceDragClient && root.workspaceDragClient.address === parent.modelData.address) ? Theme.border : "transparent"
                     border.width: 1
                   }
                   IconImage {
                     anchors.centerIn: parent
-                    implicitSize: root.appIconSizeForClient(parent.modelData, 21)
+                    implicitSize: root.appIconSizeForClient(parent.modelData, 24)
                     source: root.appIconSourceForClient(parent.modelData)
                   }
                   MouseArea {
@@ -1646,9 +1661,7 @@ ShellRoot {
                     drag.axis: Drag.YAxis
                     drag.threshold: 4
                     onClicked: mouse => {
-                      root.closeTransientPanels();
-                      root.clearWorkspaceInteraction();
-                      Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceCell.modelData.id));
+                      root.openWorkspace(workspaceCell.modelData.id);
                     }
                     onEntered: {
                       root.workspaceHoverClient = parent.modelData;
@@ -2103,7 +2116,7 @@ ShellRoot {
             text: ""
             color: root.kanataActive ? Theme.background : (root.kanataKnown ? Theme.text : Theme.danger)
             font.family: Theme.fontIcon
-            font.pixelSize: 16
+            font.pixelSize: 18
             font.bold: true
           }
           MouseArea {

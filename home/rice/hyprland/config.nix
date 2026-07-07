@@ -114,10 +114,6 @@
         "m[DP-2], layoutopt:direction:down"
         "m[DP-2], layoutopt:direction:down"
         "m[DP-1], layoutopt:direction:right"
-        "special:social, monitor:DP-2"
-        "special:obs, monitor:DP-2"
-        "special:tools, monitor:DP-2"
-        "special:scratchpad, monitor:DP-2"
       ];
       windowgroup = [
         "social,class:discord"

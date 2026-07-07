@@ -176,19 +176,37 @@
       ) &
     '';
   };
-  syncSpecialWorkspacesMonitor = pkgs.writeShellApplication {
-    name = "sync-special-workspaces-monitor";
+  specialWorkspaceMonitor = pkgs.writeShellApplication {
+    name = "special-workspace-monitor";
     runtimeInputs = with pkgs; [
       hyprland
-      ripgrep
+      jq
     ];
     text = ''
       set -euo pipefail
 
-      monitor=DP-1
-      if hyprctl monitors | rg -q '^Monitor DP-2 '; then
-        monitor=DP-2
-      fi
+      hyprctl monitors -j | jq -r '
+        [ .[]
+          | select(
+              .name == "DP-2"
+              and (((.disabled // false) | not))
+              and ((.width // 0) > 0)
+              and ((.height // 0) > 0)
+            )
+        ][0].name // "DP-1"
+      '
+    '';
+  };
+  syncSpecialWorkspacesMonitor = pkgs.writeShellApplication {
+    name = "sync-special-workspaces-monitor";
+    runtimeInputs = with pkgs; [
+      hyprland
+      specialWorkspaceMonitor
+    ];
+    text = ''
+      set -euo pipefail
+
+      monitor="$(special-workspace-monitor)"
 
       for workspace in social obs tools scratchpad; do
         hyprctl dispatch moveworkspacetomonitor "special:$workspace" "$monitor" >/dev/null 2>&1 || true
@@ -216,6 +234,7 @@ in {
     uair
     hypridle
     autoShutdown
+    specialWorkspaceMonitor
     syncSpecialWorkspacesMonitor
     (writeShellApplication {
       name = "launch-obsidian-tools";
@@ -225,17 +244,10 @@ in {
         hyprland
         procps
         ripgrep
+        specialWorkspaceMonitor
       ];
       text = ''
         set -euo pipefail
-
-        special_monitor() {
-          if hyprctl monitors | rg -q '^Monitor DP-2 '; then
-            printf '%s\n' DP-2
-          else
-            printf '%s\n' DP-1
-          fi
-        }
 
         if ! pgrep -fi '(^|/)(obsidian)( |$)' >/dev/null 2>&1; then
           env -u ELECTRON_RUN_AS_NODE -u ELECTRON_NO_ATTACH_CONSOLE obsidian >/dev/null 2>&1 &
@@ -243,7 +255,7 @@ in {
 
         for _ in $(seq 1 30); do
           if hyprctl clients | rg -q 'class: (obsidian|Obsidian)$'; then
-            monitor="$(special_monitor)"
+            monitor="$(special-workspace-monitor)"
             hyprctl dispatch movetoworkspacesilent 'special:tools,class:^(obsidian|Obsidian)$' >/dev/null 2>&1 || true
             hyprctl dispatch moveworkspacetomonitor 'special:tools' "$monitor" >/dev/null 2>&1 || true
             exit 0
@@ -276,16 +288,8 @@ in {
           exit 2
         fi
 
-        special_monitor() {
-          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
-            printf '%s\n' DP-2
-          else
-            printf '%s\n' DP-1
-          fi
-        }
-
         ws="$1"
-        monitor="$(special_monitor)"
+        monitor="$(special-workspace-monitor)"
         current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
 
         if [ "''${current_monitor:-}" != "$monitor" ]; then
@@ -305,16 +309,8 @@ in {
           exit 2
         fi
 
-        special_monitor() {
-          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
-            printf '%s\n' DP-2
-          else
-            printf '%s\n' DP-1
-          fi
-        }
-
         ws="$1"
-        monitor="$(special_monitor)"
+        monitor="$(special-workspace-monitor)"
         hyprctl dispatch movetoworkspacesilent "special:$ws"
         hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
       ''
@@ -324,15 +320,7 @@ in {
       ''
         set -eu
 
-        special_monitor() {
-          if hyprctl monitors | grep -q '^Monitor DP-2 '; then
-            printf '%s\n' DP-2
-          else
-            printf '%s\n' DP-1
-          fi
-        }
-
-        monitor="$(special_monitor)"
+        monitor="$(special-workspace-monitor)"
         current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
         if [ "''${current_monitor:-}" != "$monitor" ]; then
           hyprctl dispatch focusmonitor "$monitor"
