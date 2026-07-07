@@ -144,36 +144,50 @@
     runtimeInputs = with pkgs; [
       coreutils
       hyprland
-      ripgrep
+      jq
       syncSpecialWorkspacesMonitor
     ];
     text = ''
       set -eu
 
-      (
-        # DP-2 can miss initial detection; re-apply the configured mode once available.
-        # Run this asynchronously so startup isn't delayed waiting for monitor wakeup.
-        found=0
-        for _ in $(seq 1 8); do
-          if hyprctl monitors | rg -q '^Monitor DP-2 '; then
-            found=1
-            break
-          fi
-          hyprctl dispatch dpms on || true
-          sleep 1
-        done
+      # DP-2 is preferred. HDMI-A-1 is the same physical side monitor used as fallback.
+      active_monitor() {
+        hyprctl monitors -j | jq -e --arg name "$1" '
+          any(.[]; .name == $name
+            and (((.disabled // false) | not))
+            and ((.width // 0) > 0)
+            and ((.height // 0) > 0))
+        ' >/dev/null
+      }
 
-        if [ "$found" -eq 1 ]; then
-          hyprctl keyword monitor DP-2,2560x1440@144,-1440x0,1,transform,1 || true
-          hyprctl keyword monitor DP-2,addreserved,0,955,0,0 || true
-          sync-special-workspaces-monitor || true
-          exit 0
+      hyprctl keyword monitor DP-2,2560x1440@144,-1440x0,1,transform,1 >/dev/null || true
+      hyprctl keyword monitor DP-2,addreserved,0,955,0,0 >/dev/null || true
+      for _ in $(seq 1 8); do
+        if active_monitor DP-2; then
+          break
         fi
+        hyprctl dispatch dpms on || true
+        sleep 1
+      done
 
+      if active_monitor DP-2; then
+        hyprctl keyword monitor DP-2,2560x1440@144,-1440x0,1,transform,1 >/dev/null || true
+        hyprctl keyword monitor DP-2,addreserved,0,955,0,0 >/dev/null || true
+        hyprctl keyword monitor HDMI-A-1,disable >/dev/null || true
         sync-special-workspaces-monitor || true
-        echo "hyprland-dp2-fix: DP-2 monitor not detected on login" >&2
         exit 0
-      ) &
+      fi
+
+      hyprctl keyword monitor HDMI-A-1,2560x1440@144,-1440x0,1,transform,1 >/dev/null || true
+      hyprctl keyword monitor HDMI-A-1,addreserved,0,955,0,0 >/dev/null || true
+      if active_monitor HDMI-A-1; then
+        sync-special-workspaces-monitor || true
+        exit 0
+      fi
+
+      sync-special-workspaces-monitor || true
+      echo "hyprland-dp2-fix: neither DP-2 nor HDMI-A-1 side monitor detected on login" >&2
+      exit 0
     '';
   };
   specialWorkspaceMonitor = pkgs.writeShellApplication {
@@ -188,12 +202,12 @@
       hyprctl monitors -j | jq -r '
         [ .[]
           | select(
-              .name == "DP-2"
+              (.name == "DP-2" or .name == "HDMI-A-1")
               and (((.disabled // false) | not))
               and ((.width // 0) > 0)
               and ((.height // 0) > 0)
             )
-        ][0].name // "DP-1"
+        ] | sort_by(if .name == "DP-2" then 0 else 1 end) | .[0].name // "DP-1"
       '
     '';
   };
@@ -207,6 +221,10 @@
       set -euo pipefail
 
       monitor="$(special-workspace-monitor)"
+
+      for workspace in 6 7 8 9 10; do
+        hyprctl dispatch moveworkspacetomonitor "$workspace" "$monitor" >/dev/null 2>&1 || true
+      done
 
       for workspace in social obs tools scratchpad; do
         hyprctl dispatch moveworkspacetomonitor "special:$workspace" "$monitor" >/dev/null 2>&1 || true

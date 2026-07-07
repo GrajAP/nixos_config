@@ -80,9 +80,6 @@ ShellRoot {
   property bool kanataKnown: false
   property var workspaceEntries: []
   property var workspaceClientsById: ({})
-  property var workspaceHoverClient: null
-  property int workspaceHoverWorkspaceId: 0
-  property int workspacePreviewY: 120
   property var workspaceDragClient: null
   property var workspaceDragTarget: 0
   property var weatherData: null
@@ -679,10 +676,8 @@ ShellRoot {
     return 0;
   }
   function clearWorkspaceInteraction() {
-    root.workspaceHoverClient = null;
     root.workspaceDragClient = null;
     root.workspaceDragTarget = 0;
-    root.workspaceHoverWorkspaceId = 0;
   }
   function moveWorkspaceClient(client, workspaceId) {
     if (!client || !client.address || workspaceId === 0 || client.workspaceId === workspaceId) {
@@ -1663,15 +1658,6 @@ ShellRoot {
                     onClicked: mouse => {
                       root.openWorkspace(workspaceCell.modelData.id);
                     }
-                    onEntered: {
-                      root.workspaceHoverClient = parent.modelData;
-                      root.workspaceHoverWorkspaceId = workspaceCell.modelData.id;
-                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + workspaceCell.y + clientBubble.y - 22));
-                    }
-                    onExited: {
-                      if (!pressed && root.workspaceHoverClient && root.workspaceHoverClient.address === parent.modelData.address)
-                        root.workspaceHoverClient = null;
-                    }
                     onPressed: {
                       root.workspaceDragClient = parent.modelData;
                       root.workspaceDragTarget = workspaceCell.modelData.id;
@@ -1680,7 +1666,6 @@ ShellRoot {
                       if (!pressed) return;
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                       root.workspaceDragTarget = root.workspaceIdAtY(point.y);
-                      root.workspacePreviewY = Math.max(10, Math.round(workspaceStack.y + point.y - 42));
                     }
                     onReleased: mouse => {
                       const point = mapToItem(workspaceStack, mouse.x, mouse.y);
@@ -2220,81 +2205,6 @@ ShellRoot {
       }
     }
   }
-  }
-
-  PanelWindow {
-    id: workspacePreviewWindow
-    readonly property var client: root.workspaceDragClient || root.workspaceHoverClient
-    visible: root.barVisible && client !== null
-    color: "transparent"
-    implicitWidth: 270
-    implicitHeight: 96
-    anchors { top: true; right: true }
-    margins.right: 54
-    margins.top: root.workspacePreviewY
-    exclusionMode: ExclusionMode.Ignore
-
-    Rectangle {
-      anchors.fill: parent
-      radius: Theme.radiusMd
-      color: root.translucentPanel
-      border.color: Theme.border
-      border.width: 1
-      opacity: 0.98
-
-      RowLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 12
-
-        Rectangle {
-          Layout.preferredWidth: 48
-          Layout.preferredHeight: 48
-          radius: 14
-          color: root.appColorForClient(workspacePreviewWindow.client)
-          border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
-          border.width: 1
-          IconImage {
-            anchors.centerIn: parent
-            implicitSize: root.appIconSizeForClient(workspacePreviewWindow.client, 30)
-            source: root.appIconSourceForClient(workspacePreviewWindow.client)
-          }
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 3
-          Text {
-            Layout.fillWidth: true
-            text: workspacePreviewWindow.client ? (workspacePreviewWindow.client.className || "Window") : ""
-            color: Theme.text
-            font.family: Theme.fontSans
-            font.pixelSize: 13
-            font.bold: true
-            elide: Text.ElideRight
-          }
-          Text {
-            Layout.fillWidth: true
-            text: workspacePreviewWindow.client ? (workspacePreviewWindow.client.title || "Untitled") : ""
-            color: root.secondaryText
-            font.family: Theme.fontSans
-            font.pixelSize: 11
-            maximumLineCount: 2
-            wrapMode: Text.Wrap
-            elide: Text.ElideRight
-          }
-          Text {
-            Layout.fillWidth: true
-            text: root.workspaceDragClient ? (root.workspaceDragTarget !== 0 ? "Drop on " + root.workspaceDisplayName(root.workspaceDragTarget) : "Drop on a workspace") : ("Workspace " + root.workspaceDisplayName(root.workspaceHoverWorkspaceId))
-            color: Theme.accent
-            font.family: Theme.fontSans
-            font.pixelSize: 10
-            font.bold: true
-            elide: Text.ElideRight
-          }
-        }
-      }
-    }
   }
 
   PanelWindow {
