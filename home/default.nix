@@ -20,6 +20,7 @@ in {
     };
   };
   home.pointerCursor = {
+    enable = true;
     package = lib.mkForce pkgs.catppuccin-cursors.mochaBlue;
     name = lib.mkForce "catppuccin-mocha-blue-cursors";
     size = lib.mkForce 24;
