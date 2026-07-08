@@ -42,6 +42,7 @@ ShellRoot {
   property string pendingScreenshotMode: ""
   property bool pendingScreenshotOpenAfterCapture: false
   property bool screenshotCaptureQueued: false
+  property bool screenshotCaptureActive: false
   property var screenshotAnnotations: []
   property var screenshotCurrentStroke: null
   property string screenshotEditMode: "draw"
@@ -444,6 +445,7 @@ ShellRoot {
         root.startScreenshotCapture(root.pendingScreenshotMode, root.pendingScreenshotOpenAfterCapture);
       } else {
         root.screenshotOpenAfterCapture = false;
+        root.screenshotCaptureActive = false;
       }
     }
   }
@@ -491,6 +493,7 @@ ShellRoot {
     interval: 220
     repeat: false
     onTriggered: {
+      if (root.screenshotCaptureActive) return;
       if (root.hoverWidgetOpenPage.length === 0) return;
       if (!root.widgetVisible || root.widgetPage !== root.hoverWidgetOpenPage) {
         root.hoverWidgetOpenPage = "";
@@ -563,6 +566,7 @@ ShellRoot {
     root.scheduleHoverWidgetClose(page);
   }
   function scheduleHoverWidgetClose(page) {
+    if (root.screenshotCaptureActive) return;
     if (root.hoverWidgetOpenPage === page && root.widgetVisible && root.widgetPage === page && !root.hoverWidgetMenuOpen)
       hoverWidgetCloseTimer.restart();
   }
@@ -895,21 +899,19 @@ ShellRoot {
     root.runScreenshotEditedTool("copy-edited", "Screenshot", "Copied edited image");
   }
   function captureScreenshot(mode, openAfter) {
-    if (root.widgetVisible && root.widgetPage === "screenshot") {
-      root.closeWidget();
-      root.widgetWindowShown = false;
-    }
     root.screenshotPath = "";
     root.screenshotAnnotations = [];
     root.screenshotCurrentStroke = null;
     root.pendingScreenshotMode = mode;
     root.pendingScreenshotOpenAfterCapture = openAfter;
     root.screenshotCaptureQueued = true;
+    root.screenshotCaptureActive = true;
     root.toolBusy = true;
     root.toolStatusVisible = false;
     root.toolStatusTitle = "Screenshot";
     root.toolStatusDetail = mode === "edit" ? "Select an area for preview" : "Select an area to save";
     toolStatusTimer.stop();
+    hoverWidgetCloseTimer.stop();
     if (screenshotAction.running) {
       screenshotAction.running = false;
     } else {
@@ -919,6 +921,7 @@ ShellRoot {
   function startScreenshotCapture(mode, openAfter) {
     root.screenshotOpenAfterCapture = openAfter;
     root.screenshotCaptureQueued = false;
+    root.screenshotCaptureActive = true;
     screenshotAction.exec(["@screenshotTool@", mode]);
   }
   function screenshotEditedArgs(action) {
@@ -1726,7 +1729,7 @@ ShellRoot {
 
       MouseArea {
         anchors.fill: parent
-        onClicked: root.closeTransientPanels()
+        onClicked: if (!root.screenshotCaptureActive) root.closeTransientPanels()
       }
 
       Item {
@@ -2230,7 +2233,7 @@ ShellRoot {
 
     MouseArea {
       anchors.fill: parent
-      enabled: root.widgetVisible
+      enabled: root.widgetVisible && !root.screenshotCaptureActive
       onClicked: mouse => {
         const point = mapToItem(widgetPanel, mouse.x, mouse.y);
         if (point.x < 0 || point.y < 0 || point.x > widgetPanel.width || point.y > widgetPanel.height)
