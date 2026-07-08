@@ -11,6 +11,9 @@
     acpi
     powertop
     libnotify
+    bluez
+    evtest
+    sixpair
   ];
 
   networking.hostName = "grajpap";
@@ -91,6 +94,14 @@
       enable = true;
       powerOnBoot = true;
       package = pkgs.bluez5-experimental;
+      input.General = {
+        UserspaceHID = true;
+        ClassicBondedOnly = false;
+      };
+      settings.General = {
+        ControllerMode = "dual";
+        FastConnectable = true;
+      };
     };
     graphics = {
       enable = true;
