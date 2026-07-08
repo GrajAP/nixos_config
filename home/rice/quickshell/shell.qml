@@ -1358,6 +1358,65 @@ ShellRoot {
     if (alert.minutes <= 0) return "now";
     return alert.minutes + "m";
   }
+  function calendarDateLabel(date) {
+    if (!date) return "";
+    const today = root.dateKey(clock.date);
+    const tomorrowDate = new Date(clock.date.getFullYear(), clock.date.getMonth(), clock.date.getDate() + 1);
+    const tomorrow = root.dateKey(tomorrowDate);
+    if (date === today) return "today";
+    if (date === tomorrow) return "tomorrow";
+    return Qt.formatDateTime(new Date(date + "T00:00:00"), "ddd d.MM");
+  }
+  function calendarEventSortMinutes(event) {
+    if (!event || event.task) return 2400;
+    if (event.allDay) return -1;
+    return root.calendarMinutesFromClock(event.startTime, 0);
+  }
+  function calendarTaskSortKey(task) {
+    if (!task || !task.date) return "9999-99-99";
+    return task.date;
+  }
+  function nextAgendaEvent() {
+    const today = root.dateKey(clock.date);
+    const nowMinutes = clock.date.getHours() * 60 + clock.date.getMinutes();
+    const candidates = root.calendarEvents
+      .filter(event => !Boolean(event.task) && !Boolean(event.completed) && event.date >= today)
+      .filter(event => event.date !== today || event.allDay || !event.startTime || root.calendarMinutesFromClock(event.startTime, 0) >= nowMinutes - 5)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || root.calendarEventSortMinutes(a) - root.calendarEventSortMinutes(b) || String(a.title || "").localeCompare(String(b.title || "")));
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+  function agendaEventTimeLabel(event) {
+    if (!event) return "";
+    if (event.allDay) return "all day";
+    return event.startTime || "";
+  }
+  function agendaEventRelativeLabel(event) {
+    if (!event) return "";
+    const minutes = root.calendarEventMinutesUntil(event);
+    if (minutes !== null && event.date === root.dateKey(clock.date)) {
+      if (minutes <= 0) return "now";
+      if (minutes < 60) return "in " + minutes + "m";
+      return "in " + Math.floor(minutes / 60) + "h " + String(minutes % 60).padStart(2, "0");
+    }
+    return root.calendarDateLabel(event.date);
+  }
+  function agendaTasks(limit) {
+    const tasks = root.calendarEvents
+      .filter(event => Boolean(event.task) && !Boolean(event.completed))
+      .slice()
+      .sort((a, b) => root.calendarTaskSortKey(a).localeCompare(root.calendarTaskSortKey(b)) || String(a.title || "").localeCompare(String(b.title || "")));
+    return limit === undefined ? tasks : tasks.slice(0, limit);
+  }
+  function agendaTaskCount() {
+    return root.calendarEvents.filter(event => Boolean(event.task) && !Boolean(event.completed)).length;
+  }
+  function agendaTaskDateLabel(task) {
+    if (!task || !task.date) return "";
+    const today = root.dateKey(clock.date);
+    if (task.date < today) return "overdue";
+    return root.calendarDateLabel(task.date);
+  }
   function upcomingEvents(limit, fromDate) {
     const firstDate = fromDate || dateKey(clock.date);
     return root.calendarEvents
@@ -1658,133 +1717,164 @@ ShellRoot {
           anchors.bottomMargin: 8
           clip: true
 
-        ColumnLayout {
-          id: calendarBarStack
-          anchors.centerIn: parent
-          width: 38
-          spacing: 7
-          visible: calendarBarRegion.height >= 82
-
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 38
-          Layout.preferredHeight: 88
-          readonly property var alert: root.calendarUpcomingAlert()
-          visible: alert !== null
-          radius: 8
-          color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
-          border.color: "transparent"
-          border.width: 0
+        Flickable {
+          id: calendarBarFlick
+          anchors.fill: parent
+          contentWidth: width
+          contentHeight: calendarBarStack.implicitHeight
+          boundsBehavior: Flickable.StopAtBounds
           clip: true
+          interactive: contentHeight > height
+          visible: calendarBarRegion.height >= 96
 
           ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 4
-            spacing: 2
-            Text {
-              Layout.fillWidth: true
-              text: "󰃭"
-              color: Theme.accent
-              font.family: Theme.fontIcon
-              font.pixelSize: 13
-              horizontalAlignment: Text.AlignHCenter
-            }
-            Text {
-              Layout.fillWidth: true
-              text: parent.parent.alert ? (parent.parent.alert.startTime || root.calendarAlertTimeLabel(parent.parent.alert)) : ""
-              color: Theme.text
-              font.family: Theme.fontSans
-              font.pixelSize: 10
-              font.bold: true
-              horizontalAlignment: Text.AlignHCenter
-              elide: Text.ElideRight
-            }
-            Text {
-              Layout.fillWidth: true
-              text: parent.parent.alert ? root.calendarAlertTimeLabel(parent.parent.alert) : ""
-              color: Theme.accent
-              font.family: Theme.fontSans
-              font.pixelSize: 9
-              font.bold: true
-              horizontalAlignment: Text.AlignHCenter
-              elide: Text.ElideRight
-            }
-            Text {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
-              text: parent.parent.alert ? parent.parent.alert.title : ""
-              color: Theme.text
-              font.family: Theme.fontSans
-              font.pixelSize: 8
-              horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
-              wrapMode: Text.Wrap
-              maximumLineCount: 2
-              elide: Text.ElideRight
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            enabled: parent.alert !== null
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              if (parent.alert && parent.alert.date)
-                root.calendarSelectedDate = parent.alert.date;
-              root.toggleWidget("calendar");
-            }
-          }
-        }
+            id: calendarBarStack
+            width: 38
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.max(0, (calendarBarFlick.height - implicitHeight) / 2)
+            spacing: 7
 
-        Rectangle {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 38
-          Layout.preferredHeight: Math.min(76, 26 + root.todayActiveTasks(2).length * 22)
-          readonly property var tasks: root.todayActiveTasks(2)
-          visible: tasks.length > 0
-          radius: 8
-          color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-          border.color: "transparent"
-          border.width: 0
-          clip: true
+            Rectangle {
+              id: agendaEventCard
+              Layout.alignment: Qt.AlignHCenter
+              Layout.preferredWidth: 38
+              Layout.preferredHeight: nextEvent ? 118 : 42
+              readonly property var nextEvent: root.nextAgendaEvent()
+              readonly property var alert: root.calendarUpcomingAlert()
+              radius: 8
+              color: alert ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, nextEvent ? 0.07 : 0.035)
+              border.color: alert ? Theme.accent : "transparent"
+              border.width: alert ? 1 : 0
+              clip: true
 
-          ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 4
-            spacing: 2
-            Text {
-              Layout.fillWidth: true
-              text: "󰄬 " + parent.parent.tasks.length
-              color: Theme.accent
-              font.family: Theme.fontIcon
-              font.pixelSize: 12
-              horizontalAlignment: Text.AlignHCenter
+              ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 2
+                Text {
+                  Layout.fillWidth: true
+                  text: agendaEventCard.alert ? "󰀦" : "󰃭"
+                  color: agendaEventCard.alert ? Theme.danger : (agendaEventCard.nextEvent ? Theme.accent : Theme.muted)
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 13
+                  horizontalAlignment: Text.AlignHCenter
+                }
+                Text {
+                  Layout.fillWidth: true
+                  text: agendaEventCard.nextEvent ? root.agendaEventTimeLabel(agendaEventCard.nextEvent) : ""
+                  visible: agendaEventCard.nextEvent !== null
+                  color: Theme.text
+                  font.family: Theme.fontMono
+                  font.pixelSize: 10
+                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                }
+                Text {
+                  Layout.fillWidth: true
+                  text: agendaEventCard.alert ? root.calendarAlertTimeLabel(agendaEventCard.alert) : root.agendaEventRelativeLabel(agendaEventCard.nextEvent)
+                  visible: agendaEventCard.nextEvent !== null
+                  color: agendaEventCard.alert ? Theme.danger : Theme.accent
+                  font.family: Theme.fontSans
+                  font.pixelSize: 8
+                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
+                  elide: Text.ElideRight
+                }
+                Text {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+                  text: agendaEventCard.nextEvent ? agendaEventCard.nextEvent.title : "No events"
+                  color: agendaEventCard.nextEvent ? Theme.text : Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: agendaEventCard.nextEvent ? 8 : 9
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  wrapMode: Text.Wrap
+                  maximumLineCount: agendaEventCard.nextEvent ? 3 : 1
+                  elide: Text.ElideRight
+                }
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: {
+                  if (agendaEventCard.nextEvent && agendaEventCard.nextEvent.date)
+                    root.calendarSelectedDate = agendaEventCard.nextEvent.date;
+                  root.toggleWidget("calendar");
+                }
+              }
             }
-            Repeater {
-              model: parent.parent.tasks
-              Text {
-                required property var modelData
-                Layout.fillWidth: true
-                text: modelData.title || "Task"
-                color: Theme.text
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                horizontalAlignment: Text.AlignHCenter
-                maximumLineCount: 2
-                wrapMode: Text.Wrap
-                elide: Text.ElideRight
+
+            Rectangle {
+              id: agendaTaskCard
+              Layout.alignment: Qt.AlignHCenter
+              Layout.preferredWidth: 38
+              readonly property var tasks: root.agendaTasks(3)
+              readonly property int taskCount: root.agendaTaskCount()
+              Layout.preferredHeight: Math.min(142, 32 + tasks.length * 36)
+              visible: taskCount > 0
+              radius: 8
+              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.055)
+              border.color: "transparent"
+              border.width: 0
+              clip: true
+
+              ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 3
+                Text {
+                  Layout.fillWidth: true
+                  text: "󰄬 " + agendaTaskCard.taskCount
+                  color: Theme.accent
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 12
+                  horizontalAlignment: Text.AlignHCenter
+                }
+                Repeater {
+                  id: agendaTaskRepeater
+                  model: agendaTaskCard.tasks
+                  ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Text {
+                      Layout.fillWidth: true
+                      text: root.agendaTaskDateLabel(parent.modelData)
+                      color: parent.modelData.date < root.dateKey(clock.date) ? Theme.danger : Theme.accent
+                      font.family: Theme.fontSans
+                      font.pixelSize: 7
+                      font.bold: true
+                      horizontalAlignment: Text.AlignHCenter
+                      elide: Text.ElideRight
+                    }
+                    Text {
+                      Layout.fillWidth: true
+                      text: parent.modelData.title || "Task"
+                      color: Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 8
+                      horizontalAlignment: Text.AlignHCenter
+                      maximumLineCount: 2
+                      wrapMode: Text.Wrap
+                      elide: Text.ElideRight
+                    }
+                  }
+                }
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  const firstTask = agendaTaskCard.tasks.length > 0 ? agendaTaskCard.tasks[0] : null;
+                  root.calendarSelectedDate = firstTask && firstTask.date ? firstTask.date : root.dateKey(clock.date);
+                  root.toggleWidget("calendar");
+                }
               }
             }
           }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.calendarSelectedDate = root.dateKey(clock.date);
-              root.toggleWidget("calendar");
-            }
-          }
-        }
-
         }
         }
 
