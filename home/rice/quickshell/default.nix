@@ -506,6 +506,8 @@
                 return None
 
             def parse_event(component, source, href=None):
+                if component.get("X-QUICKSHELL-TASK-HREF") or str(component.get("UID", "")).startswith("quickshell-task-"):
+                    return None
                 start_prop = component.get("DTSTART")
                 if start_prop is None:
                     return None
@@ -548,13 +550,16 @@
                     "completed": completed,
                     "note": False,
                     "href": href,
+                    "uid": str(component.get("UID", "")),
                     "etag": etag,
                     "source": source,
                 }
 
             def nextcloud_events():
                 events = []
-                for collection in discover_calendars():
+                tasks = []
+                calendars = discover_calendars()
+                for collection in calendars:
                     if "VEVENT" in collection["components"]:
                         for item in calendar_report(collection, "VEVENT"):
                             ics = item["data"]
@@ -577,7 +582,9 @@
                             for component in calendar.walk("VTODO"):
                                 parsed = parse_todo(component, collection["displayName"], item["href"], item["etag"])
                                 if parsed:
-                                    events.append(parsed)
+                                    tasks.append(parsed)
+                sync_task_mirrors(tasks)
+                events.extend(tasks)
                 return events
 
             def escape_ics(value):
@@ -628,6 +635,19 @@
                         return item
                 return candidates[0] if candidates else None
 
+            def find_synced_calendar(calendars):
+                for item in calendars:
+                    name = item["displayName"].strip().lower()
+                    uri = item["href"].rstrip("/").split("/")[-1].lower()
+                    if name == "synced calendar" or uri == "synced-calendar":
+                        return item
+                for item in calendars:
+                    name = item["displayName"].strip().lower()
+                    uri = item["href"].rstrip("/").split("/")[-1].lower()
+                    if "sync" in name or "sync" in uri:
+                        return item
+                return None
+
             def choose_calendar(component):
                 calendars = discover_calendars()
                 candidates = [item for item in calendars if component in item["components"]]
@@ -637,6 +657,9 @@
                         return tasks_calendar
                     return create_tasks_calendar()
                 if component == "VEVENT":
+                    synced_calendar = find_synced_calendar(candidates)
+                    if synced_calendar:
+                        return synced_calendar
                     for item in candidates:
                         uri = item["href"].rstrip("/").split("/")[-1]
                         if uri == "personal":
@@ -828,6 +851,76 @@
                         if uid:
                             existing[uid] = item["href"]
                 return existing
+
+            def task_mirror_key(task):
+                identity = task.get("uid") or task.get("href") or task.get("title", "")
+                return hashlib.sha1(identity.encode("utf-8")).hexdigest()
+
+            def task_mirror_uid(task):
+                return f"quickshell-task-{task_mirror_key(task)}@quickshell"
+
+            def task_mirror_ics(task):
+                task_date = compact_date(task["date"])
+                next_day = (date.fromisoformat(task["date"]) + timedelta(days=1)).strftime("%Y%m%d")
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                title = f"TODO: {task.get('title') or 'Untitled task'}"
+                key = task_mirror_key(task)
+                task_href = task.get("href") or ""
+                lines = [
+                    "BEGIN:VCALENDAR",
+                    "VERSION:2.0",
+                    "PRODID:-//quickshell//nextcloud-calendar//EN",
+                    "BEGIN:VEVENT",
+                    f"UID:{task_mirror_uid(task)}",
+                    f"DTSTAMP:{stamp}",
+                    f"SUMMARY:{escape_ics(title)}",
+                    f"DESCRIPTION:{escape_ics('Mirrored from Nextcloud Tasks. Edit the task in the task list.')}",
+                    "CATEGORIES:Tasks",
+                    "TRANSP:TRANSPARENT",
+                    f"DTSTART;VALUE=DATE:{task_date}",
+                    f"DTEND;VALUE=DATE:{next_day}",
+                    f"X-QUICKSHELL-TASK-KEY:{key}",
+                    f"X-QUICKSHELL-TASK-HREF:{escape_ics(task_href)}",
+                    "END:VEVENT",
+                    "END:VCALENDAR",
+                    "",
+                ]
+                return "\r\n".join(lines)
+
+            def existing_task_mirrors(collection):
+                mirrors = {}
+                for item in calendar_report(collection, "VEVENT", time_range=False):
+                    try:
+                        calendar = Calendar.from_ical(item["data"])
+                    except Exception:
+                        continue
+                    for component in calendar.walk("VEVENT"):
+                        uid = str(component.get("UID", ""))
+                        key = str(component.get("X-QUICKSHELL-TASK-KEY", ""))
+                        if not key and uid.startswith("quickshell-task-") and uid.endswith("@quickshell"):
+                            key = uid.removeprefix("quickshell-task-").removesuffix("@quickshell")
+                        if key:
+                            mirrors[key] = item["href"]
+                return mirrors
+
+            def sync_task_mirrors(tasks):
+                collection = choose_calendar("VEVENT")
+                existing = existing_task_mirrors(collection)
+                active_tasks = [task for task in tasks if not task.get("completed") and task.get("date")]
+                active_keys = {task_mirror_key(task) for task in active_tasks}
+
+                for task in active_tasks:
+                    key = task_mirror_key(task)
+                    ics = task_mirror_ics(task)
+                    href = existing.get(key)
+                    if href:
+                        request("PUT", writable_href(href), ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
+                    else:
+                        put_ics(collection, ics, f"task-{key}.ics")
+
+                for key, href in existing.items():
+                    if key not in active_keys:
+                        request("DELETE", writable_href(href), ok=(200, 202, 204, 404))
 
             def sync_obsidian_events(args):
                 include_all = "--all" in args
