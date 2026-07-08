@@ -2137,9 +2137,10 @@ ShellRoot {
           IconImage {
             anchors.centerIn: parent
             implicitSize: 22
-            source: Qt.resolvedUrl("assets/codex.svg")
+            source: Qt.resolvedUrl(root.barWidgetActive("codex") || codexMouse.containsMouse ? "assets/codex-accent.svg" : "assets/codex.svg")
           }
           MouseArea {
+            id: codexMouse
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor

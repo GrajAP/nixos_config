@@ -1534,10 +1534,20 @@
     ["fill=\"none\"" "fill=\"${config.lib.stylix.colors.withHashtag.base05}\""]
     (builtins.readFile ./assets/codex.svg)
   );
+  codexIconAccent = pkgs.writeText "codex-accent.svg" (
+    builtins.replaceStrings
+    ["fill=\"#fff\"" "fill=\"url(#codex-gradient)\""]
+    ["fill=\"none\"" "fill=\"${config.lib.stylix.colors.withHashtag.base0D}\""]
+    (builtins.readFile ./assets/codex.svg)
+  );
   quickshellAssets = pkgs.linkFarm "quickshell-assets" [
     {
       name = "codex.svg";
       path = codexIcon;
+    }
+    {
+      name = "codex-accent.svg";
+      path = codexIconAccent;
     }
   ];
   quickshellConfig = pkgs.linkFarm "quickshell-config" [
