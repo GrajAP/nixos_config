@@ -22,6 +22,12 @@
         "launch-obsidian-tools &"
         "helium &"
       ];
+      env = [
+        "XCURSOR_THEME,catppuccin-mocha-blue-cursors"
+        "XCURSOR_SIZE,24"
+        "HYPRCURSOR_THEME,catppuccin-mocha-blue-cursors"
+        "HYPRCURSOR_SIZE,24"
+      ];
       gestures.workspace_swipe_forever = true;
 
       xwayland.force_zero_scaling = true;
