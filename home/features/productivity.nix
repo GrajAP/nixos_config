@@ -84,6 +84,7 @@ in {
     libreoffice-fresh
     nextcloud-client
     obsidian
+    rnote
     t3codeNoSandbox
     t3codeNotify
   ];

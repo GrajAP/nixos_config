@@ -172,10 +172,32 @@
             | {
                 limitId: ($limits.limit_id // null),
                 limitName: ($limits.limit_name // null),
-                primaryUsedPercent: ($limits.primary.used_percent // null),
+                primaryUsedPercent: (
+                  if ($limits.primary.used_percent | type) == "number" then $limits.primary.used_percent
+                  elif ($limits.primary.available_percent | type) == "number" then (100 - $limits.primary.available_percent)
+                  else null
+                  end
+                ),
+                primaryAvailablePercent: (
+                  if ($limits.primary.available_percent | type) == "number" then $limits.primary.available_percent
+                  elif ($limits.primary.used_percent | type) == "number" then (100 - $limits.primary.used_percent)
+                  else null
+                  end
+                ),
                 primaryWindowMinutes: ($limits.primary.window_minutes // null),
                 primaryResetsAt: ($limits.primary.resets_at // null),
-                secondaryUsedPercent: ($limits.secondary.used_percent // null),
+                secondaryUsedPercent: (
+                  if ($limits.secondary.used_percent | type) == "number" then $limits.secondary.used_percent
+                  elif ($limits.secondary.available_percent | type) == "number" then (100 - $limits.secondary.available_percent)
+                  else null
+                  end
+                ),
+                secondaryAvailablePercent: (
+                  if ($limits.secondary.available_percent | type) == "number" then $limits.secondary.available_percent
+                  elif ($limits.secondary.used_percent | type) == "number" then (100 - $limits.secondary.used_percent)
+                  else null
+                  end
+                ),
                 secondaryWindowMinutes: ($limits.secondary.window_minutes // null),
                 secondaryResetsAt: ($limits.secondary.resets_at // null),
                 planType: ($limits.plan_type // null)
@@ -209,9 +231,11 @@
               ($prefix + "LimitId"): ($item.limitId // null),
               ($prefix + "LimitName"): ($item.limitName // null),
               ($prefix + "PrimaryUsedPercent"): ($item.primaryUsedPercent // null),
+              ($prefix + "PrimaryAvailablePercent"): ($item.primaryAvailablePercent // null),
               ($prefix + "PrimaryWindowMinutes"): ($item.primaryWindowMinutes // null),
               ($prefix + "PrimaryResetsAt"): ($item.primaryResetsAt // null),
               ($prefix + "SecondaryUsedPercent"): ($item.secondaryUsedPercent // null),
+              ($prefix + "SecondaryAvailablePercent"): ($item.secondaryAvailablePercent // null),
               ($prefix + "SecondaryWindowMinutes"): ($item.secondaryWindowMinutes // null),
               ($prefix + "SecondaryResetsAt"): ($item.secondaryResetsAt // null)
             }

@@ -946,8 +946,7 @@ ShellRoot {
   function codexUsageSummaryText() {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     if (codexUsed === null && sparkUsed === null) return "—";
     if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
     if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
@@ -955,8 +954,7 @@ ShellRoot {
   }
   function codexUsageColor() {
     const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexRisk = Number.isFinite(primaryUsed) ? primaryUsed : -1;
     const sparkRisk = Number.isFinite(sparkUsed) ? sparkUsed : -1;
     const risk = Math.max(codexRisk, sparkRisk);
@@ -984,8 +982,7 @@ ShellRoot {
     if (!root.codexUsage) return "Codex usage unavailable";
     const planType = root.codexUsage.planType || "unknown";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkAvailable = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const sparkUsed = Number.isFinite(sparkAvailable) ? 100 - sparkAvailable : null;
+    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
     const codexReset = root.codexUsageResetLabel(root.codexUsageValue("codexPrimaryResetsAt"));
     const sparkReset = root.codexUsageResetLabel(root.codexUsageValue("sparkPrimaryResetsAt"));
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));

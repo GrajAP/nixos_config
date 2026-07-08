@@ -16,21 +16,22 @@ ColumnLayout {
   }
   function displayValue(metric, value) {
     if (value === null) return null;
-    return metric === "available-as-used" ? 100 - value : value;
+    return value;
   }
-  function metricLabel(metric, value) {
-    const display = displayValue(metric, value);
-    if (display === null) return metric === "available" ? "available --" : "used --";
-    return display + "% " + (metric === "available" ? "available" : "used");
+  function percentValue(key) {
+    const value = shell.codexUsageValue(key);
+    return value === null ? null : Math.max(0, Math.min(100, Math.round(value)));
+  }
+  function metricLabel(usedKey, availableKey) {
+    const used = percentValue(usedKey);
+    const available = percentValue(availableKey);
+    const usedText = used === null ? "--" : used + "%";
+    const availableText = available === null ? "--" : available + "%";
+    return usedText + " used · " + availableText + " available";
   }
   function metricColor(metric, value) {
     const display = displayValue(metric, value);
     if (display === null) return Theme.muted;
-    if (metric === "available") {
-      if (value <= 10) return Theme.danger;
-      if (value <= 25) return Theme.warning;
-      return Theme.accent;
-    }
     if (display >= 90) return Theme.danger;
     if (display >= 75) return Theme.warning;
     return Theme.accent;
@@ -56,6 +57,7 @@ ColumnLayout {
         label: "Codex primary",
         metric: "used",
         usedKey: "codexPrimaryUsedPercent",
+        availableKey: "codexPrimaryAvailablePercent",
         resetKey: "codexPrimaryResetsAt",
         windowKey: "codexPrimaryWindowMinutes"
       },
@@ -63,20 +65,23 @@ ColumnLayout {
         label: "Codex secondary",
         metric: "used",
         usedKey: "codexSecondaryUsedPercent",
+        availableKey: "codexSecondaryAvailablePercent",
         resetKey: "codexSecondaryResetsAt",
         windowKey: "codexSecondaryWindowMinutes"
       },
       {
         label: "GPT-5.3-Codex-Spark",
-        metric: "available-as-used",
+        metric: "used",
         usedKey: "sparkPrimaryUsedPercent",
+        availableKey: "sparkPrimaryAvailablePercent",
         resetKey: "sparkPrimaryResetsAt",
         windowKey: "sparkPrimaryWindowMinutes"
       },
       {
         label: "Spark secondary",
-        metric: "available-as-used",
+        metric: "used",
         usedKey: "sparkSecondaryUsedPercent",
+        availableKey: "sparkSecondaryAvailablePercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
       }
@@ -111,7 +116,8 @@ ColumnLayout {
           Text {
             text: {
               const value = usageValue(usageCard.modelData.usedKey);
-              return metricLabel(usageCard.modelData.metric, value);
+              if (value === null) return "used --";
+              return value + "% used";
             }
             color: metricColor(usageCard.modelData.metric, usageValue(usageCard.modelData.usedKey))
             font.family: Theme.fontSans
@@ -144,8 +150,7 @@ ColumnLayout {
           Layout.fillWidth: true
           Text {
             text: {
-              const value = usageValue(usageCard.modelData.usedKey);
-              return metricLabel(usageCard.modelData.metric, value);
+              return metricLabel(usageCard.modelData.usedKey, usageCard.modelData.availableKey);
             }
             color: shell.secondaryText
             font.family: Theme.fontSans

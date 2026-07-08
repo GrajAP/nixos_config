@@ -3,7 +3,13 @@
   config,
   lib,
   ...
-}: {
+}: let
+  catppuccinGtk = pkgs.catppuccin-gtk.override {
+    accents = ["blue"];
+    size = "standard";
+    variant = "mocha";
+  };
+in {
   stylix = {
     enable = true;
     icons = {
@@ -28,6 +34,10 @@
     XCURSOR_SIZE = "24";
     HYPRCURSOR_THEME = "catppuccin-mocha-blue-cursors";
     HYPRCURSOR_SIZE = "24";
+  };
+  gtk.theme = {
+    package = lib.mkForce catppuccinGtk;
+    name = lib.mkForce "catppuccin-mocha-blue-standard";
   };
   gtk.gtk4.theme.name = config.gtk.theme.name;
   imports = [
