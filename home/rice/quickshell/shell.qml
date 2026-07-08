@@ -3568,6 +3568,8 @@ ShellRoot {
     anchors { top: true; right: true }
     margins { top: 18; right: 48 }
     exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell-notification-popup"
     Rectangle {
       anchors.fill: parent; anchors.margins: 4
       radius: Theme.radiusMd; color: Theme.panel; border.color: Theme.border; border.width: 1
@@ -3608,6 +3610,8 @@ ShellRoot {
     anchors { bottom: true }
     margins.bottom: 70
     exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell-osd"
     Rectangle {
       anchors.fill: parent; radius: Theme.radiusMd; color: Theme.panel; border.color: Theme.border; border.width: 1
       RowLayout {
@@ -3635,6 +3639,8 @@ ShellRoot {
     anchors { bottom: true }
     margins.bottom: 144
     exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell-tool-status"
     Rectangle {
       anchors.fill: parent
       radius: 14
@@ -3667,6 +3673,8 @@ ShellRoot {
     color: "transparent"
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell-notification-history"
 
     MouseArea {
       anchors.fill: parent
