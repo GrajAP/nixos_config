@@ -47,6 +47,7 @@
           cmakeFlags =
             (old.cmakeFlags or [])
             ++ [
+              "-DBUILD_TESTS=OFF"
               "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
             ];
           env =
@@ -55,6 +56,34 @@
               NIX_CFLAGS_COMPILE = (old.env.NIX_CFLAGS_COMPILE or "") + " -Wno-error";
             };
         });
+      })
+      # Fix catppuccin-gtk build with Python 3.14 argparse
+      (final: prev: {
+        catppuccin-gtk = prev.catppuccin-gtk.overrideAttrs (old: {
+          postPatch =
+            (old.postPatch or "")
+            + ''
+              sed -i '/type=bool,/d' sources/build/args.py
+            '';
+        });
+      })
+      # Work around Python 3.14 regressions in package tests
+      (final: prev: {
+        pythonPackagesExtensions =
+          (prev.pythonPackagesExtensions or [])
+          ++ [
+            (python-final: python-prev: {
+              click-threading = python-prev.click-threading.overridePythonAttrs (_: {
+                doCheck = false;
+                doInstallCheck = false;
+              });
+              catppuccin = python-prev.catppuccin.overridePythonAttrs (_: {
+                doCheck = false;
+                pythonImportsCheck = [];
+                doInstallCheck = false;
+              });
+            })
+          ];
       })
     ];
   };
@@ -68,7 +97,12 @@
   };
 
   nix = {
-    gc.automatic = false;
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 14d";
+      randomizedDelaySec = "45min";
+    };
     package = pkgs.lix;
 
     # pin the registry to avoid downloading and evaling a new nixpkgs version every time
@@ -79,11 +113,11 @@
     #nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
     nixPath = ["nixpkgs=${inputs.nixpkgs}"];
 
-    # Free up to 1GiB whenever there is less than 100MiB left.
+    # Keep enough headroom for large builds and recover before the disk fills.
     extraOptions = ''
       warn-dirty = false
-      min-free = ${toString (100 * 1024 * 1024)}
-      max-free = ${toString (1024 * 1024 * 1024)}
+      min-free = ${toString (44 * 1024 * 1024 * 1024)}
+      max-free = ${toString (55 * 1024 * 1024 * 1024)}
     '';
     settings = {
       flake-registry = "/etc/nix/registry.json";

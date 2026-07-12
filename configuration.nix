@@ -13,6 +13,7 @@
   home-manager = {
     backupFileExtension = "hm-backup";
     extraSpecialArgs = {inherit inputs;};
+    useGlobalPkgs = true;
     useUserPackages = true;
     users.grajpap = {
       home.stateVersion = "24.11";

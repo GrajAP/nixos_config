@@ -3,18 +3,15 @@
   lib,
   ...
 }: let
-  texlive = pkgs.texlive.combine {
-    inherit
-      (pkgs.texlive)
-      scheme-small
-      noto
-      mweights
-      cm-super
-      cmbright
-      fontaxes
-      beamer
-      ;
-  };
+  texlive = pkgs.texliveSmall.withPackages (ps: [
+    ps.scheme-small
+    ps.noto
+    ps.mweights
+    ps.cm-super
+    ps.cmbright
+    ps.fontaxes
+    ps.beamer
+  ]);
 in {
   home.packages = with pkgs; [
     fastfetch
