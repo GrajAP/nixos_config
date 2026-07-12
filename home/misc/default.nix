@@ -19,7 +19,15 @@
       fi
 
       # Lightweight heartbeat ping to refresh Codex 5h usage windows.
-      printf 'hi\n' | "${pkgs.codex}/bin/codex" --dangerously-bypass-approvals-and-sandbox >/dev/null 2>&1 || true
+      heartbeat_targets=("default" "gpt-5.3-codex-spark");
+      for target in "''${heartbeat_targets[@]}"; do
+        if [ "$target" = "default" ]; then
+          printf 'hi\n' | "${pkgs.codex}/bin/codex" --dangerously-bypass-approvals-and-sandbox >/dev/null 2>&1 || true
+        else
+          # Primary model is assumed default (5.4), second one targets Spark 5.3.
+          printf 'hi\n' | "${pkgs.codex}/bin/codex" --model "$target" --dangerously-bypass-approvals-and-sandbox >/dev/null 2>&1 || true
+        fi
+      done
     '';
   };
 in {
