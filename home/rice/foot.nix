@@ -29,7 +29,7 @@
       bell = {
         urgent = "yes";
         notify = "yes";
-        command = "${pkgs.libnotify} 'bell'";
+        command = "${pkgs.libnotify}/bin/notify-send 'bell'";
         command-focused = "no";
       };
       url = {

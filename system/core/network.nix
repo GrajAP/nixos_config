@@ -5,6 +5,7 @@
   ...
 }: let
   dnscrypt = config.services.dnscrypt-proxy.enable;
+  tailnetInterface = config.services.tailscale.interfaceName;
   inherit (lib) mkIf;
 in {
   environment.systemPackages = with pkgs; [speedtest-cli bandwhich];
@@ -21,11 +22,10 @@ in {
       };
     };
     firewall = {
-      allowedTCPPorts = [25565 8081];
-      allowedUDPPorts = [25565 8081];
       enable = true;
       allowPing = false;
       logReversePathDrops = true;
+      interfaces.${tailnetInterface}.allowedTCPPorts = [22 8081];
     };
   };
 

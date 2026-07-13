@@ -1,14 +1,26 @@
-{pkgs, ...}: {
-  home.sessionVariables = {
-    ELECTRON_OVERRIDE_DIST_PATH = "${pkgs.obsidian}/lib/obsidian/resources";
+{
+  config,
+  pkgs,
+  ...
+}: let
+  obsidianWrapped = pkgs.symlinkJoin {
+    name = "obsidian-wrapped";
+    paths = [pkgs.obsidian];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      wrapProgram $out/bin/obsidian \
+        --set ELECTRON_OVERRIDE_DIST_PATH ${pkgs.obsidian}/lib/obsidian/resources
+    '';
   };
+in {
+  home.packages = [obsidianWrapped];
 
   home.file = {
     ".config/obsidian/obsidian.json" = {
       text = builtins.toJSON {
         vaults = {
           "a1dd4927315f80b0" = {
-            path = "/home/grajpap/other/Obsidian Vault";
+            path = "${config.home.homeDirectory}/other/Obsidian Vault";
             ts = 1769436944861;
             open = true;
           };

@@ -28,13 +28,13 @@
     '';
   };
   ipc = "${quickshellIpc}/bin/quickshell-ipc";
-  keybinds = import ./keybinds.nix {inherit config lib pkgs ipc;};
+  keybinds = import ./keybinds.nix {inherit config lib ipc;};
 in {
   wayland.windowManager.hyprland.settings = {
-    bind = keybinds.bind;
-    bindm = keybinds.bindm;
-    bindr = keybinds.bindr;
-    binde = keybinds.binde;
-    bindl = keybinds.bindl;
+    inherit (keybinds) bind;
+    inherit (keybinds) bindm;
+    inherit (keybinds) bindr;
+    inherit (keybinds) binde;
+    inherit (keybinds) bindl;
   };
 }

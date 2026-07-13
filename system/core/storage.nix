@@ -1,4 +1,8 @@
-{pkgs, ...}: let
+{
+  config,
+  pkgs,
+  ...
+}: let
   # Keep Windows data volumes available at stable paths.  systemd's automount
   # units avoid delaying boot when a drive is absent, while GVFS exposes them
   # in graphical file managers without requiring a manual UDisks mount first.
@@ -18,17 +22,16 @@
     ];
   };
 in {
-  boot.kernelModules = ["ntfs3"];
-
   environment.systemPackages = with pkgs; [
     ntfs3g
   ];
 
-  services.udisks2.enable = true;
-
-  services.devmon.enable = true;
-
-  services.gvfs.enable = true;
+  assertions = [
+    {
+      assertion = builtins.all (module: !(builtins.elem module config.boot.blacklistedKernelModules)) config.boot.kernelModules;
+      message = "A kernel module cannot be both loaded and blacklisted.";
+    }
+  ];
 
   users = {
     groups.storage-share.gid = 970;

@@ -834,6 +834,8 @@ fi
     transcript="$(cat "$txt_file" 2>/dev/null || true)"
     once_file="$state_dir/learn.once"
     rm -f "$once_file"
+    # Variables in the single-quoted script expand in the child Bash process.
+    # shellcheck disable=SC2016
     TRANSCRIPT="$transcript" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" LEARN_SCRIPT="$learn_script" ONCE_FILE="$once_file" \
       timeout 600s wl-paste --watch --type text/plain --no-newline bash -c '
         clip=$(cat)

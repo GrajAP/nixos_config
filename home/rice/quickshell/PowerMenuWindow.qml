@@ -7,7 +7,6 @@ import qs
 
 PanelWindow {
   required property var shell
-  required property var sessionLock
     visible: shell.powerVisible
     focusable: true
     color: "transparent"
@@ -32,8 +31,8 @@ PanelWindow {
         anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         Repeater {
           model: [
-            { icon: "󰌾", label: "Lock", command: [] },
-            { icon: "󰤄", label: "Suspend", command: ["sh", "-c", "sleep 0.3 && systemctl suspend"] },
+            { icon: "󰌾", label: "Lock", command: ["secure-session-lock"] },
+            { icon: "󰤄", label: "Suspend", command: ["sh", "-c", "secure-session-lock & sleep 0.5 && systemctl suspend"] },
             { icon: "󰜉", label: "Reboot", command: ["systemctl", "reboot"] },
             { icon: "󰐥", label: "Power", command: ["systemctl", "poweroff"] }
           ]
@@ -52,7 +51,6 @@ PanelWindow {
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 shell.powerVisible = false;
-                if (parent.modelData.label === "Lock" || parent.modelData.label === "Suspend") sessionLock.locked = true;
                 if (parent.modelData.command.length > 0) Quickshell.execDetached(parent.modelData.command);
               }
             }

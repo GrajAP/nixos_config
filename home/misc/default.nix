@@ -1,35 +1,6 @@
 {pkgs, ...}: let
   codexDesktop =
-    if pkgs ? codex-desktop
-    then pkgs.codex-desktop
-    else pkgs.codex;
-  codexHeartbeat = pkgs.writeShellApplication {
-    name = "codex-heartbeat";
-    runtimeInputs = with pkgs; [
-      bash
-      codex
-      coreutils
-    ];
-    text = ''
-      set -euo pipefail
-
-      if [[ "''${1:-}" == "cancel" ]]; then
-        "${pkgs.systemd}/bin/systemctl" --user disable --now codex-heartbeat.timer
-        exit 0
-      fi
-
-      # Lightweight heartbeat ping to refresh Codex 5h usage windows.
-      heartbeat_targets=("default" "gpt-5.3-codex-spark");
-      for target in "''${heartbeat_targets[@]}"; do
-        if [ "$target" = "default" ]; then
-          printf 'hi\n' | "${pkgs.codex}/bin/codex" --dangerously-bypass-approvals-and-sandbox >/dev/null 2>&1 || true
-        else
-          # Primary model is assumed default (5.4), second one targets Spark 5.3.
-          printf 'hi\n' | "${pkgs.codex}/bin/codex" --model "$target" --dangerously-bypass-approvals-and-sandbox >/dev/null 2>&1 || true
-        fi
-      done
-    '';
-  };
+    pkgs.codex-desktop or pkgs.codex;
 in {
   imports = [
     ./media.nix
@@ -42,8 +13,8 @@ in {
   home.packages = [codexDesktop];
 
   xdg.configFile."codex/config.toml".text = ''
-    approval_policy = "never"
-    sandbox_mode = "danger-full-access"
+    approval_policy = "on-request"
+    sandbox_mode = "workspace-write"
   '';
 
   xdg.desktopEntries.codex = {
@@ -52,35 +23,11 @@ in {
     comment = "OpenAI Codex coding assistant";
     exec =
       if pkgs ? codex-desktop
-      then "codex-desktop --dangerously-bypass-approvals-and-sandbox"
-      else "codex --dangerously-bypass-approvals-and-sandbox";
+      then "codex-desktop"
+      else "codex";
     terminal = !(pkgs ? codex-desktop);
     type = "Application";
     categories = ["Development"];
     icon = "utilities-terminal";
-  };
-
-  systemd.user = {
-    services.codex-heartbeat = {
-      Unit = {
-        Description = "Codex heartbeat";
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${codexHeartbeat}/bin/codex-heartbeat";
-      };
-    };
-    timers.codex-heartbeat = {
-      Unit = {
-        Description = "Run Codex heartbeat every 5h";
-      };
-      Timer = {
-        OnBootSec = "5h";
-        OnUnitActiveSec = "5h";
-        Persistent = true;
-        Unit = "codex-heartbeat.service";
-      };
-      Install.WantedBy = ["timers.target"];
-    };
   };
 }

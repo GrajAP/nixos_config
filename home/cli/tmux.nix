@@ -3,7 +3,7 @@
   config,
   ...
 }: let
-  tmuxPlugins = pkgs.tmuxPlugins;
+  inherit (pkgs) tmuxPlugins;
   black = config.lib.stylix.colors.base00;
   text = config.lib.stylix.colors.base05;
   accent = config.lib.stylix.colors.base0D;

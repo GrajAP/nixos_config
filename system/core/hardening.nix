@@ -1,8 +1,4 @@
-{
-  pkgs,
-  lib,
-  ...
-}:
+{pkgs, ...}:
 # Workstation hardening. Keep these settings compatible with the hardware and
 # development workflows used by this host.
 {
@@ -32,7 +28,7 @@
       packages = [pkgs.apparmor-profiles];
     };
     pam = {
-      services.quickshell.text = "auth include login";
+      services.hyprlock = {};
       loginLimits = [
         {
           domain = "@wheel";
@@ -47,18 +43,9 @@
           value = "1048576";
         }
       ];
-      services = {
-        login.enableGnomeKeyring = true;
-        greetd.enableGnomeKeyring = true;
-      };
     };
 
     sudo.execWheelOnly = true;
-    sudo.extraConfig = ''
-      # Let T3 Code/Codex sessions running as grajpap perform system work
-      # without an interactive password prompt.
-      grajpap ALL=(ALL:ALL) NOPASSWD: ALL
-    '';
   };
 
   boot.kernel.sysctl = {
@@ -128,8 +115,6 @@
     "nfsv3"
     "cifs"
     "nfs"
-    "cramfs"
-    "freevxfs"
     "jffs2"
     "hfs"
     "hfsplus"

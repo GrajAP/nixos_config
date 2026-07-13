@@ -31,7 +31,11 @@ in {
   };
 
   services = {
-    tailscale.openFirewall = true;
+    tailscale = {
+      openFirewall = true;
+      # Tailscale SSH is the recovery path before an OpenSSH authorized key is installed.
+      extraSetFlags = ["--ssh"];
+    };
 
     nextcloud = {
       enable = true;
@@ -63,8 +67,6 @@ in {
         trusted_proxies = [
           "127.0.0.1"
           "::1"
-          "100.123.219.96"
-          "fd7a:115c:a1e0::d133:db61"
         ];
       };
 
@@ -102,6 +104,8 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "2min";
       };
       path = with pkgs; [
         coreutils
@@ -120,8 +124,10 @@ in {
       '';
     };
 
-    nextcloud-notify_push.environment.NEXTCLOUD_URL = lib.mkForce "http://127.0.0.1:${toString nextcloudBackendPort}";
-    nextcloud-notify_push.wantedBy = lib.mkForce [];
+    nextcloud-notify_push = {
+      environment.NEXTCLOUD_URL = lib.mkForce "http://127.0.0.1:${toString nextcloudBackendPort}";
+      wantedBy = lib.mkForce [];
+    };
     nextcloud-setup.serviceConfig.RemainAfterExit = true;
 
     nextcloud-notify_push_setup = {
@@ -145,10 +151,13 @@ in {
       path = [
         config.services.nextcloud.occ
         pkgs.coreutils
+        pkgs.jq
       ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "2min";
       };
       script = ''
         token_file=/home/grajpap/.config/quickshell/nextcloud-app-password
@@ -159,13 +168,37 @@ in {
         if [ ! -s "$token_file" ]; then
           umask 077
           tmp="$(mktemp)"
-          nextcloud-occ user:auth-tokens:add --no-interaction grajpap > "$tmp"
+          nextcloud-occ user:auth-tokens:add --no-interaction --name quickshell-calendar grajpap > "$tmp"
           tail -n 1 "$tmp" > "$token_file"
           rm -f "$tmp"
         fi
 
         chown grajpap:users "$token_file"
         chmod 0600 "$token_file"
+      '';
+    };
+
+    nextcloud-quickshell-token-rotate = {
+      description = "Rotate the Nextcloud app password used by Quickshell";
+      after = ["nextcloud-setup.service"];
+      path = [config.services.nextcloud.occ pkgs.coreutils pkgs.jq];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        set -euo pipefail
+
+        token_file=/home/grajpap/.config/quickshell/nextcloud-app-password
+        token_dir="$(dirname "$token_file")"
+        old_ids="$(nextcloud-occ user:auth-tokens:list grajpap --output=json | jq -r '.[] | select(.name == "quickshell-calendar") | .id')"
+        tmp="$(mktemp)"
+        trap 'rm -f "$tmp"' EXIT
+
+        nextcloud-occ user:auth-tokens:add --no-interaction --name quickshell-calendar grajpap > "$tmp"
+        install -d -m 0700 -o grajpap -g users "$token_dir"
+        tail -n 1 "$tmp" | install -m 0600 -o grajpap -g users /dev/stdin "$token_file"
+
+        for token_id in $old_ids; do
+          nextcloud-occ user:auth-tokens:delete --no-interaction grajpap "$token_id"
+        done
       '';
     };
 
@@ -186,9 +219,13 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "2min";
       };
       script = ''
-        nextcloud-occ app:enable files_external || true
+        if ! nextcloud-occ app:list --output=json | jq -e '.enabled.files_external' >/dev/null; then
+          nextcloud-occ app:enable files_external
+        fi
 
         # Trigger the automount before asking Nextcloud to verify the local backend.
         ls /mnt/Storage >/dev/null
@@ -240,7 +277,11 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        Restart = "on-failure";
+        RestartSec = "2min";
       };
+      # This command owns only the default HTTPS handler. It intentionally does
+      # not reset other Tailscale Serve handlers, including the project on 8443.
       script = "tailscale serve --bg --yes http://127.0.0.1:${toString nextcloudBackendPort}";
     };
   };
@@ -275,6 +316,15 @@ in {
       timerConfig = {
         OnBootSec = "75s";
         Unit = "nextcloud-storage-mounts.service";
+      };
+    };
+
+    nextcloud-quickshell-token-rotate = {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "monthly";
+        Persistent = true;
+        RandomizedDelaySec = "6h";
       };
     };
 

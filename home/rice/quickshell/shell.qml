@@ -8,7 +8,6 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Services.Mpris
-import Quickshell.Services.Pam
 import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
@@ -17,6 +16,13 @@ import qs
 
 ShellRoot {
   id: root
+  function primaryScreenName(): string {
+    const screens = Quickshell.screens;
+    for (let i = 0; i < screens.length; i++) {
+      if (screens[i].name === "DP-1") return screens[i].name;
+    }
+    return screens.length > 0 ? screens[0].name : "";
+  }
   property bool barVisible: true
   property bool launcherVisible: false
   property bool powerVisible: false
@@ -28,8 +34,6 @@ ShellRoot {
   property bool hoverWidgetPanelHovered: false
   property bool hoverWidgetMenuOpen: false
   property var latestNotification: null
-  property string pendingPassword: ""
-  property string authMessage: ""
   property bool osdVisible: false
   property string osdKind: "volume"
   property real osdValue: 0
@@ -167,8 +171,7 @@ ShellRoot {
   IpcHandler {
     target: "notifications"
     function clear(): void {
-      const copy = notificationServer.trackedNotifications.values.slice();
-      for (const notification of copy) notification.dismiss();
+      notificationCenter.clear();
       root.notificationHistoryVisible = false;
     }
   }
@@ -1600,19 +1603,12 @@ ShellRoot {
   }
   IpcHandler {
     target: "lock"
-    function lock(): void { sessionLock.locked = true; }
+    function lock(): void { Quickshell.execDetached(["secure-session-lock"]); }
   }
 
-  NotificationServer {
-    id: notificationServer
-    actionsSupported: true
-    bodyMarkupSupported: true
-    imageSupported: true
-    persistenceSupported: true
-    keepOnReload: true
-    onNotification: notification => {
-      notification.tracked = true;
-      notification.receivedAt = Date.now();
+  NotificationCenter {
+    id: notificationCenter
+    onReceived: notification => {
       root.latestNotification = notification;
       root.notificationPopupVisible = true;
       popupTimer.restart();
@@ -1624,75 +1620,6 @@ ShellRoot {
     onTriggered: root.notificationPopupVisible = false
   }
 
-  PamContext {
-    id: pam
-    config: "quickshell"
-    onPamMessage: {
-      root.authMessage = message;
-      if (responseRequired) respond(root.pendingPassword);
-    }
-    onCompleted: result => {
-      if (result === PamResult.Success) {
-        root.authMessage = "";
-        root.pendingPassword = "";
-        sessionLock.locked = false;
-      } else {
-        root.authMessage = "Authentication failed";
-        root.pendingPassword = "";
-      }
-    }
-  }
-  WlSessionLock {
-    id: sessionLock
-    WlSessionLockSurface {
-      color: Theme.background
-      Rectangle {
-        anchors.fill: parent
-        color: Theme.background
-        ColumnLayout {
-          anchors.centerIn: parent
-          width: Math.min(420, parent.width - 40)
-          spacing: 16
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: Qt.formatDateTime(clock.date, "HH:mm")
-            color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 68
-          }
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: Qt.formatDateTime(clock.date, "dddd, d MMMM")
-            color: Theme.muted; font.family: Theme.fontSans; font.pixelSize: 16
-          }
-          Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 52
-            radius: 12; color: Theme.surface; border.color: password.activeFocus ? Theme.accent : Theme.border
-            TextInput {
-              id: password
-              anchors.fill: parent; anchors.margins: 14
-              focus: true; echoMode: TextInput.Password
-              color: Theme.text; font.family: Theme.font; font.pixelSize: 17
-              cursorDelegate: root.themedCursor
-              selectionColor: Theme.accent
-              selectedTextColor: Theme.background
-              onAccepted: {
-                if (!pam.active && text.length > 0) {
-                  root.pendingPassword = text;
-                  text = "";
-                  pam.start();
-                }
-              }
-            }
-          }
-          Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: root.authMessage || "Enter password to unlock"
-            color: root.authMessage ? Theme.danger : Theme.muted
-            font.family: Theme.fontSans; font.pixelSize: 12
-          }
-        }
-      }
-    }
-  }
   GlobalShortcut {
     name: "powerMenu"
     description: "Toggle power menu"
@@ -1718,7 +1645,7 @@ ShellRoot {
       id: bar
       required property var modelData
       screen: modelData
-      visible: root.barVisible && modelData.name === "DP-1"
+      visible: root.barVisible && modelData.name === root.primaryScreenName()
       color: Theme.background
       implicitWidth: 44
       anchors { top: true; right: true; bottom: true }
@@ -3704,12 +3631,12 @@ ShellRoot {
           Text { text: "Notifications"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true }
           Text {
             text: "Clear"; color: Theme.accent; font.family: Theme.fontSans
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const copy = notificationServer.trackedNotifications.values.slice(); for (const n of copy) n.dismiss(); } }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: notificationCenter.clear() }
           }
         }
         ListView {
           Layout.fillWidth: true; Layout.fillHeight: true; spacing: 8; clip: true
-          model: notificationServer.trackedNotifications
+          model: notificationCenter.trackedNotifications
           delegate: Rectangle {
             required property var modelData
             width: ListView.view.width; height: content.implicitHeight + 24
@@ -3730,7 +3657,7 @@ ShellRoot {
                 Text { text: "×"; color: Theme.muted; font.pixelSize: 18; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.parent.parent.parent.modelData.dismiss() } }
               }
               Text { Layout.fillWidth: true; text: parent.parent.modelData.summary; color: Theme.text; font.family: Theme.fontSans; font.bold: true; wrapMode: Text.Wrap }
-              Text { Layout.fillWidth: true; text: parent.parent.modelData.body; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; textFormat: Text.StyledText }
+              Text { Layout.fillWidth: true; text: parent.parent.modelData.body; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; textFormat: Text.PlainText }
               RowLayout {
                 Layout.fillWidth: true; visible: parent.parent.modelData.actions.length > 0
                 Repeater {
@@ -3755,5 +3682,5 @@ ShellRoot {
 
     LauncherWindow { shell: root }
 
-    PowerMenuWindow { shell: root; sessionLock: sessionLock }
+    PowerMenuWindow { shell: root }
 }

@@ -20,6 +20,7 @@
           "input"
           "networkmanager"
           "adbusers"
+          "ydotool"
         ];
         uid = 1000;
         shell =

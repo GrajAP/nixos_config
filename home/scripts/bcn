@@ -1,27 +1,41 @@
-#!/bin/sh
+set -euo pipefail
 
-#bcn, Bluetooth Connect
-bluetoothctl power on
-bluetoothctl agent on
-bluetoothctl default-agent
-bluetoothctl scan on
+bluetoothctl power on >/dev/null
 
-device_amount=$(bluetoothctl devices | wc -l)
-
-if [[ $device_amount = 1 ]]; then
-  MAC=$(bluetoothctl devices | awk {'print $2'})
-  [ -z $MAC ] && MAC=NoDeviceFound # Prevents accidental disconnect error
-else
-  select=$(bluetoothctl devices | awk {'print $3'} | tofi --prompt-text "Select device 󰂯 ")
-  MAC=$(bluetoothctl devices | grep $select | awk {'print $2'})
-  [ -z $MAC ] && MAC=NoDeviceFound # Prevents accidental disconnect error
+mapfile -t devices < <(bluetoothctl devices Paired)
+if ((${#devices[@]} == 0)); then
+  mapfile -t devices < <(bluetoothctl devices)
 fi
 
-connect=$(bluetoothctl info $MAC | grep Connected: | awk '{print $2}')
-if [[ $connect = no ]]; then
-  notify-send "Attempting to connect to $select"
-  bluetoothctl connect $MAC || notify-send "Failed to Connect"
-elif [[ $connect = yes ]]; then
-  notify-send "Attempting to disconnect $select"
-  bluetoothctl disconnect $MAC
+if ((${#devices[@]} == 0)); then
+  notify-send -u normal -t 2500 "Bluetooth" "No known devices found."
+  exit 0
+fi
+
+if ((${#devices[@]} == 1)); then
+  selected="${devices[0]}"
+else
+  selected="$(printf '%s\n' "${devices[@]}" | sed 's/^Device //' | fuzzel --dmenu --prompt='Bluetooth: ' || true)"
+  [[ -n "$selected" ]] || exit 0
+  selected="Device $selected"
+fi
+
+mac="$(awk '{print $2}' <<<"$selected")"
+name="$(cut -d' ' -f3- <<<"$selected")"
+connected="$(bluetoothctl info "$mac" | awk '/Connected:/ {print $2; exit}')"
+
+if [[ "$connected" == "yes" ]]; then
+  if bluetoothctl disconnect "$mac" >/dev/null; then
+    notify-send -t 2000 "Bluetooth" "Disconnected: $name"
+  else
+    notify-send -u critical -t 3000 "Bluetooth" "Could not disconnect: $name"
+    exit 1
+  fi
+else
+  if bluetoothctl connect "$mac" >/dev/null; then
+    notify-send -t 2000 "Bluetooth" "Connected: $name"
+  else
+    notify-send -u critical -t 3000 "Bluetooth" "Could not connect: $name"
+    exit 1
+  fi
 fi

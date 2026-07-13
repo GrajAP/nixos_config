@@ -84,9 +84,6 @@
       "amd_pstate=guided"
       "amdgpu.dpm=1"
       "amdgpu.gpu_recovery=1"
-      # DP-2 can miss hotplug detection at login; keep it enabled so Hyprland
-      # does not need a physical DisplayPort replug to light the second monitor.
-      "video=DP-2:2560x1440MR@144e"
     ];
   };
   hardware = {

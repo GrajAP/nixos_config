@@ -4,10 +4,6 @@
     ./theme
   ];
 
-  nixpkgs.config.permittedInsecurePackages = [
-    "pnpm-10.29.2"
-  ];
-
   stylix.enableReleaseChecks = false;
 
   home-manager = {

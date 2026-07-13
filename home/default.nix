@@ -19,22 +19,22 @@ in {
       light = "Papirus-Dark";
     };
   };
-  home.pointerCursor = {
-    enable = true;
-    package = lib.mkForce pkgs.catppuccin-cursors.mochaBlue;
-    name = lib.mkForce "catppuccin-mocha-blue-cursors";
-    size = lib.mkForce 24;
-    gtk.enable = true;
-    x11.enable = true;
-  };
-  home.packages = [
-    pkgs.catppuccin-cursors.mochaBlue
-  ];
-  home.sessionVariables = {
-    XCURSOR_THEME = "catppuccin-mocha-blue-cursors";
-    XCURSOR_SIZE = "24";
-    HYPRCURSOR_THEME = "catppuccin-mocha-blue-cursors";
-    HYPRCURSOR_SIZE = "24";
+  home = {
+    pointerCursor = {
+      enable = true;
+      package = lib.mkForce pkgs.catppuccin-cursors.mochaBlue;
+      name = lib.mkForce "catppuccin-mocha-blue-cursors";
+      size = lib.mkForce 24;
+      gtk.enable = true;
+      x11.enable = true;
+    };
+    packages = [pkgs.catppuccin-cursors.mochaBlue];
+    sessionVariables = {
+      XCURSOR_THEME = "catppuccin-mocha-blue-cursors";
+      XCURSOR_SIZE = "24";
+      HYPRCURSOR_THEME = "catppuccin-mocha-blue-cursors";
+      HYPRCURSOR_SIZE = "24";
+    };
   };
   gtk.theme = {
     package = lib.mkForce catppuccinGtk;

@@ -3,8 +3,6 @@
   programs.git = {
     enable = true;
     signing.format = "openpgp";
-    settings.user.name = "GrajAP";
-    settings.user.email = "adampisarczyk2006@gmail.com";
     #   signing = {
     #     key = "056CFD15A9F99B0E";
     #     signByDefault = false;
@@ -21,17 +19,21 @@
       "result"
       "result-*"
     ];
-    settings.extraConfig = {
+    settings = {
+      user = {
+        name = "GrajAP";
+        email = "adampisarczyk2006@gmail.com";
+      };
       init = {defaultBranch = "main";};
       #      delta = {
       #        options.map-styles = "bold purple => syntax #ca9ee6, bold cyan => syntax #8caaee";
       #        line-numbers = true;
       #      };
-      branch.autosetupmerge = "true";
+      branch.autoSetupMerge = true;
       push.default = "current";
-      merge.stat = "true";
+      merge.stat = true;
       core.whitespace = "fix,-indent-with-non-tab,trailing-space,cr-at-eol";
-      repack.usedeltabaseoffset = "true";
+      repack.useDeltaBaseOffset = true;
       pull.ff = "only";
       rebase = {
         autoSquash = true;
@@ -45,9 +47,9 @@
     lfs.enable = true;
     #    delta.enable = true;
     settings.aliases = {
-      essa = "push --force";
+      essa = "push --force-with-lease";
       co = "checkout";
-      fuck = "commit --amend -m";
+      amend-message = "commit --amend -m";
       c = "commit -m";
       ca = "commit -am";
       forgor = "commit --amend --no-edit";
@@ -63,12 +65,11 @@
       af = "!git add $(git ls-files -m -o --exclude-standard | sk -m)";
       st = "status";
       br = "branch";
-      df = "!git hist | peco | awk '{print $2}' | xargs -I {} git diff {}^ {}";
       hist = ''
         log --pretty=format:"%Cgreen%h %Creset%cd %Cblue[%cn] %Creset%s%C(yellow)%d%C(reset)" --graph --date=relative --decorate --all'';
       llog = ''
         log --graph --name-status --pretty=format:"%C(red)%h %C(reset)(%cd) %C(green)%an %Creset%s %C(yellow)%d%Creset" --date=relative'';
-      edit-unmerged = "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; hx `f`";
+      edit-unmerged = "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; nvim `f`";
     };
   };
 }

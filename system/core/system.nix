@@ -38,48 +38,20 @@ in {
     });
   '';
 
-  systemd.services.t3code-os-switch = {
-    description = "Apply /etc/nixos for the local coding agent";
-    path = with pkgs; [git nix nix-output-monitor];
-    serviceConfig = {
-      Type = "oneshot";
-      WorkingDirectory = "/etc/nixos";
-    };
-    script = ''
-      exec ${lib.getExe pkgs.nh} os -e none switch /etc/nixos
-    '';
-  };
-
   services = {
-    dbus = {
-      packages = with pkgs; [dconf gcr udisks2];
-      enable = true;
-    };
-    gvfs.enable = true;
+    dbus.enable = true;
     journald.extraConfig = ''
-      SystemMaxUse=50M
-      RuntimeMaxUse=10M
+      SystemMaxUse=250M
+      RuntimeMaxUse=50M
+      MaxRetentionSec=7day
     '';
     psd = {
       enable = true;
       resyncTimer = "10m";
     };
   };
-  systemd.user = {
-    services.psd.wantedBy = lib.mkForce [];
-    timers.psd-delayed-start = {
-      description = "Start profile-sync-daemon after session startup";
-      timerConfig = {
-        OnStartupSec = "20s";
-        Unit = "psd.service";
-      };
-      wantedBy = ["timers.target"];
-    };
-  };
-  services.udev.extraRules = ''
-    KERNEL=="uinput", GROUP="input", MODE="0660"
-  '';
   programs = {
+    ydotool.enable = true;
     spicetify = {
       enable = true;
       enabledExtensions = with spicePkgs.extensions; [
@@ -108,55 +80,7 @@ in {
       package = pkgs.jre;
     };
 
-    nix-ld = {
-      enable = true;
-      # libraries = with pkgs; [
-      #   stdenv.cc.cc
-      #   glibc
-      #   zlib
-      #   openssl
-      #   curl
-      #   nss
-      #   nspr
-      #   atk
-      #   cups
-      #   dbus
-      #   expat
-      #   fontconfig
-      #   freetype
-      #   gdk-pixbuf
-      #   glib
-      #   gtk3
-      #   libdrm
-      #   libGL
-      #   libgbm
-      #   libnotify
-      #   libxkbcommon
-      #   libxml2
-      #   mesa
-      #   pango
-      #   libx11
-      #   libxcomposite
-      #   libxdamage
-      #   libxext
-      #   libxfixes
-      #   libxrandr
-      #   libxshmfence
-      #   libxcb
-      #   alsa-lib
-      #   at-spi2-atk
-      #   at-spi2-core
-      #   cairo
-      #   c-ares
-      #   icu
-      #   libuuid
-      #   minizip
-      #   snappy
-      #   udev
-      #   libxscrnsaver
-      #   libxtst
-      # ];
-    };
+    nix-ld.enable = true;
 
     bash.promptInit = ''eval "$(${pkgs.starship}/bin/starship init bash)"'';
   };
@@ -168,12 +92,9 @@ in {
   environment.systemPackages = with pkgs; [
     git
     uutils-coreutils-noprefix
-    btrfs-progs
-    cifs-utils
     appimage-run
     starship
     wine
-    wine64
     winetricks
     innoextract
   ];
@@ -232,16 +153,44 @@ in {
   });
 
   systemd = {
-    services."getty@tty1".enable = false;
-    services."autovt@tty1".enable = false;
-    services."getty@tty7".enable = false;
-    services."autovt@tty7".enable = false;
+    services = {
+      t3code-os-switch = {
+        description = "Validate and apply /etc/nixos for the local coding agent";
+        path = with pkgs; [git nix nix-output-monitor];
+        serviceConfig = {
+          Type = "oneshot";
+          WorkingDirectory = "/etc/nixos";
+        };
+        script = ''
+          set -euo pipefail
+
+          nix flake check
+          nix build .#nixosConfigurations.grajpap.config.system.build.toplevel --no-link
+          exec ${lib.getExe pkgs.nh} os -e none switch /etc/nixos
+        '';
+      };
+      "getty@tty1".enable = false;
+      "autovt@tty1".enable = false;
+      "getty@tty7".enable = false;
+      "autovt@tty7".enable = false;
+    };
+    user = {
+      services.psd.wantedBy = lib.mkForce [];
+      timers.psd-delayed-start = {
+        description = "Start profile-sync-daemon after session startup";
+        timerConfig = {
+          OnStartupSec = "20s";
+          Unit = "psd.service";
+        };
+        wantedBy = ["timers.target"];
+      };
+    };
     # Systemd OOMd
     # Fedora enables these options by default. See the 10-oomd-* files here:
     # https://src.fedoraproject.org/rpms/systemd/tree/acb90c49c42276b06375a66c73673ac3510255
     oomd.enableRootSlice = true;
 
-    # TODO channels-to-flakes
+    # Some legacy Nix commands still expect the root per-user profile path.
     tmpfiles.rules = [
       "D /nix/var/nix/profiles/per-user/root 755 root root - -"
     ];

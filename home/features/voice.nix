@@ -1,5 +1,5 @@
 {pkgs, ...}: let
-  lib = pkgs.lib;
+  inherit (pkgs) lib;
   whisperPython = pkgs.python3.withPackages (ps: [
     ps.faster-whisper
     ps.pygobject3

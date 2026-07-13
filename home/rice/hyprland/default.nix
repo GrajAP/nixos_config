@@ -5,34 +5,12 @@
   inputs,
   ...
 }: let
-  quickshellIpc = pkgs.writeShellApplication {
-    name = "quickshell-ipc";
-    runtimeInputs = with pkgs; [
-      coreutils
-      procps
-      quickshell
-      systemd
-    ];
-    text = ''
-      set -euo pipefail
-
-      pid="$(systemctl --user show --property MainPID --value quickshell.service 2>/dev/null || true)"
-      if [[ -z "$pid" || "$pid" == "0" ]]; then
-        pid="$(pgrep -u "$(id -u)" -x qs | head -n1 || true)"
-      fi
-      if [[ -z "$pid" ]]; then
-        echo "quickshell-ipc: quickshell.service is not running" >&2
-        exit 1
-      fi
-
-      exec qs ipc --pid "$pid" call "$@"
-    '';
-  };
   autoShutdown = pkgs.writeShellApplication {
     name = "auto-shutdown";
     runtimeInputs = with pkgs; [
       coreutils
       gawk
+      jq
       libnotify
       systemd
     ];
@@ -70,6 +48,19 @@
         fi
       }
 
+      shutdown_blocked() {
+        systemd-inhibit --list --json=short \
+          | jq -e 'any(.[]; (.mode == "block") and ((.what | split(":")) | index("shutdown")))' >/dev/null
+      }
+
+      power_off() {
+        if shutdown_blocked; then
+          notify-send -u critical -t 5000 "Auto shutdown" "A system inhibitor is blocking shutdown."
+          return 1
+        fi
+        systemctl poweroff
+      }
+
       handle_custom_deadline() {
         local deadline now remaining label
         deadline="$(read_deadline)"
@@ -94,7 +85,7 @@
 
         rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
         notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
-        systemctl poweroff
+        power_off || true
         exit 0
       }
 
@@ -129,7 +120,7 @@
 
           if (( cancel == 0 )); then
             notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
-            systemctl poweroff
+            power_off || true
             exit 0
           fi
 
@@ -232,6 +223,55 @@
       done
     '';
   };
+  suspendAtNight = pkgs.writeShellApplication {
+    name = "suspend-at-night";
+    runtimeInputs = with pkgs; [coreutils systemd];
+    text = ''
+      set -euo pipefail
+
+      hour="$(date +%H)"
+      if (( 10#$hour < 7 || 10#$hour >= 22 )); then
+        systemctl suspend
+      fi
+    '';
+  };
+  secureSessionLock = pkgs.writeShellApplication {
+    name = "secure-session-lock";
+    runtimeInputs = with pkgs; [cliphist hyprlock procps wl-clipboard];
+    text = ''
+      set -euo pipefail
+
+      wl-copy --clear || true
+      cliphist wipe || true
+      pgrep -x hyprlock >/dev/null || exec hyprlock
+    '';
+  };
+  clipboardHistoryStore = pkgs.writeShellApplication {
+    name = "clipboard-history-store";
+    runtimeInputs = with pkgs; [cliphist ripgrep wl-clipboard];
+    text = ''
+      set -euo pipefail
+
+      types="$(wl-paste --list-types 2>/dev/null || true)"
+      if printf '%s\n' "$types" | rg -qi 'password|secret|sensitive|x-kde-passwordManagerHint'; then
+        exit 0
+      fi
+      exec cliphist store
+    '';
+  };
+  graphicalAutostart = command: delay: {
+    Unit = {
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
+    };
+    Service = {
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep ${toString delay}";
+      ExecStart = command;
+      Restart = "on-abnormal";
+      RestartSec = 5;
+    };
+    Install.WantedBy = ["graphical-session.target"];
+  };
 in {
   imports = [./config.nix ./binds.nix];
   home.packages = with pkgs;
@@ -253,6 +293,8 @@ in {
     uair
     hypridle
     autoShutdown
+    clipboardHistoryStore
+    secureSessionLock
     specialWorkspaceMonitor
     syncSpecialWorkspacesMonitor
     (writeShellApplication {
@@ -261,8 +303,8 @@ in {
         bash
         coreutils
         hyprland
+        jq
         procps
-        ripgrep
         specialWorkspaceMonitor
       ];
       text = ''
@@ -273,7 +315,7 @@ in {
         fi
 
         for _ in $(seq 1 30); do
-          if hyprctl clients | rg -q 'class: (obsidian|Obsidian)$'; then
+          if hyprctl clients -j | jq -e 'any(.[]; (.class | ascii_downcase) == "obsidian")' >/dev/null; then
             monitor="$(special-workspace-monitor)"
             hyprctl dispatch movetoworkspacesilent 'special:tools,class:^(obsidian|Obsidian)$' >/dev/null 2>&1 || true
             hyprctl dispatch moveworkspacetomonitor 'special:tools' "$monitor" >/dev/null 2>&1 || true
@@ -284,80 +326,91 @@ in {
       '';
     })
     (
-      writeShellScriptBin "micmute"
-      ''
-        #!/bin/sh
+      writeShellApplication {
+        name = "micmute";
+        runtimeInputs = [libnotify pamixer];
+        text = ''
+          set -euo pipefail
 
-        # shellcheck disable=SC2091
-        if $(pamixer --default-source --get-mute); then
-          pamixer --default-source --unmute
-          sudo mic-light-off
-        else
-          pamixer --default-source --mute
-          sudo mic-light-on
-        fi
-      ''
+          if [ "$(pamixer --default-source --get-mute)" = "true" ]; then
+            pamixer --default-source --unmute
+            notify-send -t 1500 "Microphone" "Unmuted"
+          else
+            pamixer --default-source --mute
+            notify-send -u critical -t 1500 "Microphone" "Muted"
+          fi
+        '';
+      }
     )
     (
-      writeShellScriptBin "toggle-special-workspace"
-      ''
-        set -eu
+      writeShellApplication {
+        name = "toggle-special-workspace";
+        runtimeInputs = with pkgs; [hyprland jq specialWorkspaceMonitor];
+        text = ''
+          set -eu
 
-        if [ "$#" -ne 1 ]; then
-          exit 2
-        fi
+          if [ "$#" -ne 1 ]; then
+            exit 2
+          fi
 
-        ws="$1"
-        monitor="$(special-workspace-monitor)"
-        current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
+          ws="$1"
+          monitor="$(special-workspace-monitor)"
+          current_monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')"
 
-        if [ "''${current_monitor:-}" != "$monitor" ]; then
-          hyprctl dispatch focusmonitor "$monitor"
-        fi
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
-        hyprctl dispatch togglespecialworkspace "$ws"
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
-      ''
+          if [ "''${current_monitor:-}" != "$monitor" ]; then
+            hyprctl dispatch focusmonitor "$monitor"
+          fi
+          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
+          hyprctl dispatch togglespecialworkspace "$ws"
+          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
+        '';
+      }
     )
     (
-      writeShellScriptBin "move-special-workspace"
-      ''
-        set -eu
+      writeShellApplication {
+        name = "move-special-workspace";
+        runtimeInputs = with pkgs; [hyprland specialWorkspaceMonitor];
+        text = ''
+          set -eu
 
-        if [ "$#" -ne 1 ]; then
-          exit 2
-        fi
+          if [ "$#" -ne 1 ]; then
+            exit 2
+          fi
 
-        ws="$1"
-        monitor="$(special-workspace-monitor)"
-        hyprctl dispatch movetoworkspacesilent "special:$ws"
-        hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
-      ''
+          ws="$1"
+          monitor="$(special-workspace-monitor)"
+          hyprctl dispatch movetoworkspacesilent "special:$ws"
+          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
+        '';
+      }
     )
     (
-      writeShellScriptBin "toggle-obs-special"
-      ''
-        set -eu
+      writeShellApplication {
+        name = "toggle-obs-special";
+        runtimeInputs = with pkgs; [hyprland jq specialWorkspaceMonitor];
+        text = ''
+          set -eu
 
-        monitor="$(special-workspace-monitor)"
-        current_monitor="$(hyprctl monitors | awk '/^Monitor / {m=$2} /focused: yes/ {print m; exit}')"
-        if [ "''${current_monitor:-}" != "$monitor" ]; then
-          hyprctl dispatch focusmonitor "$monitor"
-        fi
+          monitor="$(special-workspace-monitor)"
+          current_monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')"
+          if [ "''${current_monitor:-}" != "$monitor" ]; then
+            hyprctl dispatch focusmonitor "$monitor"
+          fi
 
-        if hyprctl clients | rg -q 'class: (obs|OBS|com.obsproject.Studio)$'; then
-          hyprctl dispatch movetoworkspacesilent "special:obs,class:^(obs|OBS|com\\.obsproject\\.Studio)$"
-          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-          hyprctl dispatch togglespecialworkspace obs
-          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-        else
-          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-          hyprctl dispatch togglespecialworkspace obs
-          hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-          hyprctl dispatch exec "obs"
-        fi
+          if hyprctl clients -j | jq -e 'any(.[]; (.class | ascii_downcase) == "obs" or .class == "com.obsproject.Studio")' >/dev/null; then
+            hyprctl dispatch movetoworkspacesilent "special:obs,class:^(obs|OBS|com\\.obsproject\\.Studio)$"
+            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
+            hyprctl dispatch togglespecialworkspace obs
+            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
+          else
+            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
+            hyprctl dispatch togglespecialworkspace obs
+            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
+            hyprctl dispatch exec "obs"
+          fi
 
-      ''
+        '';
+      }
     )
   ];
 
@@ -376,8 +429,8 @@ in {
       systemdTarget = "graphical-session.target";
       settings = {
         general = {
-          lock_cmd = "${quickshellIpc}/bin/quickshell-ipc lock lock";
-          before_sleep_cmd = "${quickshellIpc}/bin/quickshell-ipc lock lock";
+          lock_cmd = lib.getExe secureSessionLock;
+          before_sleep_cmd = lib.getExe secureSessionLock;
           after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
           ignore_dbus_inhibit = false;
           ignore_systemd_inhibit = false;
@@ -399,7 +452,7 @@ in {
           }
           {
             timeout = 1800;
-            on-timeout = "${pkgs.systemd}/bin/systemctl suspend";
+            on-timeout = lib.getExe suspendAtNight;
           }
         ];
       };
@@ -415,6 +468,64 @@ in {
       systemdTarget = "graphical-session.target";
     };
   };
+  programs.hyprlock = {
+    enable = true;
+    settings = {
+      general = {
+        disable_loading_bar = true;
+        hide_cursor = true;
+        ignore_empty_input = true;
+      };
+      background = [
+        {
+          monitor = "";
+          path = "screenshot";
+          blur_passes = 3;
+          blur_size = 8;
+        }
+      ];
+      label = [
+        {
+          monitor = "";
+          text = "cmd[update:1000] date +'%H:%M'";
+          color = "rgb(${config.lib.stylix.colors.base05})";
+          font_family = "Lexend";
+          font_size = 68;
+          position = "0, 120";
+          halign = "center";
+          valign = "center";
+        }
+        {
+          monitor = "";
+          text = "cmd[update:60000] date +'%A, %d %B'";
+          color = "rgb(${config.lib.stylix.colors.base04})";
+          font_family = "Lexend";
+          font_size = 18;
+          position = "0, 62";
+          halign = "center";
+          valign = "center";
+        }
+      ];
+      input-field = [
+        {
+          monitor = "";
+          size = "360, 54";
+          position = "0, -35";
+          dots_center = true;
+          fade_on_empty = false;
+          font_color = "rgb(${config.lib.stylix.colors.base05})";
+          inner_color = "rgb(${config.lib.stylix.colors.base02})";
+          outer_color = "rgb(${config.lib.stylix.colors.base0D})";
+          check_color = "rgb(${config.lib.stylix.colors.base0A})";
+          fail_color = "rgb(${config.lib.stylix.colors.base08})";
+          outline_thickness = 2;
+          placeholder_text = "Password";
+          fail_text = "Authentication failed";
+        }
+      ];
+    };
+  };
+  stylix.targets.hyprlock.enable = false;
   systemd.user = {
     services = {
       hyprland-dp2-fix = {
@@ -431,91 +542,42 @@ in {
           WantedBy = ["graphical-session.target"];
         };
       };
-      hypridle.Service.ExecStartPre = "${pkgs.bash}/bin/bash -c 'test \"$(${pkgs.coreutils}/bin/date +%%H)\" -lt 7 -o \"$(${pkgs.coreutils}/bin/date +%%H)\" -ge 22'";
-      hypridle-stop-daytime = {
-        Unit.Description = "Stop hypridle during daytime";
+      cliphist-store = {
+        Unit = {
+          Description = "Store Wayland clipboard history";
+          After = ["graphical-session.target"];
+          PartOf = ["graphical-session.target"];
+        };
         Service = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.systemd}/bin/systemctl --user stop hypridle.service";
+          ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${lib.getExe clipboardHistoryStore}";
+          Restart = "always";
+          RestartSec = 2;
         };
+        Install.WantedBy = ["graphical-session.target"];
       };
-      hypridle-start-nighttime = {
-        Unit.Description = "Start hypridle at night";
+      auto-shutdown = {
+        Unit = {
+          Description = "Power off overnight unless cancelled from the Quickshell widget";
+          After = ["graphical-session.target"];
+          PartOf = ["graphical-session.target"];
+        };
         Service = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.systemd}/bin/systemctl --user start hypridle.service";
+          ExecStart = lib.getExe autoShutdown;
+          Restart = "always";
+          RestartSec = 10;
         };
+        Install.WantedBy = ["graphical-session.target"];
       };
+      autostart-kdeconnect = graphicalAutostart "${lib.getExe' pkgs.kdePackages.kdeconnect-kde "kdeconnect-indicator"}" 2;
+      autostart-signal = graphicalAutostart (lib.getExe pkgs.signal-desktop) 4;
+      autostart-ferdium = graphicalAutostart (lib.getExe' pkgs.ferdium "ferdium") 6;
+      autostart-t3code = graphicalAutostart "${config.home.profileDirectory}/bin/t3code-desktop" 8;
+      autostart-helium = graphicalAutostart "${config.home.profileDirectory}/bin/helium" 10;
     };
-    timers = {
-      hypridle-stop-daytime = {
-        Unit.Description = "Stop hypridle at 07:00";
-        Timer = {
-          OnCalendar = "*-*-* 07:00:00";
-          Persistent = true;
-        };
-        Install.WantedBy = ["timers.target"];
-      };
-      hypridle-start-nighttime = {
-        Unit.Description = "Start hypridle at 22:00";
-        Timer = {
-          OnCalendar = "*-*-* 22:00:00";
-          Persistent = true;
-        };
-        Install.WantedBy = ["timers.target"];
-      };
-    };
-  };
-  # fake a tray to let apps start
-  # https://github.com/nix-community/home-manager/issues/2064
-  systemd.user.services.ydotoold = {
-    Unit = {
-      Description = "ydotool daemon";
-      PartOf = ["graphical-session.target"];
-    };
-    Service = {
-      ExecStart = "${pkgs.ydotool}/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-own";
-      Restart = "on-failure";
-      RestartSec = 1;
-    };
-    Install = {
-      WantedBy = ["graphical-session.target"];
-    };
-  };
-  systemd.user.services.cliphist-store = {
-    Unit = {
-      Description = "Store Wayland clipboard history";
-      After = ["graphical-session.target"];
-      PartOf = ["graphical-session.target"];
-    };
-    Service = {
-      ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store";
-      Restart = "always";
-      RestartSec = 2;
-    };
-    Install = {
-      WantedBy = ["graphical-session.target"];
-    };
-  };
-  systemd.user.targets.tray = {
-    Unit = {
+    # Some tray applications still wait for this compatibility target.
+    targets.tray.Unit = {
       Description = "Home Manager System Tray";
       Requires = ["graphical-session-pre.target"];
-    };
-  };
-  systemd.user.services.auto-shutdown = {
-    Unit = {
-      Description = "Power off overnight unless cancelled from the Quickshell widget";
-      After = ["graphical-session.target"];
-      PartOf = ["graphical-session.target"];
-    };
-    Service = {
-      ExecStart = lib.getExe autoShutdown;
-      Restart = "always";
-      RestartSec = 10;
-    };
-    Install = {
-      WantedBy = ["graphical-session.target"];
     };
   };
 }

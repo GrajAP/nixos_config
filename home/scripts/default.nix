@@ -1,6 +1,10 @@
 {pkgs, ...}: {
   home.packages = [
-    (pkgs.writeShellScriptBin "bcn" (builtins.readFile ./bcn))
+    (pkgs.writeShellApplication {
+      name = "bcn";
+      runtimeInputs = with pkgs; [bluez coreutils fuzzel gawk libnotify gnused];
+      text = builtins.readFile ./bcn;
+    })
     (pkgs.writeShellScriptBin "katana-switch" (builtins.readFile ./katana-switch))
   ];
 }

@@ -29,36 +29,15 @@
 
   nixpkgs = {
     config = {
-      # Wolność kocham i rozumiem
-      # Wolności oddać nie umiem
-      # <3333
+      # Desktop applications and proprietary firmware require unfree packages.
       allowUnfree = true;
     };
 
     overlays = [
-      # workaround for: https://github.com/NixOS/nixpkgs/issues/154163
-      (_: super: {
-        makeModulesClosure = x:
-          super.makeModulesClosure (x // {allowMissing = true;});
-      })
-      # Fix folly build with GCC 15 / CMake 4
-      (final: prev: {
-        folly = prev.folly.overrideAttrs (old: {
-          cmakeFlags =
-            (old.cmakeFlags or [])
-            ++ [
-              "-DBUILD_TESTS=OFF"
-              "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
-            ];
-          env =
-            (old.env or {})
-            // {
-              NIX_CFLAGS_COMPILE = (old.env.NIX_CFLAGS_COMPILE or "") + " -Wno-error";
-            };
-        });
-      })
-      # Fix catppuccin-gtk build with Python 3.14 argparse
-      (final: prev: {
+      # 2026-07-13: catppuccin-gtk still uses a Python 3.14-incompatible
+      # argparse declaration. Remove after nixpkgs builds catppuccin-gtk
+      # without this patch.
+      (_: prev: {
         catppuccin-gtk = prev.catppuccin-gtk.overrideAttrs (old: {
           postPatch =
             (old.postPatch or "")
@@ -67,20 +46,17 @@
             '';
         });
       })
-      # Work around Python 3.14 regressions in package tests
-      (final: prev: {
+      # 2026-07-13: the package imports a removed matplotlib.style.core API
+      # during its checks. Scope the exception to this package only.
+      (_: prev: {
         pythonPackagesExtensions =
           (prev.pythonPackagesExtensions or [])
           ++ [
-            (python-final: python-prev: {
-              click-threading = python-prev.click-threading.overridePythonAttrs (_: {
-                doCheck = false;
-                doInstallCheck = false;
-              });
+            (_: python-prev: {
               catppuccin = python-prev.catppuccin.overridePythonAttrs (_: {
                 doCheck = false;
-                pythonImportsCheck = [];
                 doInstallCheck = false;
+                pythonImportsCheck = [];
               });
             })
           ];
@@ -108,8 +84,7 @@
     # pin the registry to avoid downloading and evaling a new nixpkgs version every time
     registry = lib.mapAttrs (_: v: {flake = v;}) inputs;
 
-    # This will additionally add your inputs to the system's legacy channels
-    # Making legacy nix commands consistent as well, awesome!
+    # Keep legacy NIX_PATH evaluation pinned to the flake input.
     #nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
     nixPath = ["nixpkgs=${inputs.nixpkgs}"];
 
@@ -124,9 +99,8 @@
       auto-optimise-store = true;
       # use binary cache, its not gentoo
       builders-use-substitutes = true;
-      # allow sudo users to mark the following values as trusted
       allowed-users = ["@wheel"];
-      trusted-users = ["@wheel"];
+      trusted-users = ["root"];
       sandbox = true;
       max-jobs = "auto";
       # continue building derivations if one fails
@@ -163,6 +137,7 @@
       randomizedDelaySec = "45min";
       allowReboot = false;
     };
-    stateVersion = "24.11"; # DONT TOUCH THIS
+    # Keep this at the release used for the initial installation.
+    stateVersion = "24.11";
   };
 }

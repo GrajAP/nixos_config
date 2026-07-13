@@ -16,14 +16,12 @@ in {
       cleanOnBoot = true;
       useTmpfs = false;
     };
-    # some kernel parameters, i dont remember what half of this shit does but who cares
     consoleLogLevel = mkDefault 0;
     initrd.verbose = false;
     kernelPackages = mkDefault pkgs.linuxPackages_zen;
     kernelParams = [
       "8250.nr_uarts=0"
       "psmouse.synaptics_intertouch=1"
-      "intel_pstate=disable"
       # One Realtek RTS5765DL NVMe controller can stay in a not-ready state
       # during Linux probe; avoid aggressive PCIe/NVMe power management so the
       # Windows disk behind it has a chance to enumerate before GRUB/Linux use it.
@@ -33,8 +31,6 @@ in {
       "pcie_aspm=off"
     ];
     extraModprobeConfig = ''
-      options i915 enable_fbc=1 enable_guc=2
-      options snd-intel-dspcfg dsp_driver=1
       options snd_hda_intel enable=1,1 power_save=1 power_save_controller=Y
     '';
     supportedFilesystems = ["ntfs"];
@@ -44,9 +40,9 @@ in {
       timeout = 1;
       grub = {
         enable = true;
-        default = 1;
+        default = "saved";
         device = "nodev";
-        useOSProber = true;
+        useOSProber = false;
         efiSupport = true;
         extraConfig = ''
           # Dual-boot Windows entry without running os-prober at boot.

@@ -13,7 +13,6 @@
     syntaxHighlighting.enable = true;
     sessionVariables = {
       ZSH_AUTOSUGGEST_USE_ASYNC = "true";
-      SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh";
     };
     history = {
       save = 2137;
@@ -35,8 +34,6 @@
 
     shellAliases = import ./aliases.nix {inherit pkgs lib config;};
     initContent = ''
-      alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-
       if command -v t3code-notify >/dev/null 2>&1; then
         alias t3code=t3code-notify
       fi

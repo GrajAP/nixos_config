@@ -1,19 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
-cd /etc/nixos/
 
-alejandra /etc/nixos/ &>/dev/null \
-  || ( alejandra /etc/nixos/ ; echo "formatting failed!" && exit 1 )
+cd /etc/nixos
 
-git add -A
+echo "Checking flake"
+nix flake check
 
-echo "NixOS Rebuilding..."
+echo "Building system"
+nix build .#nixosConfigurations.grajpap.config.system.build.toplevel --no-link
 
-nix-channel --update
-nh os switch --update
-nh clean all --keep 3
-
-git commit -m "$(date '+%Y-%m-%d %H:%M')"
-
-echo "Rebuild finished"
-git push -u origin main
+echo "Applying validated system"
+nh os switch

@@ -1,119 +1,41 @@
-{
-  pkgs,
-  lib,
-  ...
-}: let
-  texlive = pkgs.texliveSmall.withPackages (ps: [
-    ps.scheme-small
-    ps.noto
-    ps.mweights
-    ps.cm-super
-    ps.cmbright
-    ps.fontaxes
-    ps.beamer
-  ]);
-in {
+{pkgs, ...}: {
   home.packages = with pkgs; [
-    fastfetch
-    texlive
-    python3
-    clang
-    gdb
-    ddd
-    valgrind
-    gprof2dot
-    nodejs
-    bun
-    #    nodePackages.typescript
-    watchman
-    #   nodePackages.eas-cli # Expo Application Services CLI
-    lsix
-    docker-compose
-    rustup
-    neovim
-    opencode
-    gitleaks
-    killall
-    zoxide
-    wget
-    # Tbh should be preinstalled
-    gnumake
-    # Runs programs without installing them
-    comma
-
-    cloudflared
-    # grep replacement
-    ripgrep
-
-    # ping, but with cool graph
-    gping
-
-    # dns client
-
-    # neofetch but for git repos
-    onefetch
-
-    vdirsyncer
-    #khal
-    # neofetch but for cpu's
-    cpufetch
-
-    poppler-utils
-
     audacity
-
-    # download from yt and other websites
-    yt-dlp
     catimg
-
-    # man pages for tiktok attention span mfs
-    tealdeer
-
-    # markdown previewer
-    glow
-
-    # profiling tool
-    hyperfine
-
-    # gimp for acoustic people
-    #krita
-
-    # premiere pro for acoustic people
-    ffmpeg-full
-
-    # networking stuff
-    nmap
-    wget
-
-    # faster find
-    fd
-
-    # http request thingy
-    xh
-
-    grex
-
-    # todo app for acoustic people (wrriten by me :3)
-    todo
-
-    # json thingy
-    jq
-
+    cloudflared
+    comma
+    cpufetch
     doppler
-    # syncthnig for acoustic people
-    rsync
-
+    fastfetch
+    fd
+    ffmpeg-full
     figlet
-    # Generate qr codes
-    qrencode
-
-    # script kidde stuff
-    hcxdumptool
+    gitleaks
+    glow
+    gping
+    grex
     hashcat
-
+    hcxdumptool
+    hyperfine
+    jq
+    killall
+    lsix
+    neovim
+    nmap
+    onefetch
+    opencode
+    poppler-utils
+    qrencode
+    ripgrep
+    rsync
+    tealdeer
+    todo
     unzip
+    vdirsyncer
+    wget
+    xh
+    yt-dlp
     zip
-    # tshark
-    # termshark
+    zoxide
   ];
 }

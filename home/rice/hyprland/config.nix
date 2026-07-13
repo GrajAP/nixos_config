@@ -7,18 +7,13 @@
     enable = true;
     configType = "hyprlang";
     settings = {
-      exec-once = [
-        "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-        "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-        "brightnessctl set 100%"
-        "${lib.optionalString config.programs.foot.server.enable "foot --server"}"
-        "kdeconnect-indicator &"
-        "signal-desktop &"
-        "ferdium &"
-        "t3code-desktop &"
-        "sync-special-workspaces-monitor &"
-        "helium &"
-      ];
+      exec-once =
+        [
+          "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
+          "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
+          "brightnessctl set 100%"
+        ]
+        ++ lib.optional config.programs.foot.server.enable "foot --server";
       env = [
         "XCURSOR_THEME,catppuccin-mocha-blue-cursors"
         "XCURSOR_SIZE,24"
@@ -34,10 +29,6 @@
         gaps_out = 3;
         border_size = 2;
         layout = "scrolling";
-      };
-
-      master = {
-        mfact = "0.6i";
       };
 
       decoration = {
@@ -82,34 +73,31 @@
         disable_autoreload = true;
       };
 
-      animations.enabled = true;
-      animations.bezier = [
-        "nativeOut,0.16,1,0.3,1"
-        "nativeIn,0.32,0,0.67,0"
-        "nativePanel,0.22,1,0.36,1"
-        "softOvershoot,0.34,1.18,0.64,1"
-      ];
-      animations.animation = [
-        "windows,1,4,nativePanel,popin 88%"
-        "windowsOut,1,3,nativeIn,popin 92%"
-        "border,1,8,nativeOut"
-        "fade,1,7,nativeOut"
-        "fadeDim,1,7,nativeOut"
-        "workspaces,1,4,nativePanel,slidevert"
-        "specialWorkspace,1,4,softOvershoot,slidevert"
-      ];
-
-      dwindle = {
-        preserve_split = "yes";
+      animations = {
+        enabled = true;
+        bezier = [
+          "nativeOut,0.16,1,0.3,1"
+          "nativeIn,0.32,0,0.67,0"
+          "nativePanel,0.22,1,0.36,1"
+          "softOvershoot,0.34,1.18,0.64,1"
+        ];
+        animation = [
+          "windows,1,4,nativePanel,popin 88%"
+          "windowsOut,1,3,nativeIn,popin 92%"
+          "border,1,8,nativeOut"
+          "fade,1,7,nativeOut"
+          "fadeDim,1,7,nativeOut"
+          "workspaces,1,4,nativePanel,slidevert"
+          "specialWorkspace,1,4,softOvershoot,slidevert"
+        ];
       };
-      "$kw" = "dwindle:no_gaps_when_only";
+
       workspace = [
         "1, monitor:DP-1, default:true"
         "2, monitor:DP-1"
         "3, monitor:DP-1"
         "4, monitor:DP-1"
         "5, monitor:DP-1"
-        "m[DP-2], layoutopt:direction:down"
         "m[DP-2], layoutopt:direction:down"
         "m[HDMI-A-1], layoutopt:direction:down"
         "m[DP-1], layoutopt:direction:right"

@@ -41,33 +41,34 @@
     "application/vnd.oasis.opendocument.presentation" = ["impress.desktop"];
   };
 in {
-  xdg.dataFile."applications/helium.desktop".text = ''
-    [Desktop Entry]
-    Name=Helium
-    GenericName=Web Browser
-    Comment=Privacy-focused web browser
-    Exec=helium --profile-path="${heliumProfilePath}"
-    Terminal=false
-    Type=Application
-    Categories=Network;WebBrowser;
-    MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
-  '';
-
-  # Ferdium hosts Proton Mail and receives mailto links as the system email app.
-  xdg.dataFile."applications/proton-mail.desktop".text = ''
-    [Desktop Entry]
-    Name=Proton Mail (Ferdium)
-    GenericName=Email Client
-    Comment=Open email links with Proton Mail in Ferdium
-    Exec=ferdium %U
-    Icon=ferdium
-    Terminal=false
-    Type=Application
-    Categories=Network;Email;
-    MimeType=x-scheme-handler/mailto;
-  '';
-
   xdg = {
+    dataFile = {
+      "applications/helium.desktop".text = ''
+        [Desktop Entry]
+        Name=Helium
+        GenericName=Web Browser
+        Comment=Privacy-focused web browser
+        Exec=helium --profile-path="${heliumProfilePath}" %U
+        Icon=helium
+        Terminal=false
+        Type=Application
+        Categories=Network;WebBrowser;
+        MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+      '';
+      # Ferdium hosts Proton Mail and receives mailto links as the system email app.
+      "applications/proton-mail.desktop".text = ''
+        [Desktop Entry]
+        Name=Proton Mail (Ferdium)
+        GenericName=Email Client
+        Comment=Open email links with Proton Mail in Ferdium
+        Exec=ferdium %U
+        Icon=ferdium
+        Terminal=false
+        Type=Application
+        Categories=Network;Email;
+        MimeType=x-scheme-handler/mailto;
+      '';
+    };
     userDirs = {
       enable = true;
       setSessionVariables = true;
@@ -80,8 +81,10 @@ in {
       publicShare = "$HOME/other";
       templates = "$HOME/other";
     };
-    mimeApps.enable = true;
-    mimeApps.associations.added = associations;
-    mimeApps.defaultApplications = associations;
+    mimeApps = {
+      enable = true;
+      associations.added = associations;
+      defaultApplications = associations;
+    };
   };
 }
