@@ -5,6 +5,9 @@ import qs
 
 ColumnLayout {
   required property var shell
+  // OpenAI currently does not enforce the 5-hour windows. Keep their cards
+  // available so they can be restored by changing this flag to true.
+  readonly property bool showFiveHourLimits: false
 
   Layout.fillWidth: true
   Layout.fillHeight: true
@@ -55,6 +58,7 @@ ColumnLayout {
     model: shell.codexUsage ? [
       {
         label: "Codex primary",
+        fiveHourLimit: true,
         metric: "used",
         usedKey: "codexPrimaryUsedPercent",
         availableKey: "codexPrimaryAvailablePercent",
@@ -63,6 +67,7 @@ ColumnLayout {
       },
       {
         label: "Codex secondary",
+        fiveHourLimit: false,
         metric: "used",
         usedKey: "codexSecondaryUsedPercent",
         availableKey: "codexSecondaryAvailablePercent",
@@ -71,6 +76,7 @@ ColumnLayout {
       },
       {
         label: "GPT-5.3-Codex-Spark",
+        fiveHourLimit: true,
         metric: "used",
         usedKey: "sparkPrimaryUsedPercent",
         availableKey: "sparkPrimaryAvailablePercent",
@@ -79,13 +85,14 @@ ColumnLayout {
       },
       {
         label: "Spark secondary",
+        fiveHourLimit: false,
         metric: "used",
         usedKey: "sparkSecondaryUsedPercent",
         availableKey: "sparkSecondaryAvailablePercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
       }
-    ] : []
+    ].filter(limit => showFiveHourLimits || !limit.fiveHourLimit) : []
 
     Rectangle {
       id: usageCard

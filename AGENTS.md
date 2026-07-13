@@ -2,7 +2,12 @@ This is a NixOS machine.
 
 Edit files under /etc/nixos, then run:
 
-nh os switch
+systemctl start t3code-os-switch.service
+
+This is the passwordless agent path. The root-owned service runs the checks,
+builds the candidate generation as `grajpap`, validates its store path, and
+then activates it. Do not use `sudo`, embed a password, or call
+`switch-to-configuration` directly.
 
 ## Git workflow
 
@@ -13,11 +18,11 @@ nh os switch
 
 ## Validation before switching
 
-Run checks before `nh os switch` so broken config never becomes the active system:
+Run checks before starting `t3code-os-switch.service` so broken config never becomes the active system:
 
 1. `nix flake check`
 2. `nix build .#nixosConfigurations.grajpap.config.system.build.toplevel`
-3. `nh os switch`
+3. `systemctl start t3code-os-switch.service`
 
 If a check fails, fix the config first. Do not switch a known broken generation.
 

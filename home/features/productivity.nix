@@ -3,15 +3,25 @@
   pkgs,
   ...
 }: let
+  t3codeCatppuccin = pkgs.runCommand "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-catppuccin-mocha-blue" {} ''
+    cp -a ${pkgs.t3code} "$out"
+    chmod -R u+w "$out"
+
+    client="$out/libexec/t3code/apps/server/dist/client"
+    cp ${./t3code-catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
+    substituteInPlace "$client/index.html" \
+      --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
+  '';
+
   t3codeNoSandbox = pkgs.symlinkJoin {
     name = "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-no-sandbox";
-    paths = [pkgs.t3code];
+    paths = [t3codeCatppuccin];
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
       rm -f "$out/bin/t3code-desktop"
       makeWrapper ${lib.getExe pkgs.electron} "$out/bin/t3code-desktop" \
         --add-flags "--no-sandbox" \
-        --add-flags "${pkgs.t3code}/libexec/t3code/apps/desktop/dist-electron/main.cjs" \
+        --add-flags "${t3codeCatppuccin}/libexec/t3code/apps/desktop/dist-electron/main.cjs" \
         --prefix PATH : "${lib.makeBinPath [pkgs.codex pkgs.gh pkgs.git]}"
     '';
   };
