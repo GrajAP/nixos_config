@@ -14,6 +14,9 @@
   ];
 
   networking.hostName = "grajpap";
+  # Keep the desktop responsive while avoiding unnecessarily aggressive boost
+  # clocks during light and background workloads.
+  powerManagement.cpuFreqGovernor = "powersave";
   services = {
     kanata = {
       enable = true;
@@ -65,8 +68,8 @@
     };
     fprintd.enable = true;
     xserver.videoDrivers = ["amdgpu"];
-    thermald.enable = true;
   };
+
   boot = {
     kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
     kernelModules = ["acpi_call"];
