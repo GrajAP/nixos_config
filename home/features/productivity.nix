@@ -10,7 +10,13 @@
     client="$out/libexec/t3code/apps/server/dist/client"
     cp ${./t3code-catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
     substituteInPlace "$client/index.html" \
+      --replace-fail '#161616' '#1e1e2e' \
       --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
+
+    main_js=("$client"/assets/index-*.js)
+    substituteInPlace "''${main_js[0]}" \
+      --replace-fail 'var vG={light:`pierre-light`,dark:`pierre-dark`}' \
+      'var vG={light:`catppuccin-latte`,dark:`catppuccin-mocha`}'
   '';
 
   t3codeNoSandbox = pkgs.symlinkJoin {

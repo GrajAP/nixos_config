@@ -1,7 +1,60 @@
 /* Catppuccin Mocha, blue accent: https://catppuccin.com/palette */
 :root,
-.dark {
+:root:is(.dark, .dark *) {
   color-scheme: dark;
+
+  /* Tailwind utilities used directly by T3 Code. */
+  --color-neutral-100: #cdd6f4;
+  --color-neutral-500: #6c7086;
+  --color-neutral-800: #45475a;
+  --color-neutral-950: #11111b;
+  --color-zinc-400: #9399b2;
+  --color-zinc-500: #7f849c;
+  --color-red-400: #f38ba8;
+  --color-red-500: #f38ba8;
+  --color-red-700: #eba0ac;
+  --color-orange-500: #fab387;
+  --color-amber-200: #f9e2af;
+  --color-amber-300: #f9e2af;
+  --color-amber-400: #f9e2af;
+  --color-amber-500: #f9e2af;
+  --color-amber-600: #e5c890;
+  --color-amber-700: #df8e1d;
+  --color-amber-800: #b86b00;
+  --color-yellow-500: #f9e2af;
+  --color-yellow-600: #e5c890;
+  --color-lime-500: #a6e3a1;
+  --color-green-500: #a6e3a1;
+  --color-emerald-300: #a6e3a1;
+  --color-emerald-400: #a6e3a1;
+  --color-emerald-500: #a6e3a1;
+  --color-emerald-600: #94c994;
+  --color-emerald-700: #40a02b;
+  --color-cyan-500: #89dceb;
+  --color-sky-300: #89dceb;
+  --color-sky-500: #89dceb;
+  --color-sky-600: #74c7ec;
+  --color-teal-300: #94e2d5;
+  --color-teal-500: #94e2d5;
+  --color-teal-600: #81c8be;
+  --color-blue-300: #89b4fa;
+  --color-blue-400: #89b4fa;
+  --color-blue-500: #89b4fa;
+  --color-blue-700: #1e66f5;
+  --color-indigo-300: #b4befe;
+  --color-indigo-500: #b4befe;
+  --color-indigo-600: #8caaee;
+  --color-purple-500: #cba6f7;
+  --color-violet-300: #cba6f7;
+  --color-violet-500: #cba6f7;
+  --color-violet-600: #babbf1;
+  --color-fuchsia-300: #f5c2e7;
+  --color-fuchsia-500: #cba6f7;
+  --color-fuchsia-700: #8839ef;
+  --color-pink-500: #f5c2e7;
+  --color-rose-500: #f38ba8;
+
+  /* T3 Code semantic surfaces. */
   --background: #1e1e2e;
   --app-chrome-background: #181825;
   --foreground: #cdd6f4;
@@ -28,6 +81,16 @@
   --success-foreground: #a6e3a1;
   --warning: #f9e2af;
   --warning-foreground: #f9e2af;
+}
+
+html {
+  background-color: var(--app-chrome-background) !important;
+}
+
+body,
+html.dark body {
+  background: var(--background);
+  color: var(--foreground);
 }
 
 ::-webkit-scrollbar-thumb {
