@@ -936,7 +936,9 @@ ShellRoot {
   }
   function codexUsageValue(key) {
     if (!root.codexUsage) return null;
-    const value = Number(root.codexUsage[key]);
+    const rawValue = root.codexUsage[key];
+    if (rawValue === null || rawValue === undefined || rawValue === "") return null;
+    const value = Number(rawValue);
     return Number.isFinite(value) ? value : null;
   }
   function codexUsageRemainingPercent(value) {

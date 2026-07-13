@@ -58,7 +58,6 @@ ColumnLayout {
     model: shell.codexUsage ? [
       {
         label: "Codex primary",
-        fiveHourLimit: true,
         metric: "used",
         usedKey: "codexPrimaryUsedPercent",
         availableKey: "codexPrimaryAvailablePercent",
@@ -67,7 +66,6 @@ ColumnLayout {
       },
       {
         label: "Codex secondary",
-        fiveHourLimit: false,
         metric: "used",
         usedKey: "codexSecondaryUsedPercent",
         availableKey: "codexSecondaryAvailablePercent",
@@ -76,7 +74,6 @@ ColumnLayout {
       },
       {
         label: "GPT-5.3-Codex-Spark",
-        fiveHourLimit: true,
         metric: "used",
         usedKey: "sparkPrimaryUsedPercent",
         availableKey: "sparkPrimaryAvailablePercent",
@@ -85,14 +82,18 @@ ColumnLayout {
       },
       {
         label: "Spark secondary",
-        fiveHourLimit: false,
         metric: "used",
         usedKey: "sparkSecondaryUsedPercent",
         availableKey: "sparkSecondaryAvailablePercent",
         resetKey: "sparkSecondaryResetsAt",
         windowKey: "sparkSecondaryWindowMinutes"
       }
-    ].filter(limit => showFiveHourLimits || !limit.fiveHourLimit) : []
+    ].filter(limit => {
+      const used = shell.codexUsageValue(limit.usedKey);
+      if (used === null) return false;
+      const windowMinutes = shell.codexUsageValue(limit.windowKey);
+      return showFiveHourLimits || windowMinutes !== 5 * 60;
+    }) : []
 
     Rectangle {
       id: usageCard
