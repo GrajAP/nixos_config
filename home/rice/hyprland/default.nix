@@ -431,7 +431,7 @@ in {
           WantedBy = ["graphical-session.target"];
         };
       };
-      hypridle.Service.ExecStartPre = "${pkgs.bash}/bin/bash -c 'hour=\"$(${pkgs.coreutils}/bin/date +%H)\"; test \"$hour\" -lt 7 -o \"$hour\" -ge 22'";
+      hypridle.Service.ExecStartPre = "${pkgs.bash}/bin/bash -c 'test \"$(${pkgs.coreutils}/bin/date +%%H)\" -lt 7 -o \"$(${pkgs.coreutils}/bin/date +%%H)\" -ge 22'";
       hypridle-stop-daytime = {
         Unit.Description = "Stop hypridle during daytime";
         Service = {
