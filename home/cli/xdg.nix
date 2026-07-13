@@ -1,7 +1,30 @@
-{config, ...}: let
+{
+  config,
+  pkgs,
+  ...
+}: let
   browser = ["helium.desktop"];
   mail = ["proton-mail.desktop"];
   heliumProfilePath = "${config.home.homeDirectory}/.config/net.imput.helium/Default";
+  protonMailHandler = pkgs.writeShellApplication {
+    name = "proton-mail-handler";
+    runtimeInputs = [pkgs.jq];
+    text = ''
+      uri="''${1:-mailto:}"
+      case "$uri" in
+        mailto:*) ;;
+        *)
+          echo "proton-mail-handler: expected a mailto URI" >&2
+          exit 2
+          ;;
+      esac
+
+      encoded_uri="$(jq -nr --arg uri "$uri" '$uri | @uri')"
+      exec helium \
+        --profile-path="${heliumProfilePath}" \
+        "https://mail.proton.me/inbox/#mailto=$encoded_uri"
+    '';
+  };
 
   associations = {
     "text/html" = browser;
@@ -55,14 +78,14 @@ in {
         Categories=Network;WebBrowser;
         MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
       '';
-      # Ferdium hosts Proton Mail and receives mailto links as the system email app.
+      # Proton's web app accepts the percent-encoded mailto URI in this URL's fragment.
       "applications/proton-mail.desktop".text = ''
         [Desktop Entry]
-        Name=Proton Mail (Ferdium)
+        Name=Proton Mail
         GenericName=Email Client
-        Comment=Open email links with Proton Mail in Ferdium
-        Exec=ferdium %U
-        Icon=ferdium
+        Comment=Compose email with Proton Mail in Helium
+        Exec=${protonMailHandler}/bin/proton-mail-handler %u
+        Icon=helium
         Terminal=false
         Type=Application
         Categories=Network;Email;
