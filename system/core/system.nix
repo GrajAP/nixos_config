@@ -156,7 +156,7 @@ in {
     services = {
       t3code-os-switch = {
         description = "Validate and apply /etc/nixos for the local coding agent";
-        path = with pkgs; [git nix nix-output-monitor];
+        path = with pkgs; [git nix nix-output-monitor util-linux];
         serviceConfig = {
           Type = "oneshot";
           WorkingDirectory = "/etc/nixos";
@@ -164,9 +164,23 @@ in {
         script = ''
           set -euo pipefail
 
-          nix flake check
-          nix build .#nixosConfigurations.grajpap.config.system.build.toplevel --no-link
-          exec ${lib.getExe pkgs.nh} os -e none switch /etc/nixos
+          as_user=(runuser -u grajpap -- env HOME=/home/grajpap USER=grajpap LOGNAME=grajpap)
+          "''${as_user[@]}" nix flake check
+          candidate="$("''${as_user[@]}" nix build \
+            .#nixosConfigurations.grajpap.config.system.build.toplevel \
+            --no-link \
+            --print-out-paths)"
+
+          case "$candidate" in
+            /nix/store/*-nixos-system-grajpap-*) ;;
+            *)
+              echo "Refusing unexpected system path: $candidate" >&2
+              exit 1
+              ;;
+          esac
+
+          nix-env --profile /nix/var/nix/profiles/system --set "$candidate"
+          exec "$candidate/bin/switch-to-configuration" switch
         '';
       };
       "getty@tty1".enable = false;
