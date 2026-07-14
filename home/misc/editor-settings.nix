@@ -21,6 +21,10 @@
   "editor.fontLigatures" = true;
   "terminal.integrated.fontFamily" = "JetBrainsMono Nerd Font, monospace";
 
+  "workbench.colorTheme" = "Catppuccin Mocha";
+  "workbench.iconTheme" = "catppuccin-mocha";
+  "catppuccin.accentColor" = "blue";
+
   "typescript.updateImportsOnFileMove.enabled" = "always";
   "typescript.preferences.importModuleSpecifier" = "relative";
   "eslint.validate" = [
@@ -38,5 +42,4 @@
 
   "react-native.showUserTips" = false;
   "react-native.packager.port" = 8081;
-  "workbench.iconTheme" = "catppuccin-vsc-icons";
 }

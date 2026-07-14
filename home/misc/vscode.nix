@@ -6,10 +6,12 @@
   editorSettings = import ./editor-settings.nix;
 in {
   programs.vscode = {
-    enable = true;
+    # Keep the configuration available, but prefer Cursor as the active editor.
+    enable = false;
     profiles.default = {
       extensions = with pkgs.vscode-extensions; [
         bradlc.vscode-tailwindcss
+        catppuccin.catppuccin-vsc
         catppuccin.catppuccin-vsc-icons
         dbaeumer.vscode-eslint
         hars.cppsnippets
