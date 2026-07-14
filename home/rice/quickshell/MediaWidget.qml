@@ -107,7 +107,7 @@ ColumnLayout {
     MouseArea {
       anchors.fill: parent
       cursorShape: Qt.PointingHandCursor
-      onClicked: Quickshell.execDetached(["spotify"])
+      onClicked: Quickshell.execDetached(["@spotifyLauncher@"])
     }
   }
 }

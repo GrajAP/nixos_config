@@ -79,6 +79,50 @@
     ];
     text = builtins.readFile ./scripts/shutdown-timer.sh;
   };
+  spotifyLauncher = pkgs.writeShellApplication {
+    name = "spotify";
+    runtimeInputs = with pkgs; [
+      coreutils
+      hyprland
+      jq
+    ];
+    text = ''
+      set -euo pipefail
+
+      spotify_client_exists() {
+        hyprctl clients -j \
+          | jq -e 'any(.[]; ((.class // "") | ascii_downcase) == "spotify")' \
+          >/dev/null
+      }
+
+      if ! spotify_client_exists; then
+        # Spotify 1.2.90 repeatedly loses its Chromium GPU process on this AMD
+        # system. Avoiding the zygote keeps the GPU process usable.
+        /run/current-system/sw/bin/spotify --no-zygote "$@" >/dev/null 2>&1 &
+      fi
+
+      for _ in $(seq 1 30); do
+        spotify_client_exists && break
+        sleep 0.25
+      done
+
+      spotify_client_exists || exit 1
+
+      visible_monitor="$(
+        hyprctl monitors -j \
+          | jq -r '.[] | select((.specialWorkspace.name // "") == "special:tools") | .name' \
+          | head -n1
+      )"
+
+      if [[ -z "$visible_monitor" ]]; then
+        toggle-special-workspace tools
+      else
+        hyprctl dispatch focusmonitor "$visible_monitor" >/dev/null
+      fi
+
+      hyprctl dispatch focuswindow 'class:^(Spotify|spotify)$' >/dev/null
+    '';
+  };
   quickshellIpc = pkgs.writeShellApplication {
     name = "quickshell-ipc";
     runtimeInputs = with pkgs; [
@@ -104,6 +148,9 @@
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
     keybindHelp = builtins.toJSON keybinds.help;
+  };
+  mediaWidgetConfig = pkgs.replaceVars ./MediaWidget.qml {
+    spotifyLauncher = "${spotifyLauncher}/bin/spotify";
   };
   themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton
@@ -217,7 +264,7 @@
     }
     {
       name = "MediaWidget.qml";
-      path = ./MediaWidget.qml;
+      path = mediaWidgetConfig;
     }
     {
       name = "NotificationCenter.qml";
@@ -256,7 +303,21 @@ in {
   home.packages = with pkgs; [
     quickshell
     quickshellIpc
+    spotifyLauncher
   ];
+
+  xdg.desktopEntries.spotify = {
+    name = "Spotify";
+    genericName = "Music Player";
+    comment = "Listen to music and podcasts";
+    exec = "${spotifyLauncher}/bin/spotify %U";
+    icon = "spotify-client";
+    terminal = false;
+    type = "Application";
+    categories = ["Audio" "Music" "Player" "AudioVideo"];
+    mimeType = ["x-scheme-handler/spotify"];
+    settings.StartupWMClass = "spotify";
+  };
 
   xdg.configFile = {
     "quickshell/shell.qml".source = shellConfig;
@@ -266,7 +327,7 @@ in {
     "quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
     "quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
     "quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
-    "quickshell/MediaWidget.qml".source = ./MediaWidget.qml;
+    "quickshell/MediaWidget.qml".source = mediaWidgetConfig;
     "quickshell/NotificationCenter.qml".source = ./NotificationCenter.qml;
     "quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
     "quickshell/ShutdownWidget.qml".source = ./ShutdownWidget.qml;

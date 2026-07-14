@@ -36,7 +36,6 @@
       (binding "bind" "Windows" "${mod}, C" "killactive" "Close active window")
       (binding "bind" "Windows" "${mod}, V" "togglefloating" "Toggle floating")
       (binding "bind" "Windows" "${mod}, F11" "fullscreen" "Toggle fullscreen")
-      (binding "bind" "Windows" "${mod}, M" "exec, hyprctl dispatch toggleorientation" "Toggle group orientation")
       (binding "bind" "Windows" "${modshift}, H" "movewindow, l" "Move window left")
       (binding "bind" "Windows" "${modshift}, J" "movetoworkspace, +1" "Move window to next workspace")
       (binding "bind" "Windows" "${modshift}, K" "movetoworkspace, -1" "Move window to previous workspace")
