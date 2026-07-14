@@ -3,10 +3,50 @@
   pkgs,
   ...
 }: let
+  t3codeNpm = pkgs.writeShellApplication {
+    name = "npm";
+    runtimeInputs = [pkgs.nodejs];
+    text = ''
+      prefix="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/npm"
+      mkdir -p "$prefix/bin" "$prefix/lib"
+      export npm_config_prefix="$prefix"
+      exec npm "$@"
+    '';
+  };
+
+  t3codeCodex = pkgs.writeShellApplication {
+    name = "codex";
+    text = ''
+      user_codex="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/npm/bin/codex"
+      if [[ -x "$user_codex" ]]; then
+        exec "$user_codex" "$@"
+      fi
+
+      exec ${lib.getExe pkgs.codex} "$@"
+    '';
+  };
+
+  # Present Codex as an npm-managed provider to T3 Code while keeping the
+  # mutable npm installation isolated from the declarative system profile.
+  t3codeProviderTools = pkgs.runCommand "t3code-provider-tools" {} ''
+    mkdir -p "$out/bin" "$out/lib/node_modules/.bin"
+    ln -s ${lib.getExe t3codeNpm} "$out/bin/npm"
+    ln -s ${lib.getExe t3codeCodex} "$out/lib/node_modules/.bin/codex"
+  '';
+
+  providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
+
   t3codeCatppuccin = pkgs.runCommand "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-catppuccin-mocha-blue" {} ''
     mkdir -p "$out"
     cp -aL ${pkgs.t3code}/. "$out/"
     chmod -R u+w "$out"
+
+    # t3code 0.0.28 packages fast-check in pnpm's store but drops the
+    # top-level link needed by Effect during Electron startup.
+    fast_check=$(find "$out/libexec/t3code/node_modules/.pnpm" \
+      -path '*/fast-check@*/node_modules/fast-check' -type d -print -quit)
+    test -n "$fast_check"
+    ln -s "$fast_check" "$out/libexec/t3code/node_modules/fast-check"
 
     client="$out/libexec/t3code/apps/server/dist/client"
     cp ${./t3code-catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
@@ -25,11 +65,14 @@
     paths = [t3codeCatppuccin];
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
-      rm -f "$out/bin/t3code-desktop"
+      rm -f "$out/bin/t3" "$out/bin/t3code-desktop"
+      makeWrapper ${lib.getExe pkgs.nodejs} "$out/bin/t3" \
+        --add-flags "${t3codeCatppuccin}/libexec/t3code/apps/server/dist/bin.mjs" \
+        --prefix PATH : "${providerPath}"
       makeWrapper ${lib.getExe pkgs.electron} "$out/bin/t3code-desktop" \
         --add-flags "--no-sandbox" \
         --add-flags "${t3codeCatppuccin}/libexec/t3code/apps/desktop/dist-electron/main.cjs" \
-        --prefix PATH : "${lib.makeBinPath [pkgs.codex pkgs.gh pkgs.git]}"
+        --prefix PATH : "${providerPath}"
     '';
   };
 

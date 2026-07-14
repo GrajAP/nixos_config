@@ -3,7 +3,42 @@
   config,
   lib,
   ...
-}: {
+}: let
+  kanataCs2Guard = pkgs.writeShellApplication {
+    name = "kanata-cs2-guard";
+    runtimeInputs = with pkgs; [coreutils procps systemd];
+    text = ''
+      service="kanata-internalKeyboard.service"
+      restart_marker="/run/kanata-cs2-guard/restart-kanata"
+
+      game_running() {
+        pgrep -x 'cs2|cs2_linux64|cs2\.exe' >/dev/null
+      }
+
+      restore_keyboard() {
+        if [[ -e "$restart_marker" ]] && ! game_running; then
+          systemctl start "$service"
+          rm -f "$restart_marker"
+        fi
+      }
+
+      trap restore_keyboard EXIT INT TERM
+
+      while true; do
+        if game_running; then
+          if systemctl is-active --quiet "$service"; then
+            touch "$restart_marker"
+            systemctl stop "$service"
+          fi
+        else
+          restore_keyboard
+        fi
+
+        sleep 1
+      done
+    '';
+  };
+in {
   imports = [
     ./hardware-configuration.nix
   ];
@@ -12,6 +47,19 @@
     powertop
     libnotify
   ];
+
+  systemd.services.kanata-cs2-guard = {
+    description = "Disable Kanata home-row mods while Counter-Strike 2 is running";
+    wantedBy = ["multi-user.target"];
+    after = ["kanata-internalKeyboard.service"];
+    serviceConfig = {
+      ExecStart = lib.getExe kanataCs2Guard;
+      Restart = "always";
+      RestartSec = 1;
+      RuntimeDirectory = "kanata-cs2-guard";
+      RuntimeDirectoryPreserve = "yes";
+    };
+  };
 
   networking.hostName = "grajpap";
   # Keep the desktop responsive while avoiding unnecessarily aggressive boost
