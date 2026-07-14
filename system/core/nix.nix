@@ -34,6 +34,20 @@
     };
 
     overlays = [
+      # 2026-07-14: AppArmor 5.0.0 does not install the helper sourced by
+      # apparmor-teardown and aa-remove-unknown. Remove after nixpkgs ships it.
+      (_: prev: {
+        apparmor-parser = prev.apparmor-parser.overrideAttrs (old: {
+          # The parser itself is unchanged; only restore a missing installed file.
+          doCheck = false;
+          postInstall =
+            (old.postInstall or "")
+            + ''
+              install -Dm444 ../init/rc.apparmor.functions \
+                "$out/lib/apparmor/rc.apparmor.functions"
+            '';
+        });
+      })
       # 2026-07-13: catppuccin-gtk still uses a Python 3.14-incompatible
       # argparse declaration. Remove after nixpkgs builds catppuccin-gtk
       # without this patch.
