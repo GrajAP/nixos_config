@@ -38,23 +38,32 @@
 
   t3codeCatppuccin = pkgs.runCommand "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-catppuccin-mocha-blue" {} ''
     mkdir -p "$out"
-    cp -aL ${pkgs.t3code}/. "$out/"
+    cp -a ${pkgs.t3code}/. "$out/"
     chmod -R u+w "$out"
 
-    # t3code 0.0.28 packages fast-check in pnpm's store but drops the
-    # top-level link needed by Effect during Electron startup.
-    fast_check=$(find "$out/libexec/t3code/node_modules/.pnpm" \
-      -path '*/fast-check@*/node_modules/fast-check' -type d -print -quit)
-    test -n "$fast_check"
-    ln -s "$fast_check" "$out/libexec/t3code/node_modules/fast-check"
+    # Keep pnpm's symlink layout intact, and materialize only files that need
+    # local edits or whose runtime path must remain inside this themed copy.
+    materialize() {
+      local target="$1"
+      local source
+      source=$(readlink -f "$target")
+      rm "$target"
+      cp "$source" "$target"
+      chmod u+w "$target"
+    }
+
+    materialize "$out/libexec/t3code/apps/desktop/dist-electron/main.cjs"
+    materialize "$out/libexec/t3code/apps/server/dist/bin.mjs"
 
     client="$out/libexec/t3code/apps/server/dist/client"
+    materialize "$client/index.html"
     cp ${./t3code-catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
     substituteInPlace "$client/index.html" \
       --replace-fail '#161616' '#1e1e2e' \
       --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
 
     main_js=("$client"/assets/index-*.js)
+    materialize "''${main_js[0]}"
     substituteInPlace "''${main_js[0]}" \
       --replace-fail 'var vG={light:`pierre-light`,dark:`pierre-dark`}' \
       'var vG={light:`catppuccin-latte`,dark:`catppuccin-mocha`}'
