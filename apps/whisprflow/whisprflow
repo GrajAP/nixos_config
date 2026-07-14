@@ -878,25 +878,28 @@ PY
   fi
 
   paste_ok=0
-  typed_text="$(cat "$txt_file" 2>/dev/null || true)"
-  sleep 0.2  # give Hyprland time to give focus back
+  sleep 0.2 # Give Hyprland time to restore focus and wl-copy to own the selection.
 
-  if [[ -n "$typed_text" ]] && command -v ydotool >/dev/null 2>&1; then
-    # ydotoold must be running (systemd user service or socket)
-    if ydotool type -d 6 -- "$typed_text" 2>/dev/null; then
+  if command -v ydotool >/dev/null 2>&1; then
+    # Paste through the target application's clipboard handling. `ydotool type`
+    # maps characters to key codes and cannot reliably emit Polish Unicode.
+    if ydotool key 29:1 47:1 47:0 29:0 2>/dev/null; then
       paste_ok=1
     fi
   fi
 
-  if [[ $paste_ok -eq 0 ]] && [[ -n "$typed_text" ]] && command -v wtype >/dev/null 2>&1; then
+  if [[ $paste_ok -eq 0 ]] && command -v wtype >/dev/null 2>&1; then
     for _ in 1 2 3; do
-      wtype -s 150 -d 2 -- "$typed_text" && { paste_ok=1; break; }
+      wtype -M ctrl -k v -m ctrl 2>/dev/null && {
+        paste_ok=1
+        break
+      }
     done
   fi
 
-if [[ $paste_ok -eq 0 ]]; then
-  flash_indicator "Whispr Flow" "Typing failed - no focused text field?" "error" 2400
-fi 
+  if [[ $paste_ok -eq 0 ]]; then
+    flash_indicator "Whispr Flow" "Paste shortcut failed. The text remains in the clipboard." "error" 2400
+  fi
 
   # Learn from a corrected clipboard within 10 minutes.
   ensure_learn_script

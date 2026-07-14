@@ -37,5 +37,6 @@ The default model is `small`, with Polish and English candidates. Override it
 with `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `WHISPER_LANGS` or
 `WHISPER_SOURCE`. State and learned corrections can be relocated with
 `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`. `ydotoold` is optional; `wtype` is
-used as a fallback and the transcript remains in the clipboard if direct
-typing fails.
+used as a fallback. WhisprFlow pastes through the clipboard so Unicode text,
+including Polish characters, is preserved. The transcript remains in the
+clipboard if the paste shortcut fails.
