@@ -82,6 +82,7 @@
         '';
       quickshell-qml =
         pkgs.runCommand "check-quickshell-qml" {
+          LC_ALL = "C.UTF-8";
           nativeBuildInputs = [pkgs.qt6.qtdeclarative];
         } ''
           cp -r ${inputs.self}/home/rice/quickshell qml

@@ -3,7 +3,25 @@
   lib,
   inputs,
   ...
-}: {
+}: let
+  nhUnprivilegedSwitch = pkgs.writeShellApplication {
+    name = "nh";
+    text = ''
+      if [[ $# -ge 2 && $1 == "os" && $2 == "switch" ]]; then
+        if [[ $# -eq 3 && $3 == "--update" ]]; then
+          ${lib.getExe pkgs.nix} flake update /etc/nixos
+        elif [[ $# -ne 2 ]]; then
+          echo "Supported forms: nh os switch, nh os switch --update" >&2
+          exit 2
+        fi
+
+        exec ${lib.getExe' pkgs.systemd "systemctl"} start t3code-os-switch.service
+      fi
+
+      exec ${lib.getExe pkgs.nh} "$@"
+    '';
+  };
+in {
   environment = {
     # set channels (backwards compatibility)
     sessionVariables.FLAKE = "/etc/nixos";
@@ -14,7 +32,7 @@
     };
 
     systemPackages = with pkgs; [
-      nh
+      nhUnprivilegedSwitch
       nixd
       deadnix
       alejandra

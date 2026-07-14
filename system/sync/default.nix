@@ -223,10 +223,6 @@ in {
         RestartSec = "2min";
       };
       script = ''
-        if ! nextcloud-occ app:list --output=json | jq -e '.enabled.files_external' >/dev/null; then
-          nextcloud-occ app:enable files_external
-        fi
-
         # Trigger the automount before asking Nextcloud to verify the local backend.
         ls /mnt/Storage >/dev/null
 
@@ -235,9 +231,22 @@ in {
           exit 1
         fi
 
-        if ! test -w /mnt/Storage; then
+        while IFS= read -r mount_options; do
+          case ",$mount_options," in
+            *,ro,*)
+              echo "/mnt/Storage is read-only; skipping Nextcloud external storage setup"
+              exit 0
+              ;;
+          esac
+        done < <(findmnt -rn -o VFS-OPTIONS --target /mnt/Storage)
+
+        if ! runuser -u nextcloud -- test -w /mnt/Storage; then
           echo "nextcloud cannot write to /mnt/Storage"
           exit 1
+        fi
+
+        if ! nextcloud-occ app:list --output=json | jq -e '.enabled.files_external' >/dev/null; then
+          nextcloud-occ app:enable files_external
         fi
 
         mount_id="$(
