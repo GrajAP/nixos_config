@@ -12,6 +12,8 @@
       gawk
       jq
       libnotify
+      ripgrep
+      sqlite
       systemd
     ];
     text = ''
@@ -28,6 +30,7 @@
       last_trigger_file="$runtime_dir/last-trigger"
       pending_file="$runtime_dir/pending"
       pending_deadline_file="$runtime_dir/pending-deadline"
+      agent_wait_file="$runtime_dir/agent-waiting"
       mkdir -p "$runtime_dir"
       rm -f "$runtime_dir/custom-target"
 
@@ -53,6 +56,78 @@
           | jq -e 'any(.[]; (.mode == "block") and ((.what | split(":")) | index("shutdown")))' >/dev/null
       }
 
+      t3_agent_working() {
+        local state_db="$HOME/.t3/userdata/state.sqlite"
+        [[ -r "$state_db" ]] || return 1
+
+        [[ "$(sqlite3 -readonly -cmd '.timeout 1000' "$state_db" \
+          "SELECT EXISTS(SELECT 1 FROM projection_thread_sessions WHERE status = 'running' AND active_turn_id IS NOT NULL);" \
+          2>/dev/null || true)" == "1" ]]
+      }
+
+      codex_agent_working() {
+        local process_dir fd session_file latest_event
+
+        for process_dir in /proc/[0-9]*; do
+          [[ -r "$process_dir/comm" ]] || continue
+          [[ "$(<"$process_dir/comm")" == "codex" ]] || continue
+
+          for fd in "$process_dir"/fd/*; do
+            session_file="$(readlink -f "$fd" 2>/dev/null || true)"
+            case "$session_file" in
+              "$HOME/.codex/sessions/"*.jsonl) ;;
+              *) continue ;;
+            esac
+
+            latest_event="$(
+              tac "$session_file" \
+                | rg -m 1 '"type":"(task_started|task_complete|turn_aborted)"' \
+                | jq -r '.payload.type // empty' 2>/dev/null \
+                || true
+            )"
+            [[ "$latest_event" == "task_started" ]] && return 0
+          done
+        done
+
+        return 1
+      }
+
+      ai_agent_working() {
+        t3_agent_working || codex_agent_working
+      }
+
+      guard_deadline_for_agents() {
+        local deadline="$1"
+        local now="$2"
+        local minimum_deadline
+
+        agent_guard_deadline="$deadline"
+        if ai_agent_working; then
+          minimum_deadline=$((now + watch_seconds))
+          (( agent_guard_deadline <= minimum_deadline )) || return 1
+          agent_guard_deadline="$minimum_deadline"
+          printf '%s\n' "waiting for AI agents" > "$pending_file"
+          printf '%s\n' "$agent_guard_deadline" > "$pending_deadline_file"
+          if [[ ! -e "$agent_wait_file" ]]; then
+            touch "$agent_wait_file"
+            notify-send -u critical -t 5000 \
+              "Auto shutdown paused" \
+              "Codex or T3 Code is working. The five-minute countdown will start after all agents finish."
+          fi
+          return 0
+        fi
+
+        if [[ -e "$agent_wait_file" ]]; then
+          rm -f "$agent_wait_file"
+          printf '%s\n' "in 5 min" > "$pending_file"
+          printf '%s\n' "$agent_guard_deadline" > "$pending_deadline_file"
+          notify-send -u normal -t 5000 \
+            "Auto shutdown resumed" \
+            "All AI agents finished. Power off is scheduled in five minutes."
+        fi
+        return 1
+      }
+
       power_off() {
         if shutdown_blocked; then
           notify-send -u critical -t 5000 "Auto shutdown" "A system inhibitor is blocking shutdown."
@@ -70,14 +145,23 @@
 
         now="$(date +%s)"
         if [ -f "$cancel_file" ]; then
-          rm -f "$cancel_file" "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
+          rm -f "$cancel_file" "$custom_deadline_file" "$pending_file" "$pending_deadline_file" "$agent_wait_file"
           notify-send -u normal -t 2500 "Auto shutdown" "Shutdown timer cancelled."
           return 0
         fi
 
+        if guard_deadline_for_agents "$deadline" "$now"; then
+          deadline="$agent_guard_deadline"
+          printf '%s\n' "$deadline" > "$custom_deadline_file"
+        fi
+
         if (( now < deadline )); then
           remaining=$((deadline - now))
-          label="in $(( (remaining + 59) / 60 )) min"
+          if [[ -e "$agent_wait_file" ]]; then
+            label="waiting for AI agents"
+          else
+            label="in $(( (remaining + 59) / 60 )) min"
+          fi
           printf '%s\n' "$label" > "$pending_file"
           printf '%s\n' "$deadline" > "$pending_deadline_file"
           return 0
@@ -101,22 +185,29 @@
           printf '%s\n' "$now_minute" > "$pending_file"
           deadline=$(( $(date +%s) + watch_seconds ))
           printf '%s\n' "$deadline" > "$pending_deadline_file"
-          rm -f "$cancel_file"
+          rm -f "$cancel_file" "$agent_wait_file"
           notify-send -u critical -t $((watch_seconds * 1000)) \
             "Auto shutdown" \
             "System will power off in 5 minutes. Open the shutdown widget to cancel."
 
           cancel=0
-          while (( $(date +%s) < deadline )); do
+          while true; do
             if [ -f "$cancel_file" ]; then
               cancel=1
               rm -f "$cancel_file"
               break
             fi
+            now="$(date +%s)"
+            if guard_deadline_for_agents "$deadline" "$now"; then
+              deadline="$agent_guard_deadline"
+            fi
+            if (( now >= deadline )); then
+              break
+            fi
             sleep 1
           done
 
-          rm -f "$pending_file" "$pending_deadline_file"
+          rm -f "$pending_file" "$pending_deadline_file" "$agent_wait_file"
 
           if (( cancel == 0 )); then
             notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
@@ -557,7 +648,7 @@ in {
       };
       auto-shutdown = {
         Unit = {
-          Description = "Power off overnight unless cancelled from the Quickshell widget";
+          Description = "Power off overnight after AI agents become idle";
           After = ["graphical-session.target"];
           PartOf = ["graphical-session.target"];
         };

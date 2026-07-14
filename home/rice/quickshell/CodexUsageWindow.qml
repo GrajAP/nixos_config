@@ -5,10 +5,6 @@ import qs
 
 ColumnLayout {
   required property var shell
-  // OpenAI currently does not enforce the 5-hour windows. Keep their cards
-  // available so they can be restored by changing this flag to true.
-  readonly property bool showFiveHourLimits: false
-
   Layout.fillWidth: true
   Layout.fillHeight: true
   spacing: Theme.gapMd
@@ -90,9 +86,7 @@ ColumnLayout {
       }
     ].filter(limit => {
       const used = shell.codexUsageValue(limit.usedKey);
-      if (used === null) return false;
-      const windowMinutes = shell.codexUsageValue(limit.windowKey);
-      return showFiveHourLimits || windowMinutes !== 5 * 60;
+      return used !== null;
     }) : []
 
     Rectangle {

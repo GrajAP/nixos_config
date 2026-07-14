@@ -7,6 +7,7 @@ cancel_file="$runtime_dir/cancel"
 custom_deadline_file="$runtime_dir/custom-deadline"
 pending_file="$runtime_dir/pending"
 pending_deadline_file="$runtime_dir/pending-deadline"
+agent_wait_file="$runtime_dir/agent-waiting"
 mkdir -p "$runtime_dir"
 rm -f "$runtime_dir/custom-target"
 
@@ -48,13 +49,13 @@ case "$action" in
     printf '%s\n' "$deadline" > "$custom_deadline_file"
     printf 'in %s min\n' "$target" > "$pending_file"
     printf '%s\n' "$deadline" > "$pending_deadline_file"
-    rm -f "$cancel_file"
+    rm -f "$cancel_file" "$agent_wait_file"
     notify-send -u critical "Auto shutdown" "System will power off in $target minutes."
     json_status
     ;;
   cancel-pending)
     touch "$cancel_file"
-    rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
+    rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file" "$agent_wait_file"
     notify-send -u normal "Auto shutdown" "Shutdown cancelled."
     json_status
     ;;
