@@ -96,9 +96,22 @@
       }
 
       if ! spotify_client_exists; then
-        # Spotify 1.2.90 repeatedly loses its Chromium GPU process on this AMD
-        # system. Avoiding the zygote keeps the GPU process usable.
-        /run/current-system/sw/bin/spotify --no-zygote "$@" >/dev/null 2>&1 &
+        # Chromium can leave these links behind after a forced Spotify exit.
+        # Remove them only when their recorded process no longer exists.
+        cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/spotify"
+        singleton_lock="$(readlink "$cache_dir/SingletonLock" 2>/dev/null || true)"
+        singleton_pid="''${singleton_lock##*-}"
+        if [[ "$singleton_pid" =~ ^[0-9]+$ ]] && ! kill -0 "$singleton_pid" 2>/dev/null; then
+          singleton_socket="$(readlink "$cache_dir/SingletonSocket" 2>/dev/null || true)"
+          rm -f "$cache_dir/SingletonCookie" "$cache_dir/SingletonLock" "$cache_dir/SingletonSocket"
+          case "$singleton_socket" in
+            /tmp/.org.chromium.Chromium.*/SingletonSocket)
+              rm -rf "''${singleton_socket%/*}"
+              ;;
+          esac
+        fi
+
+        /run/current-system/sw/bin/spotify "$@" >/dev/null 2>&1 &
       fi
 
       for _ in $(seq 1 30); do
