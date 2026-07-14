@@ -2,8 +2,8 @@
 set -euo pipefail
 
 runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
-state_dir="$runtime_dir/whisper-record-v2"
-data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/whisper-record-v2"
+state_dir="${WHISPR_STATE_DIR:-$runtime_dir/whisper-record-v2}"
+data_dir="${WHISPR_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/whisper-record-v2}"
 pid_file="$state_dir/record.pid"
 raw_file="$state_dir/record.raw"
 wav_file="$state_dir/record.wav"
@@ -190,13 +190,13 @@ learn_from_pair() {
     DICT_PATH="$dict_file" \
     CORRECTIONS_PATH="$corrections_file" \
     DICT_LOG="$dict_log" \
-    whisper-python "$learn_script" >/dev/null 2>&1 || true
+    python3 "$learn_script" >/dev/null 2>&1 || true
 }
 
 capture_active_window() {
   local active_window_json
   active_window_json="$(hyprctl -j activewindow 2>/dev/null || true)"
-  ACTIVE_WINDOW_JSON="$active_window_json" whisper-python - <<'PY'
+  ACTIVE_WINDOW_JSON="$active_window_json" python3 - <<'PY'
 import json
 import os
 
@@ -335,6 +335,76 @@ get_default_source() {
   if command -v pactl >/dev/null 2>&1; then
     pactl get-default-source 2>/dev/null || true
   fi
+}
+
+list_source_candidates() {
+  pw-dump 2>/dev/null | jq -r '
+    [
+      .[]
+      | select(.type == "PipeWire:Interface:Node")
+      | .info.props as $props
+      | select($props["media.class"] == "Audio/Source")
+      | select(($props["node.name"] // "") != "")
+      | {
+          name: $props["node.name"],
+          score: (
+            ($props["priority.session"] // 0)
+            + (if (($props["node.description"] // "") | test("input 1 mic|microphone|\\bmic\\b"; "i")) then 5000 else 0 end)
+            - (if (($props["node.name"] // "") | test("camera|webcam"; "i")) then 10000 else 0 end)
+          )
+        }
+    ]
+    | sort_by([-.score, .name])
+    | .[].name
+  ' 2>/dev/null || true
+}
+
+probe_source() {
+  local source_name="$1"
+  local probe_file="$state_dir/source-probe.wav"
+  local probe_size
+
+  rm -f "$probe_file"
+  timeout --signal=INT --kill-after=1 0.4 \
+    pw-record \
+      --rate 16000 \
+      --channels 1 \
+      --format s16 \
+      --target "$source_name" \
+      "$probe_file" \
+      >/dev/null 2>>"$record_err" || true
+  probe_size="$(stat -c '%s' "$probe_file" 2>/dev/null || echo 0)"
+  rm -f "$probe_file"
+
+  (( probe_size > 44 ))
+}
+
+select_record_source() {
+  local requested_source="${WHISPER_SOURCE:-}"
+  local default_source
+  local source_name
+  local -A seen=()
+  local candidates=()
+
+  default_source="$(get_default_source)"
+  [[ -n "$requested_source" ]] && candidates+=("$requested_source")
+  [[ -n "$default_source" ]] && candidates+=("$default_source")
+  while IFS= read -r source_name; do
+    [[ -n "$source_name" ]] && candidates+=("$source_name")
+  done < <(list_source_candidates)
+
+  for source_name in "${candidates[@]}"; do
+    [[ -n "${seen[$source_name]:-}" ]] && continue
+    seen[$source_name]=1
+    printf 'probe_source: %s\n' "$source_name" >>"$record_log"
+    if probe_source "$source_name"; then
+      printf '%s\n' "$source_name"
+      return 0
+    fi
+    printf 'probe_failed: %s\n' "$source_name" >>"$record_log"
+  done
+
+  return 1
 }
 
 ensure_source_unmuted() {
@@ -507,7 +577,7 @@ stop_recording() {
   } >>"$record_log" 2>/dev/null || true
 
   if [[ -s "$raw_file" ]]; then
-    RAW_PATH="$raw_file" WAV_PATH="$wav_file" WHISPER_RATE=16000 WHISPER_CHANNELS=1 whisper-python - <<'PY'
+    RAW_PATH="$raw_file" WAV_PATH="$wav_file" WHISPER_RATE=16000 WHISPER_CHANNELS=1 python3 - <<'PY'
 import os
 import wave
 from pathlib import Path
@@ -543,7 +613,7 @@ PY
 
   log_file="$state_dir/last-error.log"
 
-  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-small}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" whisper-python - <<'PY' 2>"$log_file"; then
+  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-small}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" python3 - <<'PY' 2>"$log_file"; then
 import math
 import os
 import re
@@ -845,7 +915,7 @@ fi
         [ -z "$clip" ] && exit 0
         [ "$clip" = "$TRANSCRIPT" ] && exit 0
         touch "$ONCE_FILE"
-        CLIP="$clip" whisper-python "$LEARN_SCRIPT"
+        CLIP="$clip" python3 "$LEARN_SCRIPT"
       ' >/dev/null 2>&1 || true
   ) &
 
@@ -866,19 +936,17 @@ start_recording() {
     echo "start_time: $(date -Is)"
   } >"$record_log" 2>/dev/null || true
 
-  # Hard-pin Blue Yeti input; override with WHISPER_SOURCE if set.
-  source_name="${WHISPER_SOURCE:-}"
-  if [[ -z "${source_name:-}" ]]; then
-    source_name="$(get_default_source)"
-  fi
-  if [[ -z "${source_name:-}" ]]; then
-    source_name="alsa_input.usb-Generic_Blue_Microphones_2108BAB0EPP8-00.analog-stereo"
+  show_indicator "Whispr Flow" "Checking microphone..." "working" 0
+  if ! source_name="$(select_record_source)"; then
+    hide_indicator
+    flash_indicator "Whispr Flow" "No working microphone source found." "error" 2600
+    return 1
   fi
   ensure_source_unmuted "$source_name"
   {
     echo "source: $source_name"
   } >>"$record_log" 2>/dev/null || true
-    show_indicator "Whispr Flow" "Listening... Release Pause to stop." "listening" 0
+  show_indicator "Whispr Flow" "Listening... Release Pause to stop." "listening" 0
   if command -v pw-record >/dev/null 2>&1; then
     echo "pw-record" > "$backend_file"
     if [[ -n "${source_name:-}" ]]; then
@@ -900,6 +968,43 @@ start_recording() {
   echo $! > "$pid_file"
 }
 
+copy_last_transcript() {
+  local transcript
+
+  transcript="$(cat "$txt_file" 2>/dev/null || true)"
+  if [[ -z "$transcript" ]]; then
+    echo "No recent transcript to copy." >&2
+    notify_whisper "WhisprFlow" "No recent transcript to copy."
+    return 1
+  fi
+
+  printf '%s' "$transcript" | wl-copy
+  echo "Copied the last transcript to the clipboard."
+  notify_whisper "WhisprFlow" "Copied the last transcript to the clipboard."
+}
+
+print_status() {
+  if [[ -f "$pid_file" ]]; then
+    echo "recording"
+    return 0
+  fi
+
+  echo "idle"
+}
+
+print_usage() {
+  cat <<EOF
+Usage: whisprflow [start|stop|toggle|status|copy|learn]
+
+  start    Start recording
+  stop     Stop, transcribe, review, learn and paste
+  toggle   Start or stop recording
+  status   Print recording or idle
+  copy     Copy the last transcript to the clipboard
+  learn    Learn from the last transcript and current clipboard
+EOF
+}
+
 cleanup_stale_pid
 
 case "${1:-toggle}" in
@@ -908,6 +1013,12 @@ case "${1:-toggle}" in
     ;;
   stop)
     stop_recording
+    ;;
+  status)
+    print_status
+    ;;
+  copy)
+    copy_last_transcript
     ;;
   learn)
     ensure_learn_script
@@ -921,7 +1032,7 @@ case "${1:-toggle}" in
       notify_whisper "Whisper" "Copy your corrected text first, then run learn."
       exit 1
     fi
-    TRANSCRIPT="$transcript" CLIP="$clip" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" whisper-python "$learn_script"
+    TRANSCRIPT="$transcript" CLIP="$clip" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" python3 "$learn_script"
     notify_whisper "Whisper" "Learned from your corrected text."
     ;;
   toggle)
@@ -931,8 +1042,11 @@ case "${1:-toggle}" in
       start_recording
     fi
     ;;
+  help | -h | --help)
+    print_usage
+    ;;
   *)
-    echo "Usage: $0 [start|stop|toggle|learn]" >&2
+    print_usage >&2
     exit 2
     ;;
 esac
