@@ -4,7 +4,8 @@
   ...
 }: let
   t3codeCatppuccin = pkgs.runCommand "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-catppuccin-mocha-blue" {} ''
-    cp -a ${pkgs.t3code} "$out"
+    mkdir -p "$out"
+    cp -aL ${pkgs.t3code}/. "$out/"
     chmod -R u+w "$out"
 
     client="$out/libexec/t3code/apps/server/dist/client"
