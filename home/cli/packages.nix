@@ -1,17 +1,34 @@
-{pkgs, ...}: {
+{pkgs, ...}: let
+  texlive = pkgs.texliveSmall.withPackages (ps: [
+    ps.scheme-small
+    ps.noto
+    ps.mweights
+    ps.cm-super
+    ps.cmbright
+    ps.fontaxes
+    ps.beamer
+  ]);
+in {
   home.packages = with pkgs; [
     audacity
+    bun
     catimg
+    clang
     cloudflared
     comma
     cpufetch
+    ddd
     doppler
+    docker-compose
     fastfetch
     fd
     ffmpeg-full
     figlet
+    gdb
     gitleaks
     glow
+    gnumake
+    gprof2dot
     gping
     grex
     hashcat
@@ -22,16 +39,22 @@
     lsix
     neovim
     nmap
+    nodejs
     onefetch
     opencode
     poppler-utils
+    python3
     qrencode
     ripgrep
     rsync
+    rustup
     tealdeer
+    texlive
     todo
     unzip
+    valgrind
     vdirsyncer
+    watchman
     wget
     xh
     yt-dlp

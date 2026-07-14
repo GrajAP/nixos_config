@@ -1,6 +1,34 @@
-{pkgs, ...}: {
-  home.packages = with pkgs; [
-    postman
-    antigravity
-  ];
+{
+  pkgs,
+  config,
+  ...
+}: {
+  home = {
+    packages = with pkgs; [
+      electron
+      postman
+      antigravity
+      pnpm
+      bun
+      (pkgs.writeShellApplication {
+        name = "install-js-clis";
+        runtimeInputs = [pkgs.bun];
+        text = ''
+          set -euo pipefail
+
+          mkdir -p "$HOME/.bun-global"
+          bun install -g --prefix "$HOME/.bun-global" \
+            @angular/cli \
+            @expo/cli \
+            vite \
+            @react-native-community/cli \
+            concurrently
+        '';
+      })
+    ];
+
+    sessionVariables.PATH = "${config.home.homeDirectory}/.bun-global/bin:$PATH";
+
+    sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
+  };
 }

@@ -30,26 +30,6 @@
         android_sdk.accept_license = true;
       };
     };
-    androidComposition = pkgs.androidenv.composeAndroidPackages {
-      cmdLineToolsVersion = "11.0";
-      platformToolsVersion = "35.0.2";
-      buildToolsVersions = ["34.0.0"];
-      platformVersions = ["34"];
-      abiVersions = ["x86_64"];
-      includeEmulator = true;
-      includeSystemImages = true;
-      systemImageTypes = ["google_apis_playstore"];
-      useGoogleAPIs = true;
-    };
-    texlive = pkgs.texliveSmall.withPackages (ps: [
-      ps.scheme-small
-      ps.noto
-      ps.mweights
-      ps.cm-super
-      ps.cmbright
-      ps.fontaxes
-      ps.beamer
-    ]);
     sharedModules = [
       ./configuration.nix
       inputs.stylix.nixosModules.stylix
@@ -64,55 +44,6 @@
   in {
     nixosConfigurations.grajpap = mkHost [];
     formatter.${system} = pkgs.alejandra;
-    devShells.${system} = {
-      default = pkgs.mkShellNoCC {
-        packages = with pkgs; [bun nodejs_22 pnpm watchman];
-        shellHook = ''echo "Web shell: Node, Bun, pnpm and Watchman"'';
-      };
-      mobile = pkgs.mkShell {
-        packages = with pkgs; [
-          android-tools
-          androidComposition.androidsdk
-          androidComposition.emulator
-          androidComposition.platform-tools
-          bun
-          cmake
-          jdk17
-          ninja
-          nodejs_22
-          pnpm
-          watchman
-        ];
-        ANDROID_HOME = "${androidComposition.androidsdk}/libexec/android-sdk";
-        ANDROID_SDK_ROOT = "${androidComposition.androidsdk}/libexec/android-sdk";
-        JAVA_HOME = "${pkgs.jdk17}/lib/openjdk";
-        shellHook = ''echo "Mobile shell: Android SDK 34, JDK 17 and JavaScript tools"'';
-      };
-      native = pkgs.mkShell {
-        packages = with pkgs; [
-          cargo
-          clang
-          cmake
-          gdb
-          gnumake
-          libpqxx
-          nlohmann_json
-          openssl
-          pkg-config
-          postgresql
-          clippy
-          rustc
-          rustfmt
-          valgrind
-          zlib
-        ];
-        shellHook = ''echo "Native shell: C/C++, Rust and PostgreSQL tools"'';
-      };
-      docs = pkgs.mkShellNoCC {
-        packages = [texlive];
-        shellHook = ''echo "Documentation shell: TeX Live"'';
-      };
-    };
     checks.${system} = {
       formatting = pkgs.runCommand "check-alejandra" {nativeBuildInputs = [pkgs.alejandra];} ''
         alejandra --check ${inputs.self}
