@@ -6,8 +6,8 @@
 }: let
   nextcloudHost = "grajpap.tail138448.ts.net";
   nextcloudBackendPort = 18080;
-  nextcloudPackage = pkgs.nextcloud33;
-  nextcloudApps = pkgs.nextcloud33Packages.apps;
+  nextcloudPackage = pkgs.nextcloud34;
+  nextcloudApps = pkgs.nextcloud34Packages.apps;
   tailnetInterface = config.services.tailscale.interfaceName;
 in {
   environment.systemPackages = with pkgs; [
