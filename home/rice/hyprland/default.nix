@@ -12,6 +12,7 @@
       gawk
       jq
       libnotify
+      pipewire
       ripgrep
       sqlite
       systemd
@@ -96,6 +97,16 @@
         t3_agent_working || codex_agent_working
       }
 
+      play_shutdown_alert() {
+        pw-play --volume=0.55 \
+          "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/message.oga" \
+          >/dev/null 2>&1 &
+      }
+
+      notify_shutdown() {
+        notify-send --app-name="Auto shutdown" --icon=system-shutdown "$@"
+      }
+
       guard_deadline_for_agents() {
         local deadline="$1"
         local now="$2"
@@ -110,7 +121,7 @@
           printf '%s\n' "$agent_guard_deadline" > "$pending_deadline_file"
           if [[ ! -e "$agent_wait_file" ]]; then
             touch "$agent_wait_file"
-            notify-send -u critical -t 5000 \
+            notify_shutdown -u critical -t 5000 \
               "Auto shutdown paused" \
               "Codex or T3 Code is working. The five-minute countdown will start after all agents finish."
           fi
@@ -121,7 +132,7 @@
           rm -f "$agent_wait_file"
           printf '%s\n' "in 5 min" > "$pending_file"
           printf '%s\n' "$agent_guard_deadline" > "$pending_deadline_file"
-          notify-send -u normal -t 5000 \
+          notify_shutdown -u normal -t 5000 \
             "Auto shutdown resumed" \
             "All AI agents finished. Power off is scheduled in five minutes."
         fi
@@ -130,7 +141,7 @@
 
       power_off() {
         if shutdown_blocked; then
-          notify-send -u critical -t 5000 "Auto shutdown" "A system inhibitor is blocking shutdown."
+          notify_shutdown -u critical -t 5000 "Auto shutdown" "A system inhibitor is blocking shutdown."
           return 1
         fi
         systemctl poweroff
@@ -146,7 +157,7 @@
         now="$(date +%s)"
         if [ -f "$cancel_file" ]; then
           rm -f "$cancel_file" "$custom_deadline_file" "$pending_file" "$pending_deadline_file" "$agent_wait_file"
-          notify-send -u normal -t 2500 "Auto shutdown" "Shutdown timer cancelled."
+          notify_shutdown -u normal -t 2500 "Auto shutdown" "Shutdown timer cancelled."
           return 0
         fi
 
@@ -168,7 +179,7 @@
         fi
 
         rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file"
-        notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
+        notify_shutdown -u critical -t 3000 "Auto shutdown" "Powering off now."
         power_off || true
         exit 0
       }
@@ -186,9 +197,10 @@
           deadline=$(( $(date +%s) + watch_seconds ))
           printf '%s\n' "$deadline" > "$pending_deadline_file"
           rm -f "$cancel_file" "$agent_wait_file"
-          notify-send -u critical -t $((watch_seconds * 1000)) \
+          notify_shutdown -u critical -t $((watch_seconds * 1000)) \
             "Auto shutdown" \
             "System will power off in 5 minutes. Open the shutdown widget to cancel."
+          play_shutdown_alert
 
           cancel=0
           while true; do
@@ -210,12 +222,12 @@
           rm -f "$pending_file" "$pending_deadline_file" "$agent_wait_file"
 
           if (( cancel == 0 )); then
-            notify-send -u critical -t 3000 "Auto shutdown" "Powering off now."
+            notify_shutdown -u critical -t 3000 "Auto shutdown" "Powering off now."
             power_off || true
             exit 0
           fi
 
-          notify-send -u normal -t 2500 "Auto shutdown" "Shutdown cancelled."
+          notify_shutdown -u normal -t 2500 "Auto shutdown" "Shutdown cancelled."
         fi
 
         sleep "$poll_seconds"

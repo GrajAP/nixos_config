@@ -1084,6 +1084,27 @@ ShellRoot {
     }
     return "";
   }
+  function notificationIsCritical(notification) {
+    return notification !== null
+      && notification !== undefined
+      && notification.urgency === NotificationUrgency.Critical;
+  }
+  function notificationAccent(notification) {
+    if (root.notificationIsCritical(notification)) return Theme.danger;
+    if (notification && notification.urgency === NotificationUrgency.Low) return Theme.muted;
+    return Theme.accent;
+  }
+  function notificationFallbackIcon(notification) {
+    return root.notificationIsCritical(notification) ? "dialog-warning" : "dialog-information";
+  }
+  function notificationTintedSurface(base, tint, amount) {
+    return Qt.rgba(
+      base.r * (1 - amount) + tint.r * amount,
+      base.g * (1 - amount) + tint.g * amount,
+      base.b * (1 - amount) + tint.b * amount,
+      1
+    );
+  }
   function filteredClipboardEntries() {
     const query = root.clipboardFilter.trim().toLowerCase();
     if (query.length === 0) return root.clipboardEntries;
@@ -1618,7 +1639,7 @@ ShellRoot {
   }
   Timer {
     id: popupTimer
-    interval: 5000
+    interval: root.notificationIsCritical(root.latestNotification) ? 10000 : 5000
     onTriggered: root.notificationPopupVisible = false
   }
 
@@ -3493,39 +3514,84 @@ ShellRoot {
   PanelWindow {
     visible: root.notificationPopupVisible && root.latestNotification !== null
     color: "transparent"
-    implicitWidth: 390; implicitHeight: 150
+    implicitWidth: 460
+    implicitHeight: notificationPopupCard.implicitHeight + 8
     anchors { top: true; right: true }
-    margins { top: 18; right: 48 }
+    margins { top: 18; right: 52 }
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notification-popup"
     Rectangle {
-      anchors.fill: parent; anchors.margins: 4
-      radius: Theme.radiusMd; color: Theme.panel; border.color: Theme.border; border.width: 1
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.notificationPopupVisible = false
-      }
+      id: notificationPopupCard
+      readonly property bool critical: root.notificationIsCritical(root.latestNotification)
+      readonly property color accentColor: root.notificationAccent(root.latestNotification)
+      anchors { top: parent.top; left: parent.left; right: parent.right; margins: 4 }
+      implicitHeight: notificationPopupContent.implicitHeight + Theme.padLg * 2
+      radius: Theme.radiusLg
+      color: critical ? root.notificationTintedSurface(Theme.panel, Theme.danger, 0.16) : Theme.panel
+      border.color: critical ? Theme.danger : Theme.border
+      border.width: critical ? 2 : 1
       RowLayout {
-        anchors.fill: parent; anchors.margins: Theme.padMd; spacing: Theme.gapMd
-        IconImage {
-          visible: root.latestNotification && root.latestNotification.appIcon
-          implicitSize: 42
-          source: root.latestNotification ? Quickshell.iconPath(root.latestNotification.appIcon, "dialog-information") : ""
+        id: notificationPopupContent
+        anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.padLg }
+        spacing: Theme.gapMd
+        Rectangle {
+          Layout.alignment: Qt.AlignTop
+          implicitWidth: 54; implicitHeight: 54
+          radius: Theme.radiusMd
+          color: Qt.rgba(notificationPopupCard.accentColor.r, notificationPopupCard.accentColor.g, notificationPopupCard.accentColor.b, 0.16)
+          border.color: Qt.rgba(notificationPopupCard.accentColor.r, notificationPopupCard.accentColor.g, notificationPopupCard.accentColor.b, 0.4)
+          border.width: 1
+          IconImage {
+            anchors.centerIn: parent
+            implicitSize: 30
+            source: root.latestNotification
+              ? Quickshell.iconPath(root.latestNotification.appIcon || "", root.notificationFallbackIcon(root.latestNotification))
+              : ""
+          }
         }
         ColumnLayout {
-          Layout.fillWidth: true; Layout.fillHeight: true; spacing: 4
+          Layout.fillWidth: true
+          spacing: 5
           RowLayout {
             Layout.fillWidth: true
-            Text { text: root.latestNotification ? root.latestNotification.appName : ""; color: Theme.accent; font.family: Theme.font; font.pixelSize: 11; Layout.fillWidth: true }
-            Text { text: root.latestNotification ? root.notificationTimeLabel(root.latestNotification) : ""; color: root.secondaryText; font.family: Theme.font; font.pixelSize: 10 }
+            spacing: Theme.gapSm
+            Text { text: root.latestNotification ? root.latestNotification.appName : ""; color: notificationPopupCard.accentColor; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
+            Text { text: root.latestNotification ? root.notificationTimeLabel(root.latestNotification) : ""; color: root.secondaryText; font.family: Theme.fontMono; font.pixelSize: 11 }
           }
-          Text { Layout.fillWidth: true; text: root.latestNotification ? root.latestNotification.summary : ""; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 14; wrapMode: Text.Wrap }
-          Text { Layout.fillWidth: true; Layout.fillHeight: true; text: root.latestNotification ? root.latestNotification.body : ""; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; elide: Text.ElideRight; maximumLineCount: 3 }
+          Text { Layout.fillWidth: true; text: root.latestNotification ? root.latestNotification.summary : ""; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 16; wrapMode: Text.Wrap }
+          Text { visible: text.length > 0; Layout.fillWidth: true; text: root.latestNotification ? root.latestNotification.body : ""; color: Theme.text; opacity: 0.86; font.family: Theme.fontSans; font.pixelSize: 13; lineHeight: 1.15; wrapMode: Text.Wrap; elide: Text.ElideRight; maximumLineCount: 4; textFormat: Text.PlainText }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.gapSm
+            visible: root.latestNotification && root.latestNotification.actions.length > 0
+            Repeater {
+              model: root.latestNotification ? root.latestNotification.actions : []
+              Rectangle {
+                required property var modelData
+                implicitWidth: popupActionLabel.implicitWidth + 24; implicitHeight: 34
+                radius: Theme.radiusSm
+                color: Qt.rgba(notificationPopupCard.accentColor.r, notificationPopupCard.accentColor.g, notificationPopupCard.accentColor.b, 0.16)
+                border.color: Qt.rgba(notificationPopupCard.accentColor.r, notificationPopupCard.accentColor.g, notificationPopupCard.accentColor.b, 0.38)
+                Text { id: popupActionLabel; anchors.centerIn: parent; text: parent.modelData.text; color: notificationPopupCard.accentColor; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 12 }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    parent.modelData.invoke();
+                    root.notificationPopupVisible = false;
+                  }
+                }
+              }
+            }
+          }
         }
-        Text {
-          text: "×"; color: Theme.muted; font.pixelSize: 22
+        Rectangle {
+          Layout.alignment: Qt.AlignTop
+          implicitWidth: 32; implicitHeight: 32
+          radius: Theme.radiusSm
+          color: root.hoverSurface
+          Text { anchors.centerIn: parent; text: "×"; color: root.secondaryText; font.family: Theme.fontSans; font.pixelSize: 20 }
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.notificationPopupVisible = false }
         }
       }
@@ -3616,59 +3682,103 @@ ShellRoot {
 
     Rectangle {
       id: notificationPanel
-      width: Math.min(420, parent.width - 20)
+      width: Math.min(500, parent.width - 24)
       anchors {
         top: parent.top
         right: parent.right
         bottom: parent.bottom
         topMargin: 18
-        rightMargin: 54
+        rightMargin: 56
         bottomMargin: 18
       }
-      radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusXl; color: Theme.panel; border.color: Theme.border; border.width: 1
       ColumnLayout {
-        anchors.fill: parent; anchors.margins: Theme.padMd; spacing: Theme.gapSm
+        anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         RowLayout {
           Layout.fillWidth: true
-          Text { text: "Notifications"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true }
-          Text {
-            text: "Clear"; color: Theme.accent; font.family: Theme.fontSans
+          spacing: Theme.gapSm
+          Text { text: "Notifications"; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 22 }
+          Rectangle {
+            implicitWidth: notificationCount.implicitWidth + 16; implicitHeight: 26
+            radius: Theme.radiusSm
+            color: Theme.accentSoft
+            Text { id: notificationCount; anchors.centerIn: parent; text: String(notificationCenter.trackedNotifications.values.length); color: Theme.accent; font.family: Theme.fontMono; font.bold: true; font.pixelSize: 11 }
+          }
+          Item { Layout.fillWidth: true }
+          Rectangle {
+            implicitWidth: clearNotificationsLabel.implicitWidth + 24; implicitHeight: 34
+            radius: Theme.radiusSm
+            color: root.hoverSurface
+            Text { id: clearNotificationsLabel; anchors.centerIn: parent; text: "Clear all"; color: Theme.accent; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 12 }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: notificationCenter.clear() }
           }
         }
         ListView {
-          Layout.fillWidth: true; Layout.fillHeight: true; spacing: 8; clip: true
+          id: notificationHistoryList
+          Layout.fillWidth: true; Layout.fillHeight: true; spacing: Theme.gapSm; clip: true
           model: notificationCenter.trackedNotifications
+          Text {
+            anchors.centerIn: parent
+            visible: notificationCenter.trackedNotifications.values.length === 0
+            text: "󰂚\nYou’re all caught up"
+            color: root.faintText
+            font.family: Theme.fontIcon
+            font.pixelSize: 17
+            lineHeight: 1.5
+            horizontalAlignment: Text.AlignHCenter
+          }
           delegate: Rectangle {
+            id: notificationHistoryCard
             required property var modelData
-            width: ListView.view.width; height: content.implicitHeight + 24
-            radius: Theme.radiusMd; color: Theme.surface
-            scale: 1
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: parent.modelData.dismiss()
-            }
-            ColumnLayout {
-              id: content
-              anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12; spacing: 4
-              RowLayout {
-                Layout.fillWidth: true
-                Text { text: parent.parent.parent.modelData.appName; color: Theme.accent; font.family: Theme.font; font.pixelSize: 10; Layout.fillWidth: true }
-                Text { text: root.notificationTimeLabel(parent.parent.parent.modelData); color: root.secondaryText; font.family: Theme.font; font.pixelSize: 10 }
-                Text { text: "×"; color: Theme.muted; font.pixelSize: 18; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.parent.parent.parent.modelData.dismiss() } }
+            readonly property bool critical: root.notificationIsCritical(modelData)
+            readonly property color accentColor: root.notificationAccent(modelData)
+            width: ListView.view.width; height: historyCardContent.implicitHeight + 28
+            radius: Theme.radiusMd
+            color: critical ? root.notificationTintedSurface(Theme.surface, Theme.danger, 0.14) : Theme.surface
+            border.color: critical ? Theme.danger : "transparent"
+            border.width: critical ? 1 : 0
+            RowLayout {
+              id: historyCardContent
+              anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
+              spacing: Theme.gapMd
+              Rectangle {
+                Layout.alignment: Qt.AlignTop
+                implicitWidth: 48; implicitHeight: 48
+                radius: Theme.radiusMd
+                color: Qt.rgba(notificationHistoryCard.accentColor.r, notificationHistoryCard.accentColor.g, notificationHistoryCard.accentColor.b, 0.15)
+                IconImage {
+                  anchors.centerIn: parent
+                  implicitSize: 27
+                  source: Quickshell.iconPath(notificationHistoryCard.modelData.appIcon || "", root.notificationFallbackIcon(notificationHistoryCard.modelData))
+                }
               }
-              Text { Layout.fillWidth: true; text: parent.parent.modelData.summary; color: Theme.text; font.family: Theme.fontSans; font.bold: true; wrapMode: Text.Wrap }
-              Text { Layout.fillWidth: true; text: parent.parent.modelData.body; color: Theme.text; font.family: Theme.font; font.pixelSize: 11; wrapMode: Text.Wrap; textFormat: Text.PlainText }
-              RowLayout {
-                Layout.fillWidth: true; visible: parent.parent.modelData.actions.length > 0
-                Repeater {
-                  model: parent.parent.parent.modelData.actions
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 5
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: Theme.gapSm
+                  Text { text: notificationHistoryCard.modelData.appName; color: notificationHistoryCard.accentColor; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+                  Text { text: root.notificationTimeLabel(notificationHistoryCard.modelData); color: root.secondaryText; font.family: Theme.fontMono; font.pixelSize: 10 }
                   Rectangle {
-                    required property var modelData
-                    implicitWidth: actionText.implicitWidth + 18; implicitHeight: 28; radius: 7; color: Theme.background
-                    Text { id: actionText; anchors.centerIn: parent; text: parent.modelData.text; color: Theme.accent; font.family: Theme.font; font.pixelSize: 10 }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.modelData.invoke() }
+                    implicitWidth: 28; implicitHeight: 28; radius: Theme.radiusXs; color: root.hoverSurface
+                    Text { anchors.centerIn: parent; text: "×"; color: root.secondaryText; font.family: Theme.fontSans; font.pixelSize: 18 }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: notificationHistoryCard.modelData.dismiss() }
+                  }
+                }
+                Text { Layout.fillWidth: true; text: notificationHistoryCard.modelData.summary; color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 15; wrapMode: Text.Wrap }
+                Text { visible: text.length > 0; Layout.fillWidth: true; text: notificationHistoryCard.modelData.body; color: Theme.text; opacity: 0.82; font.family: Theme.fontSans; font.pixelSize: 13; lineHeight: 1.15; wrapMode: Text.Wrap; textFormat: Text.PlainText }
+                RowLayout {
+                  Layout.fillWidth: true; visible: notificationHistoryCard.modelData.actions.length > 0; spacing: Theme.gapSm
+                  Repeater {
+                    model: notificationHistoryCard.modelData.actions
+                    Rectangle {
+                      required property var modelData
+                      implicitWidth: historyActionLabel.implicitWidth + 22; implicitHeight: 32; radius: Theme.radiusSm
+                      color: Qt.rgba(notificationHistoryCard.accentColor.r, notificationHistoryCard.accentColor.g, notificationHistoryCard.accentColor.b, 0.14)
+                      Text { id: historyActionLabel; anchors.centerIn: parent; text: parent.modelData.text; color: notificationHistoryCard.accentColor; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 11 }
+                      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.modelData.invoke() }
+                    }
                   }
                 }
               }

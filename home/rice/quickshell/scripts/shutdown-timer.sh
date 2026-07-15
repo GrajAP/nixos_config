@@ -50,13 +50,15 @@ case "$action" in
     printf 'in %s min\n' "$target" > "$pending_file"
     printf '%s\n' "$deadline" > "$pending_deadline_file"
     rm -f "$cancel_file" "$agent_wait_file"
-    notify-send -u critical "Auto shutdown" "System will power off in $target minutes."
+    notify-send --app-name="Auto shutdown" --icon=system-shutdown -u critical \
+      "Auto shutdown" "System will power off in $target minutes."
     json_status
     ;;
   cancel-pending)
     touch "$cancel_file"
     rm -f "$custom_deadline_file" "$pending_file" "$pending_deadline_file" "$agent_wait_file"
-    notify-send -u normal "Auto shutdown" "Shutdown cancelled."
+    notify-send --app-name="Auto shutdown" --icon=system-shutdown -u normal \
+      "Auto shutdown" "Shutdown cancelled."
     json_status
     ;;
   *)
