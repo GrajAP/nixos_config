@@ -60,6 +60,7 @@
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
       wrapProgram "$out/bin/helium" \
+        --add-flags "--disable-gtk-ime" \
         --add-flags "--load-extension=${stylusExtension}"
     '';
   };
