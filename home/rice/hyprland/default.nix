@@ -516,7 +516,9 @@ in {
   xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
   services = {
     hypridle = {
-      enable = true;
+      # Keep the idle policy available, but do not auto-lock or suspend while
+      # long-running AI agents may still be working unattended.
+      enable = false;
       systemdTarget = "graphical-session.target";
       settings = {
         general = {
