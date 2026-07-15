@@ -6,21 +6,59 @@
   editorSettings = import ./editor-settings.nix;
   catppuccinTheme = pkgs.vscode-extensions.catppuccin.catppuccin-vsc;
   catppuccinIcons = pkgs.vscode-extensions.catppuccin.catppuccin-vsc-icons;
+  cursorSettings = pkgs.writeText "cursor-settings.json" (builtins.toJSON editorSettings);
+
+  catppuccinWorkbenchCss =
+    pkgs.runCommand "cursor-catppuccin-mocha-blue.css" {
+      nativeBuildInputs = [pkgs.jq];
+    } ''
+      {
+        printf ':root, body, .monaco-workbench, .monaco-workbench.vs, .monaco-workbench.vs-dark {\n'
+        printf '  color-scheme: dark !important;\n'
+        sed 's/#cba6f7/#89b4fa/g' \
+          ${catppuccinTheme}/share/vscode/extensions/catppuccin.catppuccin-vsc/themes/mocha.json \
+          | jq -r '.colors | to_entries[] | "  --vscode-\(.key | gsub("\\."; "-")): \(.value) !important;"'
+        printf '}\n'
+        printf 'html, body, .monaco-workbench { background-color: #1e1e2e !important; color: #cdd6f4 !important; }\n'
+      } > "$out"
+    '';
+
+  cursorCatppuccin =
+    pkgs.runCommand "${pkgs.code-cursor.pname}-${pkgs.code-cursor.version}-catppuccin-mocha-blue" {
+      meta = pkgs.code-cursor.meta;
+    } ''
+      mkdir -p "$out"
+      cp -a ${pkgs.code-cursor}/. "$out"/
+
+      chmod u+w "$out/bin/cursor"
+      substituteInPlace "$out/bin/cursor" \
+        --replace-fail "${pkgs.code-cursor}" "$out"
+
+      for stylesheet in \
+        "$out/lib/cursor/resources/app/out/vs/workbench/workbench.desktop.main.css" \
+        "$out/lib/cursor/resources/app/out/vs/workbench/workbench.glass.main.css"; do
+        chmod u+w "$stylesheet"
+        printf '\n' >> "$stylesheet"
+        cat ${catppuccinWorkbenchCss} >> "$stylesheet"
+      done
+    '';
 in {
-  home.packages = [pkgs.code-cursor];
+  home.packages = [cursorCatppuccin];
 
   # Catppuccin generates theme files when Cursor starts, so these extensions
   # must be writable rather than symlinked directly into the Nix store.
   home.activation.cursorCatppuccinExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
     extension_dir="$HOME/.cursor/extensions"
+    temporary_dir="$HOME/.cache/nix-cursor-extensions"
     mkdir -p "$extension_dir"
+    rm -rf "$temporary_dir"
+    mkdir -p "$temporary_dir"
 
     install_cursor_extension() {
       source="$1"
       target="$extension_dir/$2"
-      temporary="$target.tmp"
+      temporary="$temporary_dir/$2"
 
-      rm -rf "$temporary"
       mkdir -p "$temporary"
       cp -R "$source"/. "$temporary"/
       chmod -R u+w "$temporary"
@@ -34,7 +72,16 @@ in {
     install_cursor_extension \
       "${catppuccinIcons}/share/vscode/extensions/catppuccin.catppuccin-vsc-icons" \
       "catppuccin-icons-nix"
-  '';
 
-  xdg.configFile."Cursor/User/settings.json".text = builtins.toJSON editorSettings;
+    settings_dir="$HOME/.config/Cursor/User"
+    settings_target="$settings_dir/settings.json"
+    settings_temporary="$temporary_dir/settings.json"
+    mkdir -p "$settings_dir"
+    cp ${cursorSettings} "$settings_temporary"
+    chmod u+w "$settings_temporary"
+    rm -f "$settings_target"
+    mv "$settings_temporary" "$settings_target"
+
+    rmdir "$temporary_dir"
+  '';
 }
