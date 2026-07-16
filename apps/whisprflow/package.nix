@@ -2,6 +2,7 @@
   lib,
   pkgs,
 }: let
+  sparkCorrector = pkgs.callPackage ../spark-corrector/package.nix {};
   whisperPython = pkgs.python3.withPackages (ps: [
     ps.faster-whisper
   ]);
@@ -25,6 +26,7 @@
       pipewire
       procps
       pulseaudio
+      sparkCorrector
       systemd
       wl-clipboard
       wtype

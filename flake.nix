@@ -61,6 +61,7 @@
         shellcheck \
           ${inputs.self}/rebuild.sh \
           ${inputs.self}/home/scripts/katana-switch \
+          ${inputs.self}/apps/spark-corrector/spark-corrector \
           ${inputs.self}/apps/whisprflow/whisprflow
         shellcheck --shell=bash ${inputs.self}/home/scripts/bcn
         shellcheck --shell=bash ${inputs.self}/home/rice/quickshell/scripts/*.sh

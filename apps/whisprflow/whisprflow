@@ -16,6 +16,7 @@ record_log="$state_dir/last-record.log"
 record_err="$state_dir/record.err"
 dict_log="$data_dir/dict.log"
 review_err="$state_dir/review.err"
+spark_log="$state_dir/spark-correction.log"
 indicator_pid_file="$state_dir/indicator.pid"
 review_css_file="$state_dir/review.css"
 notification_id_file="$state_dir/notification.id"
@@ -844,6 +845,19 @@ PY
     hide_indicator
     flash_indicator "Whispr Flow" "No speech detected." "error" 2200
     return 1
+  fi
+
+  if [[ "${WHISPER_SPARK_CORRECTION:-1}" != "0" ]]; then
+    spark_output="$state_dir/spark-corrected.txt"
+    rm -f "$spark_output" "$spark_log"
+    show_indicator "Whispr Flow" "Correcting Polish/English with GPT-5.3-Codex-Spark..." "working" 0
+    if spark-corrector filter --mode transcript <"$txt_file" >"$spark_output" 2>"$spark_log" \
+      && [[ -s "$spark_output" ]]; then
+      mv "$spark_output" "$txt_file"
+    else
+      rm -f "$spark_output"
+      flash_indicator "Whispr Flow" "Spark correction failed. Using the original transcript." "error" 2400
+    fi
   fi
 
   transcript_before_review="$(cat "$txt_file" 2>/dev/null || true)"

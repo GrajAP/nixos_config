@@ -72,6 +72,8 @@
       (binding "bindr" "Quickshell" ", PAUSE" "exec, ${ipc} tools voiceStop" "Stop voice dictation")
       (binding "bind" "Quickshell" "${mod}, Q" "exec, katana-switch" "Toggle Kanata layout")
 
+      (binding "bind" "Writing" "${mod}, G" "exec, spark-corrector selection" "Correct selected Polish or English text")
+
       (binding "bind" "Hardware" ", XF86Bluetooth" "exec, bcn" "Toggle Bluetooth")
       (binding "binde" "Hardware" ", XF86AudioRaiseVolume" "exec, pamixer -i 5 && ${ipc} osd volume" "Raise volume")
       (binding "binde" "Hardware" ", XF86AudioLowerVolume" "exec, pamixer -d 5 && ${ipc} osd volume" "Lower volume")

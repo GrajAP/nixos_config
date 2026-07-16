@@ -2,7 +2,8 @@
 
 Local push-to-talk dictation for Wayland. It records from PipeWire, transcribes
 locally with `faster-whisper`, lets you correct the text, learns correction
-pairs, copies the result and types it into the previously focused field.
+pairs, improves Polish and English with GPT-5.3-Codex-Spark, copies the result
+and types it into the previously focused field.
 
 ## Run
 
@@ -39,4 +40,6 @@ with `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `WHISPER_LANGS` or
 `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`. `ydotoold` is optional; `wtype` is
 used as a fallback. WhisprFlow pastes through the clipboard so Unicode text,
 including Polish characters, is preserved. The transcript remains in the
-clipboard if the paste shortcut fails.
+clipboard if the paste shortcut fails. Spark correction runs automatically
+before the review window and never falls back to another Codex model. Set
+`WHISPER_SPARK_CORRECTION=0` to keep the raw local transcript.

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "enum": ["pl", "en", "mixed", "unknown"]
+    },
+    "corrected_text": {
+      "type": "string"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "spelling",
+              "grammar",
+              "punctuation",
+              "capitalization",
+              "word-choice",
+              "speech-recognition",
+              "style"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": ["before", "after", "category", "reason"]
+      }
+    }
+  },
+  "required": ["language", "corrected_text", "changes"]
+}
