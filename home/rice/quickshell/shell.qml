@@ -1704,7 +1704,7 @@ ShellRoot {
   function canDeleteSelectedOverallTodoList() {
     if (root.overallTodoListId.length === 0 || root.overallTodoListId === "*") return false;
     const list = root.selectedOverallTodoList();
-    return list !== null && Boolean(list.deletable);
+    return list !== null && Boolean(list.deletable) && Number(list.taskCount || 0) === 0;
   }
   function deleteSelectedOverallTodoList() {
     if (!root.canDeleteSelectedOverallTodoList() || calendarTaskAction.running) return;
@@ -3616,7 +3616,7 @@ ShellRoot {
             }
             Rectangle {
               visible: root.canDeleteSelectedOverallTodoList()
-              implicitWidth: root.overallTodoPendingDeleteListId === root.overallTodoListId ? 96 : 78
+              implicitWidth: root.overallTodoPendingDeleteListId === root.overallTodoListId ? 110 : 78
               implicitHeight: 28
               radius: 8
               color: root.overallTodoPendingDeleteListId === root.overallTodoListId ? Theme.danger : Theme.surface
@@ -3626,8 +3626,7 @@ ShellRoot {
                 anchors.centerIn: parent
                 text: {
                   if (root.overallTodoPendingDeleteListId !== root.overallTodoListId) return "Delete list";
-                  const list = root.selectedOverallTodoList();
-                  return list && list.taskCount > 0 ? "Delete " + list.taskCount + " tasks?" : "Confirm delete";
+                  return "Delete empty list?";
                 }
                 color: root.overallTodoPendingDeleteListId === root.overallTodoListId ? Theme.text : Theme.muted
                 font.family: Theme.fontSans

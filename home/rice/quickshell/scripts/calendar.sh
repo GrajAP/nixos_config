@@ -333,17 +333,17 @@ if True:
                           )
                           if parsed:
                               tasks.append(parsed)
-          sync_task_mirrors(tasks)
           events.extend(tasks)
           task_lists = []
           for item in calendars:
               if "VTODO" not in item["components"]:
                   continue
+              task_count = sum(1 for task in tasks if task.get("taskListId") == item["href"])
               task_lists.append({
                   "id": item["href"],
                   "name": item["displayName"],
-                  "deletable": item["components"] == {"VTODO"},
-                  "taskCount": sum(1 for task in tasks if task.get("taskListId") == item["href"]),
+                  "deletable": item["components"] == {"VTODO"} and task_count == 0,
+                  "taskCount": task_count,
               })
           task_lists.sort(key=lambda item: item["name"].casefold())
           return events, task_lists
@@ -510,6 +510,9 @@ if True:
           collection = choose_task_calendar(args[0])
           if collection["components"] != {"VTODO"}:
               raise RuntimeError("This list also contains calendar data and cannot be deleted here")
+          tasks = calendar_report(collection, "VTODO", time_range=False)
+          if tasks:
+              raise RuntimeError("Only an empty task list can be deleted")
           request("DELETE", collection["href"], ok=(200, 202, 204))
           clear_undo()
           print(json.dumps({
