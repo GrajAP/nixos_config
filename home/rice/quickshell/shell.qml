@@ -4045,6 +4045,11 @@ ShellRoot {
       color: critical ? root.notificationTintedSurface(Theme.panel, Theme.danger, 0.16) : Theme.panel
       border.color: critical ? Theme.danger : Theme.border
       border.width: critical ? 2 : 1
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.notificationPopupVisible = false
+      }
       RowLayout {
         id: notificationPopupContent
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.padLg }
@@ -4251,6 +4256,11 @@ ShellRoot {
             color: critical ? root.notificationTintedSurface(Theme.surface, Theme.danger, 0.14) : Theme.surface
             border.color: critical ? Theme.danger : "transparent"
             border.width: critical ? 1 : 0
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: notificationHistoryCard.modelData.dismiss()
+            }
             RowLayout {
               id: historyCardContent
               anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
