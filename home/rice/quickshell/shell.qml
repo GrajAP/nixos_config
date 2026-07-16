@@ -93,6 +93,7 @@ ShellRoot {
   property var workspaceDragTarget: 0
   property var weatherData: null
   property var calendarEvents: []
+  property var calendarTaskLists: []
   property string calendarError: ""
   property var clipboardEntries: []
   property string clipboardFilter: ""
@@ -103,6 +104,9 @@ ShellRoot {
   property string calendarEntryMode: "task"
   property string calendarTitleDraft: ""
   property string overallTodoDraft: ""
+  property string overallTodoListId: ""
+  property string overallTodoListDraft: ""
+  property bool overallTodoCreatingList: false
   property string calendarStartDraft: ""
   property string calendarEndDraft: ""
   property string calendarEditingHref: ""
@@ -371,9 +375,16 @@ ShellRoot {
         try {
           const payload = JSON.parse(text);
           root.calendarEvents = payload.events || [];
+          root.calendarTaskLists = payload.taskLists || [];
+          const selectedListStillExists = root.calendarTaskLists.some(list => list.id === root.overallTodoListId);
+          if (root.overallTodoListId.length > 0 && root.overallTodoListId !== "*" && !selectedListStillExists)
+            root.overallTodoListId = "";
+          if (root.overallTodoListId.length === 0 && root.calendarTaskLists.length > 0)
+            root.overallTodoListId = root.calendarTaskLists[0].id;
           root.calendarError = payload.error || "";
         } catch (error) {
           root.calendarEvents = [];
+          root.calendarTaskLists = [];
           root.calendarError = "Could not read calendar data";
         }
       }
@@ -392,6 +403,11 @@ ShellRoot {
           if (calendarTaskAction.succeeded) {
             root.calendarCanUndo = Boolean(payload.undoable);
             if (calendarTaskAction.actionName === "add-overall-task") root.overallTodoDraft = "";
+            if (calendarTaskAction.actionName === "create-task-list") {
+              root.overallTodoListDraft = "";
+              root.overallTodoCreatingList = false;
+              root.overallTodoListId = payload.taskListId || "";
+            }
           }
         } catch (error) {
           calendarTaskAction.succeeded = true;
@@ -1497,9 +1513,19 @@ ShellRoot {
 	  }
   function overallTodos() {
     return root.calendarEvents
-      .filter(event => Boolean(event.task) && !Boolean(event.completed) && !event.date)
+      .filter(event => Boolean(event.task)
+        && !Boolean(event.completed)
+        && !event.date
+        && (root.overallTodoListId === "*" || event.taskListId === root.overallTodoListId))
       .slice()
-      .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+      .sort((a, b) => String(a.source || "").localeCompare(String(b.source || ""))
+        || String(a.title || "").localeCompare(String(b.title || "")));
+  }
+  function selectedOverallTodoList() {
+    for (const list of root.calendarTaskLists) {
+      if (list.id === root.overallTodoListId) return list;
+    }
+    return root.calendarTaskLists.length > 0 ? root.calendarTaskLists[0] : null;
   }
   function calendarClock(minutes) {
     const normalized = ((minutes % 1440) + 1440) % 1440;
@@ -1628,9 +1654,16 @@ ShellRoot {
   }
   function addOverallTodo() {
     const title = root.overallTodoDraft.trim();
-    if (title.length === 0 || calendarTaskAction.running)
+    const list = root.selectedOverallTodoList();
+    if (title.length === 0 || list === null || calendarTaskAction.running)
       return;
-    root.runCalendarAction(["@calendarTask@", "add-overall-task", title]);
+    root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, title]);
+  }
+  function createOverallTodoList() {
+    const name = root.overallTodoListDraft.trim();
+    if (name.length === 0 || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "create-task-list", name]);
   }
   function nextEventSummary() {
     const events = upcomingEvents(1);
@@ -3514,13 +3547,146 @@ ShellRoot {
               horizontalAlignment: Text.AlignHCenter
             }
           }
-          Text {
+          RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 8
-            text: "Overall TODO"
-            color: Theme.muted
-            font.family: Theme.fontSans
-            font.bold: true
+            spacing: 8
+            Text {
+              Layout.fillWidth: true
+              text: "Overall TODO"
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.bold: true
+            }
+            Rectangle {
+              implicitWidth: 74
+              implicitHeight: 28
+              radius: 8
+              color: root.overallTodoCreatingList ? Theme.surfaceAlt : Theme.surface
+              border.color: root.overallTodoCreatingList ? Theme.accent : Theme.border
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: root.overallTodoCreatingList ? "Cancel" : "+ List"
+                color: root.overallTodoCreatingList ? Theme.text : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 11
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.overallTodoCreatingList = !root.overallTodoCreatingList;
+                  if (!root.overallTodoCreatingList) root.overallTodoListDraft = "";
+                }
+              }
+            }
+          }
+          RowLayout {
+            visible: root.overallTodoCreatingList
+            Layout.fillWidth: true
+            spacing: 8
+            TextField {
+              Layout.fillWidth: true
+              implicitHeight: 36
+              text: root.overallTodoListDraft
+              placeholderText: "New list, e.g. Bespotted"
+              color: Theme.text
+              placeholderTextColor: Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              cursorDelegate: root.themedCursor
+              selectionColor: Theme.accent
+              selectedTextColor: Theme.background
+              selectByMouse: true
+              background: Rectangle {
+                radius: 9
+                color: Theme.surface
+                border.color: parent.activeFocus ? Theme.accent : Theme.border
+                border.width: 1
+              }
+              onTextChanged: root.overallTodoListDraft = text
+              Keys.onReturnPressed: root.createOverallTodoList()
+              Keys.onEnterPressed: root.createOverallTodoList()
+            }
+            Rectangle {
+              implicitWidth: 64
+              implicitHeight: 36
+              radius: 9
+              color: root.overallTodoListDraft.trim().length > 0 ? Theme.accent : Theme.surface
+              Text {
+                anchors.centerIn: parent
+                text: "Create"
+                color: root.overallTodoListDraft.trim().length > 0 ? Theme.background : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 11
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.overallTodoListDraft.trim().length > 0 && !calendarTaskAction.running
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.createOverallTodoList()
+              }
+            }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            Rectangle {
+              implicitWidth: 42
+              implicitHeight: 30
+              radius: 8
+              color: root.overallTodoListId === "*" ? Theme.accent : Theme.surface
+              border.color: root.overallTodoListId === "*" ? Theme.accent : Theme.border
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: "All"
+                color: root.overallTodoListId === "*" ? Theme.background : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 11
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.overallTodoListId = "*"
+              }
+            }
+            ListView {
+              Layout.fillWidth: true
+              implicitHeight: 30
+              orientation: ListView.Horizontal
+              clip: true
+              spacing: 6
+              model: root.calendarTaskLists
+              delegate: Rectangle {
+                id: taskListChip
+                required property var modelData
+                width: taskListChipLabel.implicitWidth + 20
+                height: 30
+                radius: 8
+                color: root.overallTodoListId === modelData.id ? Theme.accent : Theme.surface
+                border.color: root.overallTodoListId === modelData.id ? Theme.accent : Theme.border
+                border.width: 1
+                Text {
+                  id: taskListChipLabel
+                  anchors.centerIn: parent
+                  text: taskListChip.modelData.name
+                  color: root.overallTodoListId === taskListChip.modelData.id ? Theme.background : Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 11
+                  font.bold: true
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.overallTodoListId = taskListChip.modelData.id
+                }
+              }
+            }
           }
           RowLayout {
             Layout.fillWidth: true
@@ -3530,7 +3696,10 @@ ShellRoot {
               Layout.fillWidth: true
               implicitHeight: 40
               text: root.overallTodoDraft
-              placeholderText: "Add a todo"
+              placeholderText: {
+                const list = root.selectedOverallTodoList();
+                return list ? "Add to " + list.name : "Create a list first";
+              }
               color: Theme.text
               placeholderTextColor: Theme.muted
               font.family: Theme.font
@@ -3564,7 +3733,7 @@ ShellRoot {
               }
               MouseArea {
                 anchors.fill: parent
-                enabled: root.overallTodoDraft.trim().length > 0 && !calendarTaskAction.running
+                enabled: root.overallTodoDraft.trim().length > 0 && root.selectedOverallTodoList() !== null && !calendarTaskAction.running
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: root.addOverallTodo()
               }
@@ -3599,7 +3768,7 @@ ShellRoot {
                   verticalAlignment: Text.AlignVCenter
                 }
                 Text {
-                  text: "todo"
+                  text: modelData.source || "todo"
                   color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10

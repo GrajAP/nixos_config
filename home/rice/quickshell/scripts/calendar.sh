@@ -8,6 +8,7 @@ if True:
       import re
       import subprocess
       import sys
+      import unicodedata
       import uuid
       from datetime import date, datetime, time, timedelta, timezone
       from os import environ
@@ -16,6 +17,7 @@ if True:
       from urllib.parse import quote, urljoin
       from urllib.request import Request, urlopen
       from xml.etree import ElementTree as ET
+      from xml.sax.saxutils import escape as escape_xml
 
       from icalendar import Calendar
       import recurring_ical_events
@@ -272,7 +274,7 @@ if True:
               "source": source,
           }
 
-      def parse_todo(component, source, href=None, etag=None):
+      def parse_todo(component, source, task_list_id, href=None, etag=None):
           status = str(component.get("STATUS", "")).upper()
           if status == "CANCELLED":
               return None
@@ -294,6 +296,7 @@ if True:
               "uid": str(component.get("UID", "")),
               "etag": etag,
               "source": source,
+              "taskListId": task_list_id,
           }
 
       def nextcloud_events():
@@ -321,12 +324,24 @@ if True:
                       ics = item["data"]
                       calendar = Calendar.from_ical(ics)
                       for component in calendar.walk("VTODO"):
-                          parsed = parse_todo(component, collection["displayName"], item["href"], item["etag"])
+                          parsed = parse_todo(
+                              component,
+                              collection["displayName"],
+                              collection["href"],
+                              item["href"],
+                              item["etag"],
+                          )
                           if parsed:
                               tasks.append(parsed)
           sync_task_mirrors(tasks)
           events.extend(tasks)
-          return events
+          task_lists = [
+              {"id": item["href"], "name": item["displayName"]}
+              for item in calendars
+              if "VTODO" in item["components"]
+          ]
+          task_lists.sort(key=lambda item: item["name"].casefold())
+          return events, task_lists
 
       def escape_ics(value):
           return (
@@ -409,6 +424,14 @@ if True:
               return candidates[0]
           raise RuntimeError(f"No writable {component} calendar found")
 
+      def choose_task_calendar(task_list_id=None):
+          if not task_list_id:
+              return choose_calendar("VTODO")
+          for item in discover_calendars():
+              if item["href"] == task_list_id and "VTODO" in item["components"]:
+                  return item
+          raise RuntimeError("Selected task list is unavailable")
+
       def create_tasks_calendar():
           href = f"{CALENDAR_HOME}tasks/"
           body = """<?xml version="1.0" encoding="utf-8" ?>
@@ -435,6 +458,46 @@ if True:
           if calendars:
               return calendars[0]
           raise RuntimeError("Could not create Nextcloud Tasks calendar")
+
+      def task_list_slug(name, calendars):
+          normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+          base = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-") or "list"
+          existing = {item["href"].rstrip("/").split("/")[-1] for item in calendars}
+          slug = base
+          suffix = 2
+          while slug in existing:
+              slug = f"{base}-{suffix}"
+              suffix += 1
+          return slug
+
+      def create_task_list(args):
+          name = " ".join(args).strip()
+          if not name:
+              raise RuntimeError("Task list name is empty")
+          if len(name) > 80:
+              raise RuntimeError("Task list name is too long")
+          calendars = discover_calendars()
+          slug = task_list_slug(name, calendars)
+          href = f"{CALENDAR_HOME}{quote(slug)}/"
+          body = f"""<?xml version="1.0" encoding="utf-8" ?>
+      <cal:mkcalendar xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+        <d:set>
+          <d:prop>
+            <d:displayname>{escape_xml(name)}</d:displayname>
+            <cal:supported-calendar-component-set>
+              <cal:comp name="VTODO" />
+            </cal:supported-calendar-component-set>
+          </d:prop>
+        </d:set>
+      </cal:mkcalendar>"""
+          request("MKCALENDAR", href, body, ok=(200, 201, 204))
+          collection = choose_task_calendar(href)
+          print(json.dumps({
+              "ok": True,
+              "type": "task-list",
+              "taskListId": collection["href"],
+              "taskListName": collection["displayName"],
+          }))
 
       def put_ics(collection, ics, object_name=None):
           object_name = quote(object_name or f"{uuid.uuid4()}.ics")
@@ -561,7 +624,10 @@ if True:
           print(json.dumps({"ok": True, "type": "task", "undoable": True}))
 
       def add_overall_task(args):
-          title = " ".join(args).strip()
+          if len(args) < 2:
+              raise RuntimeError("Usage: quickshell-calendar add-overall-task task-list-id title")
+          task_list_id = args[0]
+          title = " ".join(args[1:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
           uid = f"{uuid.uuid4()}@quickshell"
@@ -582,7 +648,7 @@ if True:
               "END:VCALENDAR",
               "",
           ])
-          href = put_ics(choose_calendar("VTODO"), ics)
+          href = put_ics(choose_task_calendar(task_list_id), ics)
           save_undo({"mode": "created", "href": href})
           print(json.dumps({"ok": True, "type": "task", "undated": True, "undoable": True}))
 
@@ -849,9 +915,10 @@ if True:
 
       def query():
           events = []
+          task_lists = []
           error = ""
           try:
-              events = nextcloud_events()
+              events, task_lists = nextcloud_events()
           except Exception as exc:
               error = str(exc)
           synced_obsidian_uids = {
@@ -868,7 +935,11 @@ if True:
               item.get("startTime") or "",
               item.get("title", ""),
           ))
-          output = {"today": date.today().isoformat(), "events": events}
+          output = {
+              "today": date.today().isoformat(),
+              "events": events,
+              "taskLists": task_lists,
+          }
           if error:
               output["error"] = error
           print(json.dumps(output))
@@ -882,6 +953,8 @@ if True:
                   add_task(sys.argv[2:])
               elif action == "add-overall-task":
                   add_overall_task(sys.argv[2:])
+              elif action == "create-task-list":
+                  create_task_list(sys.argv[2:])
               elif action == "add-event":
                   add_event(sys.argv[2:])
               elif action == "complete-task":
@@ -901,7 +974,7 @@ if True:
               elif action == "sync-obsidian":
                   sync_obsidian_events(sys.argv[2:])
               else:
-                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
+                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|create-task-list|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
           except Exception as exc:
               print(json.dumps({"ok": False, "error": str(exc)}))
               raise SystemExit(1)
