@@ -104,6 +104,7 @@ ShellRoot {
   property string calendarEntryMode: "task"
   property string calendarTitleDraft: ""
   property string overallTodoDraft: ""
+  property string overallTodoEditingHref: ""
   property string overallTodoListId: ""
   property string overallTodoListDraft: ""
   property bool overallTodoCreatingList: false
@@ -402,7 +403,10 @@ ShellRoot {
           root.calendarError = payload.error || "";
           if (calendarTaskAction.succeeded) {
             root.calendarCanUndo = Boolean(payload.undoable);
-            if (calendarTaskAction.actionName === "add-overall-task") root.overallTodoDraft = "";
+            if (calendarTaskAction.actionName === "add-overall-task" || calendarTaskAction.actionName === "edit-overall-task") {
+              root.overallTodoDraft = "";
+              root.overallTodoEditingHref = "";
+            }
             if (calendarTaskAction.actionName === "create-task-list") {
               root.overallTodoListDraft = "";
               root.overallTodoCreatingList = false;
@@ -1657,7 +1661,21 @@ ShellRoot {
     const list = root.selectedOverallTodoList();
     if (title.length === 0 || list === null || calendarTaskAction.running)
       return;
-    root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, title]);
+    if (root.overallTodoEditingHref.length > 0)
+      root.runCalendarAction(["@calendarTask@", "edit-overall-task", root.overallTodoEditingHref, title]);
+    else
+      root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, title]);
+  }
+  function editOverallTodo(todo) {
+    root.overallTodoEditingHref = todo.href || "";
+    root.overallTodoDraft = todo.title || "";
+    if (todo.taskListId) root.overallTodoListId = todo.taskListId;
+    overallTodoInput.forceActiveFocus();
+    overallTodoInput.selectAll();
+  }
+  function cancelOverallTodoEdit() {
+    root.overallTodoEditingHref = "";
+    root.overallTodoDraft = "";
   }
   function createOverallTodoList() {
     const name = root.overallTodoListDraft.trim();
@@ -3697,6 +3715,7 @@ ShellRoot {
               implicitHeight: 40
               text: root.overallTodoDraft
               placeholderText: {
+                if (root.overallTodoEditingHref.length > 0) return "Edit todo";
                 const list = root.selectedOverallTodoList();
                 return list ? "Add to " + list.name : "Create a list first";
               }
@@ -3719,13 +3738,35 @@ ShellRoot {
               Keys.onEnterPressed: root.addOverallTodo()
             }
             Rectangle {
+              visible: root.overallTodoEditingHref.length > 0
+              implicitWidth: 40
+              implicitHeight: 40
+              radius: 9
+              color: Theme.surface
+              border.color: Theme.border
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: "×"
+                color: Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 18
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.cancelOverallTodoEdit()
+              }
+            }
+            Rectangle {
               implicitWidth: 40
               implicitHeight: 40
               radius: 9
               color: root.overallTodoDraft.trim().length > 0 ? Theme.accent : Theme.surface
               Text {
                 anchors.centerIn: parent
-                text: "+"
+                text: root.overallTodoEditingHref.length > 0 ? "✓" : "+"
                 color: root.overallTodoDraft.trim().length > 0 ? Theme.background : Theme.muted
                 font.family: Theme.fontSans
                 font.pixelSize: 18
@@ -3772,6 +3813,30 @@ ShellRoot {
                   color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10
+                  Layout.maximumWidth: 100
+                  elide: Text.ElideRight
+                }
+                Rectangle {
+                  implicitWidth: 52
+                  implicitHeight: 32
+                  radius: 8
+                  color: root.overallTodoEditingHref === overallTodoRow.modelData.href ? Theme.accent : Theme.surfaceAlt
+                  Text {
+                    anchors.fill: parent
+                    text: "Edit"
+                    color: root.overallTodoEditingHref === overallTodoRow.modelData.href ? Theme.background : Theme.text
+                    font.family: Theme.fontSans
+                    font.pixelSize: 12
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    enabled: !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.editOverallTodo(overallTodoRow.modelData)
+                  }
                 }
                 Rectangle {
                   implicitWidth: 72

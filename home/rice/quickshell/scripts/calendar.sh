@@ -652,6 +652,21 @@ if True:
           save_undo({"mode": "created", "href": href})
           print(json.dumps({"ok": True, "type": "task", "undated": True, "undoable": True}))
 
+      def edit_overall_task(args):
+          if len(args) < 2:
+              raise RuntimeError("Usage: quickshell-calendar edit-overall-task href title")
+          href = writable_href(args[0])
+          title = " ".join(args[1:]).strip()
+          if not title:
+              raise RuntimeError("Task title is empty")
+          original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
+          save_undo({"mode": "restore", "href": href, "ics": original_ics})
+          ics = unfold_ics(original_ics)
+          ics = upsert_component_line(ics, "VTODO", "SUMMARY", escape_ics(title))
+          ics = update_stamp(ics, "VTODO")
+          request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
+          print(json.dumps({"ok": True, "type": "task", "undated": True, "edited": True, "undoable": True}))
+
       def add_event(args):
           if len(args) < 2:
               raise RuntimeError("Usage: quickshell-calendar add-event YYYY-MM-DD title [HH:MM] [HH:MM]")
@@ -953,6 +968,8 @@ if True:
                   add_task(sys.argv[2:])
               elif action == "add-overall-task":
                   add_overall_task(sys.argv[2:])
+              elif action == "edit-overall-task":
+                  edit_overall_task(sys.argv[2:])
               elif action == "create-task-list":
                   create_task_list(sys.argv[2:])
               elif action == "add-event":
@@ -974,7 +991,7 @@ if True:
               elif action == "sync-obsidian":
                   sync_obsidian_events(sys.argv[2:])
               else:
-                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|create-task-list|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
+                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|edit-overall-task|create-task-list|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
           except Exception as exc:
               print(json.dumps({"ok": False, "error": str(exc)}))
               raise SystemExit(1)
