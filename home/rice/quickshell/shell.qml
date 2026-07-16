@@ -3211,10 +3211,18 @@ ShellRoot {
             }
               }
             }
-            ColumnLayout {
+            Item {
               Layout.fillWidth: true
               Layout.fillHeight: true
-              spacing: 10
+
+              ColumnLayout {
+                id: selectedDayPanel
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: Math.max(0, (parent.height - 10) / 2)
+                spacing: 10
+
               Text {
                 Layout.fillWidth: true
                 text: "Selected day"
@@ -3446,8 +3454,7 @@ ShellRoot {
           ListView {
             id: selectedDayList
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(96, Math.min(contentHeight, 320))
-            Layout.maximumHeight: 320
+            Layout.fillHeight: true
             clip: true
             spacing: 6
             model: root.selectedDayEvents()
@@ -3581,6 +3588,16 @@ ShellRoot {
               horizontalAlignment: Text.AlignHCenter
             }
           }
+              }
+
+              ColumnLayout {
+                id: overallTodoPanel
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: selectedDayPanel.height
+                spacing: 10
+
           RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 8
@@ -3880,7 +3897,6 @@ ShellRoot {
             id: overallTodoList
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 120
             clip: true
             spacing: 6
             model: root.overallTodos()
@@ -3990,6 +4006,7 @@ ShellRoot {
               font.pixelSize: 12
             }
           }
+              }
             }
           }
 	        }
