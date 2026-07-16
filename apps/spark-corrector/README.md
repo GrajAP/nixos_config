@@ -24,4 +24,6 @@ failed or timed-out Spark request leaves the original transcript unchanged.
 
 The Codex CLI must be authenticated with a ChatGPT account that has access to
 GPT-5.3-Codex-Spark. The request timeout defaults to 120 seconds and can be
-changed with `SPARK_CORRECTOR_TIMEOUT_SECONDS`.
+changed with `SPARK_CORRECTOR_TIMEOUT_SECONDS`. Headless consumers such as
+WhisprFlow wait up to 130 seconds for another Spark request to finish. Override
+that with `SPARK_CORRECTOR_LOCK_WAIT_SECONDS`.

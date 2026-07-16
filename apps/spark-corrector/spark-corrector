@@ -8,6 +8,7 @@ readonly app_name="Spark Corrector"
 runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
 state_dir="${SPARK_CORRECTOR_STATE_DIR:-$runtime_dir/spark-corrector}"
 timeout_seconds="${SPARK_CORRECTOR_TIMEOUT_SECONDS:-120}"
+lock_wait_seconds="${SPARK_CORRECTOR_LOCK_WAIT_SECONDS:-130}"
 log_file="$state_dir/last-run.log"
 lock_file="$state_dir/run.lock"
 review_css_file="$state_dir/review.css"
@@ -15,11 +16,13 @@ work_dir=""
 response_file=""
 corrected_file=""
 headless=0
+lock_held=0
 
 mkdir -p "$state_dir"
 chmod 700 "$state_dir"
 
 cleanup() {
+  release_lock
   if [[ -n "$work_dir" && -d "$work_dir" ]]; then
     rm -rf "$work_dir"
   fi
@@ -53,13 +56,29 @@ validate_settings() {
     fail "SPARK_CORRECTOR_TIMEOUT_SECONDS must be a positive integer."
     return 1
   fi
+  if [[ ! "$lock_wait_seconds" =~ ^[0-9]+$ ]]; then
+    fail "SPARK_CORRECTOR_LOCK_WAIT_SECONDS must be a non-negative integer."
+    return 1
+  fi
 }
 
 acquire_lock() {
+  local wait_seconds="${1:-0}"
+
   exec 9>"$lock_file"
-  if ! flock -n 9; then
+  if ! flock -w "$wait_seconds" 9; then
+    exec 9>&-
     fail "Another correction is already running."
     return 1
+  fi
+  lock_held=1
+}
+
+release_lock() {
+  if [[ $lock_held -eq 1 ]]; then
+    flock -u 9 2>/dev/null || true
+    exec 9>&-
+    lock_held=0
   fi
 }
 
@@ -136,7 +155,7 @@ send_paste_shortcut() {
 
 restore_clipboard() {
   local value="$1"
-  printf '%s' "$value" | wl-copy
+  printf '%s' "$value" | wl-copy 9>&-
 }
 
 capture_selection() {
@@ -146,7 +165,7 @@ capture_selection() {
 
   marker="__SPARK_CORRECTOR_SELECTION_${RANDOM}_$$_$(date +%s%N)__"
 
-  printf '%s' "$marker" | wl-copy
+  printf '%s' "$marker" | wl-copy 9>&-
   sleep 0.08
 
   if ! send_copy_shortcut; then
@@ -347,7 +366,6 @@ correct_selection() {
   local focused_window
   local review_status
 
-  acquire_lock
   focused_window="$(capture_active_window)"
   previous_clipboard="$(wl-paste --no-newline 2>/dev/null || true)"
 
@@ -356,10 +374,16 @@ correct_selection() {
   fi
 
   notify_status "$app_name" "Checking Polish and English with GPT-5.3-Codex-Spark…"
-  if ! run_correction "$selected_text" standard; then
+  if ! acquire_lock 0; then
     restore_clipboard "$previous_clipboard"
     return 1
   fi
+  if ! run_correction "$selected_text" standard; then
+    release_lock
+    restore_clipboard "$previous_clipboard"
+    return 1
+  fi
+  release_lock
 
   set +e
   review_correction 1
@@ -369,7 +393,7 @@ correct_selection() {
   case "$review_status" in
     0)
       refocus_window "$focused_window"
-      wl-copy <"$corrected_file"
+      wl-copy 9>&- <"$corrected_file"
       sleep 0.2
       if send_paste_shortcut; then
         notify_status "$app_name" "The corrected text was inserted."
@@ -378,7 +402,7 @@ correct_selection() {
       fi
       ;;
     2)
-      wl-copy <"$corrected_file"
+      wl-copy 9>&- <"$corrected_file"
       notify_status "$app_name" "The corrected text was copied."
       ;;
     *)
@@ -392,7 +416,6 @@ correct_clipboard() {
   local input
   local review_status
 
-  acquire_lock
   input="$(wl-paste --no-newline 2>/dev/null || true)"
   if [[ -z "$input" ]]; then
     fail "The text clipboard is empty."
@@ -400,7 +423,12 @@ correct_clipboard() {
   fi
 
   notify_status "$app_name" "Checking Polish and English with GPT-5.3-Codex-Spark…"
-  run_correction "$input" standard
+  acquire_lock 0
+  if ! run_correction "$input" standard; then
+    release_lock
+    return 1
+  fi
+  release_lock
 
   set +e
   review_correction 0
@@ -408,7 +436,7 @@ correct_clipboard() {
   set -e
 
   if [[ $review_status -eq 0 ]]; then
-    wl-copy <"$corrected_file"
+    wl-copy 9>&- <"$corrected_file"
     notify_status "$app_name" "The corrected text was copied."
   else
     notify_status "$app_name" "Correction cancelled."
@@ -434,9 +462,13 @@ filter_text() {
     return 1
   fi
 
-  acquire_lock
   input="$(cat)"
-  run_correction "$input" "$mode"
+  acquire_lock "$lock_wait_seconds"
+  if ! run_correction "$input" "$mode"; then
+    release_lock
+    return 1
+  fi
+  release_lock
   cat "$corrected_file"
 }
 
