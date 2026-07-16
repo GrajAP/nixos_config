@@ -276,9 +276,9 @@ if True:
           status = str(component.get("STATUS", "")).upper()
           if status == "CANCELLED":
               return None
-          due_prop = component.get("DUE") or component.get("DTSTART") or component.get("CREATED")
-          due = due_prop.dt if due_prop is not None else date.today()
-          item_date = date_value(due) or date.today().isoformat()
+          due_prop = component.get("DUE") or component.get("DTSTART")
+          due = due_prop.dt if due_prop is not None else None
+          item_date = date_value(due) or ""
           completed = status == "COMPLETED" or str(component.get("PERCENT-COMPLETE", "")) == "100"
           return {
               "date": item_date,
@@ -559,6 +559,32 @@ if True:
           href = put_ics(choose_calendar("VTODO"), ics)
           save_undo({"mode": "created", "href": href})
           print(json.dumps({"ok": True, "type": "task", "undoable": True}))
+
+      def add_overall_task(args):
+          title = " ".join(args).strip()
+          if not title:
+              raise RuntimeError("Task title is empty")
+          uid = f"{uuid.uuid4()}@quickshell"
+          stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          ics = "\r\n".join([
+              "BEGIN:VCALENDAR",
+              "VERSION:2.0",
+              "PRODID:-//quickshell//nextcloud-calendar//EN",
+              "BEGIN:VTODO",
+              f"UID:{uid}",
+              f"DTSTAMP:{stamp}",
+              f"CREATED:{stamp}",
+              f"LAST-MODIFIED:{stamp}",
+              f"SUMMARY:{escape_ics(title)}",
+              "STATUS:NEEDS-ACTION",
+              "PERCENT-COMPLETE:0",
+              "END:VTODO",
+              "END:VCALENDAR",
+              "",
+          ])
+          href = put_ics(choose_calendar("VTODO"), ics)
+          save_undo({"mode": "created", "href": href})
+          print(json.dumps({"ok": True, "type": "task", "undated": True, "undoable": True}))
 
       def add_event(args):
           if len(args) < 2:
@@ -854,6 +880,8 @@ if True:
                   query()
               elif action in ("add", "add-task"):
                   add_task(sys.argv[2:])
+              elif action == "add-overall-task":
+                  add_overall_task(sys.argv[2:])
               elif action == "add-event":
                   add_event(sys.argv[2:])
               elif action == "complete-task":
@@ -873,7 +901,7 @@ if True:
               elif action == "sync-obsidian":
                   sync_obsidian_events(sys.argv[2:])
               else:
-                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
+                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
           except Exception as exc:
               print(json.dumps({"ok": False, "error": str(exc)}))
               raise SystemExit(1)

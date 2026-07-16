@@ -102,6 +102,7 @@ ShellRoot {
   property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
   property string calendarEntryMode: "task"
   property string calendarTitleDraft: ""
+  property string overallTodoDraft: ""
   property string calendarStartDraft: ""
   property string calendarEndDraft: ""
   property string calendarEditingHref: ""
@@ -388,7 +389,10 @@ ShellRoot {
           const payload = JSON.parse(text);
           calendarTaskAction.succeeded = payload.ok !== false;
           root.calendarError = payload.error || "";
-          if (calendarTaskAction.succeeded) root.calendarCanUndo = Boolean(payload.undoable);
+          if (calendarTaskAction.succeeded) {
+            root.calendarCanUndo = Boolean(payload.undoable);
+            if (calendarTaskAction.actionName === "add-overall-task") root.overallTodoDraft = "";
+          }
         } catch (error) {
           calendarTaskAction.succeeded = true;
         }
@@ -1491,6 +1495,12 @@ ShellRoot {
 	      .slice()
 	      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
 	  }
+  function overallTodos() {
+    return root.calendarEvents
+      .filter(event => Boolean(event.task) && !Boolean(event.completed) && !event.date)
+      .slice()
+      .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+  }
   function calendarClock(minutes) {
     const normalized = ((minutes % 1440) + 1440) % 1440;
     const hour = Math.floor(normalized / 60);
@@ -1615,6 +1625,12 @@ ShellRoot {
     } else {
       root.runCalendarAction(["@calendarTask@", "add-task", root.calendarSelectedDate, title]);
     }
+  }
+  function addOverallTodo() {
+    const title = root.overallTodoDraft.trim();
+    if (title.length === 0 || calendarTaskAction.running)
+      return;
+    root.runCalendarAction(["@calendarTask@", "add-overall-task", title]);
   }
   function nextEventSummary() {
     const events = upcomingEvents(1);
@@ -3361,7 +3377,12 @@ ShellRoot {
             }
           }
           ListView {
-            Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 96; clip: true; spacing: 6
+            id: selectedDayList
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.max(96, Math.min(contentHeight, 320))
+            Layout.maximumHeight: 320
+            clip: true
+            spacing: 6
             model: root.selectedDayEvents()
             delegate: Rectangle {
               id: calendarItemRow
@@ -3491,6 +3512,152 @@ ShellRoot {
               font.family: Theme.fontSans
               font.pixelSize: 12
               horizontalAlignment: Text.AlignHCenter
+            }
+          }
+          Text {
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            text: "Overall TODO"
+            color: Theme.muted
+            font.family: Theme.fontSans
+            font.bold: true
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            TextField {
+              id: overallTodoInput
+              Layout.fillWidth: true
+              implicitHeight: 40
+              text: root.overallTodoDraft
+              placeholderText: "Add a todo"
+              color: Theme.text
+              placeholderTextColor: Theme.muted
+              font.family: Theme.font
+              font.pixelSize: 12
+              cursorDelegate: root.themedCursor
+              selectionColor: Theme.accent
+              selectedTextColor: Theme.background
+              selectByMouse: true
+              background: Rectangle {
+                radius: 9
+                color: Theme.surface
+                border.color: parent.activeFocus ? Theme.accent : Theme.border
+                border.width: 1
+              }
+              onTextChanged: root.overallTodoDraft = text
+              Keys.onReturnPressed: root.addOverallTodo()
+              Keys.onEnterPressed: root.addOverallTodo()
+            }
+            Rectangle {
+              implicitWidth: 40
+              implicitHeight: 40
+              radius: 9
+              color: root.overallTodoDraft.trim().length > 0 ? Theme.accent : Theme.surface
+              Text {
+                anchors.centerIn: parent
+                text: "+"
+                color: root.overallTodoDraft.trim().length > 0 ? Theme.background : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 18
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.overallTodoDraft.trim().length > 0 && !calendarTaskAction.running
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.addOverallTodo()
+              }
+            }
+          }
+          ListView {
+            id: overallTodoList
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 120
+            clip: true
+            spacing: 6
+            model: root.overallTodos()
+            delegate: Rectangle {
+              id: overallTodoRow
+              required property var modelData
+              width: ListView.view.width
+              implicitHeight: 58
+              radius: 9
+              color: Theme.surface
+              RowLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 10
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.title
+                  color: Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 12
+                  elide: Text.ElideRight
+                  verticalAlignment: Text.AlignVCenter
+                }
+                Text {
+                  text: "todo"
+                  color: Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 10
+                }
+                Rectangle {
+                  implicitWidth: 72
+                  implicitHeight: 32
+                  radius: 8
+                  color: Theme.surfaceAlt
+                  Text {
+                    anchors.fill: parent
+                    text: "Remove"
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.pixelSize: 12
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    id: removeOverallTodoMouse
+                    anchors.fill: parent
+                    enabled: !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.deleteCalendarItem(overallTodoRow.modelData.href)
+                  }
+                }
+                Rectangle {
+                  implicitWidth: 30
+                  implicitHeight: 30
+                  radius: 15
+                  color: Theme.accent
+                  Text {
+                    anchors.fill: parent
+                    text: "✓"
+                    color: Theme.background
+                    font.family: Theme.fontSans
+                    font.pixelSize: 14
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                  }
+                  MouseArea {
+                    anchors.fill: parent
+                    enabled: !calendarTaskAction.running
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.completeCalendarTask(overallTodoRow.modelData.href)
+                  }
+                }
+              }
+            }
+            Text {
+              anchors.centerIn: parent
+              visible: parent.count === 0
+              text: "Nothing here yet"
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 12
             }
           }
             }
