@@ -335,11 +335,16 @@ if True:
                               tasks.append(parsed)
           sync_task_mirrors(tasks)
           events.extend(tasks)
-          task_lists = [
-              {"id": item["href"], "name": item["displayName"]}
-              for item in calendars
-              if "VTODO" in item["components"]
-          ]
+          task_lists = []
+          for item in calendars:
+              if "VTODO" not in item["components"]:
+                  continue
+              task_lists.append({
+                  "id": item["href"],
+                  "name": item["displayName"],
+                  "deletable": item["components"] == {"VTODO"},
+                  "taskCount": sum(1 for task in tasks if task.get("taskListId") == item["href"]),
+              })
           task_lists.sort(key=lambda item: item["name"].casefold())
           return events, task_lists
 
@@ -499,6 +504,21 @@ if True:
               "taskListName": collection["displayName"],
           }))
 
+      def delete_task_list(args):
+          if len(args) != 1:
+              raise RuntimeError("Usage: quickshell-calendar delete-task-list task-list-id")
+          collection = choose_task_calendar(args[0])
+          if collection["components"] != {"VTODO"}:
+              raise RuntimeError("This list also contains calendar data and cannot be deleted here")
+          request("DELETE", collection["href"], ok=(200, 202, 204))
+          clear_undo()
+          print(json.dumps({
+              "ok": True,
+              "type": "task-list",
+              "deleted": True,
+              "undoable": False,
+          }))
+
       def put_ics(collection, ics, object_name=None):
           object_name = quote(object_name or f"{uuid.uuid4()}.ics")
           path = f"{collection['href']}{object_name}"
@@ -627,12 +647,14 @@ if True:
           if len(args) < 2:
               raise RuntimeError("Usage: quickshell-calendar add-overall-task task-list-id title")
           task_list_id = args[0]
-          title = " ".join(args[1:]).strip()
+          has_explicit_date = len(args) >= 3 and (args[1] == "-" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", args[1]))
+          due_date = None if not has_explicit_date or args[1] == "-" else compact_date(args[1])
+          title = " ".join(args[2:] if has_explicit_date else args[1:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
           uid = f"{uuid.uuid4()}@quickshell"
           stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-          ics = "\r\n".join([
+          lines = [
               "BEGIN:VCALENDAR",
               "VERSION:2.0",
               "PRODID:-//quickshell//nextcloud-calendar//EN",
@@ -642,30 +664,43 @@ if True:
               f"CREATED:{stamp}",
               f"LAST-MODIFIED:{stamp}",
               f"SUMMARY:{escape_ics(title)}",
+          ]
+          if due_date:
+              lines.append(f"DUE;VALUE=DATE:{due_date}")
+          lines.extend([
               "STATUS:NEEDS-ACTION",
               "PERCENT-COMPLETE:0",
               "END:VTODO",
               "END:VCALENDAR",
               "",
           ])
+          ics = "\r\n".join(lines)
           href = put_ics(choose_task_calendar(task_list_id), ics)
           save_undo({"mode": "created", "href": href})
-          print(json.dumps({"ok": True, "type": "task", "undated": True, "undoable": True}))
+          print(json.dumps({"ok": True, "type": "task", "undated": due_date is None, "undoable": True}))
 
       def edit_overall_task(args):
           if len(args) < 2:
               raise RuntimeError("Usage: quickshell-calendar edit-overall-task href title")
           href = writable_href(args[0])
-          title = " ".join(args[1:]).strip()
+          has_explicit_date = len(args) >= 3 and (args[1] == "-" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", args[1]))
+          due_date = None if not has_explicit_date or args[1] == "-" else compact_date(args[1])
+          title = " ".join(args[2:] if has_explicit_date else args[1:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
           original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
           save_undo({"mode": "restore", "href": href, "ics": original_ics})
           ics = unfold_ics(original_ics)
           ics = upsert_component_line(ics, "VTODO", "SUMMARY", escape_ics(title))
+          if has_explicit_date and due_date:
+              ics = replace_component_date_line(ics, "VTODO", "DUE", "DUE;VALUE=DATE", due_date)
+              ics = remove_component_line(ics, "VTODO", "DTSTART")
+          elif has_explicit_date:
+              ics = remove_component_line(ics, "VTODO", "DUE")
+              ics = remove_component_line(ics, "VTODO", "DTSTART")
           ics = update_stamp(ics, "VTODO")
           request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
-          print(json.dumps({"ok": True, "type": "task", "undated": True, "edited": True, "undoable": True}))
+          print(json.dumps({"ok": True, "type": "task", "undated": due_date is None, "edited": True, "undoable": True}))
 
       def add_event(args):
           if len(args) < 2:
@@ -954,6 +989,7 @@ if True:
               "today": date.today().isoformat(),
               "events": events,
               "taskLists": task_lists,
+              "canUndo": UNDO_FILE.is_file(),
           }
           if error:
               output["error"] = error
@@ -972,6 +1008,8 @@ if True:
                   edit_overall_task(sys.argv[2:])
               elif action == "create-task-list":
                   create_task_list(sys.argv[2:])
+              elif action == "delete-task-list":
+                  delete_task_list(sys.argv[2:])
               elif action == "add-event":
                   add_event(sys.argv[2:])
               elif action == "complete-task":
@@ -991,7 +1029,7 @@ if True:
               elif action == "sync-obsidian":
                   sync_obsidian_events(sys.argv[2:])
               else:
-                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|edit-overall-task|create-task-list|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
+                  raise RuntimeError("Usage: quickshell-calendar [query|add-task|add-overall-task|edit-overall-task|create-task-list|delete-task-list|add-event|complete-task|edit-task|edit-event|delete-item|undo|add-note|open-note|sync-obsidian]")
           except Exception as exc:
               print(json.dumps({"ok": False, "error": str(exc)}))
               raise SystemExit(1)

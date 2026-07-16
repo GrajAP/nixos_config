@@ -108,6 +108,8 @@ ShellRoot {
   property string overallTodoListId: ""
   property string overallTodoListDraft: ""
   property bool overallTodoCreatingList: false
+  property bool overallTodoHasDate: false
+  property string overallTodoPendingDeleteListId: ""
   property string calendarStartDraft: ""
   property string calendarEndDraft: ""
   property string calendarEditingHref: ""
@@ -377,6 +379,7 @@ ShellRoot {
           const payload = JSON.parse(text);
           root.calendarEvents = payload.events || [];
           root.calendarTaskLists = payload.taskLists || [];
+          root.calendarCanUndo = Boolean(payload.canUndo);
           const selectedListStillExists = root.calendarTaskLists.some(list => list.id === root.overallTodoListId);
           if (root.overallTodoListId.length > 0 && root.overallTodoListId !== "*" && !selectedListStillExists)
             root.overallTodoListId = "";
@@ -402,15 +405,26 @@ ShellRoot {
           calendarTaskAction.succeeded = payload.ok !== false;
           root.calendarError = payload.error || "";
           if (calendarTaskAction.succeeded) {
-            root.calendarCanUndo = Boolean(payload.undoable);
+            if (payload.undoable !== undefined)
+              root.calendarCanUndo = Boolean(payload.undoable);
             if (calendarTaskAction.actionName === "add-overall-task" || calendarTaskAction.actionName === "edit-overall-task") {
               root.overallTodoDraft = "";
               root.overallTodoEditingHref = "";
+              root.overallTodoHasDate = false;
             }
             if (calendarTaskAction.actionName === "create-task-list") {
               root.overallTodoListDraft = "";
               root.overallTodoCreatingList = false;
               root.overallTodoListId = payload.taskListId || "";
+            }
+            if (calendarTaskAction.actionName === "delete-task-list") {
+              root.overallTodoListId = "";
+              root.overallTodoPendingDeleteListId = "";
+            }
+            if (calendarTaskAction.actionName === "undo") {
+              root.overallTodoDraft = "";
+              root.overallTodoEditingHref = "";
+              root.overallTodoHasDate = false;
             }
           }
         } catch (error) {
@@ -1519,10 +1533,10 @@ ShellRoot {
     return root.calendarEvents
       .filter(event => Boolean(event.task)
         && !Boolean(event.completed)
-        && !event.date
         && (root.overallTodoListId === "*" || event.taskListId === root.overallTodoListId))
       .slice()
-      .sort((a, b) => String(a.source || "").localeCompare(String(b.source || ""))
+      .sort((a, b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99"))
+        || String(a.source || "").localeCompare(String(b.source || ""))
         || String(a.title || "").localeCompare(String(b.title || "")));
   }
   function selectedOverallTodoList() {
@@ -1661,14 +1675,17 @@ ShellRoot {
     const list = root.selectedOverallTodoList();
     if (title.length === 0 || list === null || calendarTaskAction.running)
       return;
+    const dueDate = root.overallTodoHasDate ? root.calendarSelectedDate : "-";
     if (root.overallTodoEditingHref.length > 0)
-      root.runCalendarAction(["@calendarTask@", "edit-overall-task", root.overallTodoEditingHref, title]);
+      root.runCalendarAction(["@calendarTask@", "edit-overall-task", root.overallTodoEditingHref, dueDate, title]);
     else
-      root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, title]);
+      root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, dueDate, title]);
   }
   function editOverallTodo(todo) {
     root.overallTodoEditingHref = todo.href || "";
     root.overallTodoDraft = todo.title || "";
+    root.overallTodoHasDate = Boolean(todo.date);
+    if (todo.date) root.calendarSelectedDate = todo.date;
     if (todo.taskListId) root.overallTodoListId = todo.taskListId;
     overallTodoInput.forceActiveFocus();
     overallTodoInput.selectAll();
@@ -1676,12 +1693,26 @@ ShellRoot {
   function cancelOverallTodoEdit() {
     root.overallTodoEditingHref = "";
     root.overallTodoDraft = "";
+    root.overallTodoHasDate = false;
   }
   function createOverallTodoList() {
     const name = root.overallTodoListDraft.trim();
     if (name.length === 0 || calendarTaskAction.running)
       return;
     root.runCalendarAction(["@calendarTask@", "create-task-list", name]);
+  }
+  function canDeleteSelectedOverallTodoList() {
+    if (root.overallTodoListId.length === 0 || root.overallTodoListId === "*") return false;
+    const list = root.selectedOverallTodoList();
+    return list !== null && Boolean(list.deletable);
+  }
+  function deleteSelectedOverallTodoList() {
+    if (!root.canDeleteSelectedOverallTodoList() || calendarTaskAction.running) return;
+    if (root.overallTodoPendingDeleteListId !== root.overallTodoListId) {
+      root.overallTodoPendingDeleteListId = root.overallTodoListId;
+      return;
+    }
+    root.runCalendarAction(["@calendarTask@", "delete-task-list", root.overallTodoListId]);
   }
   function nextEventSummary() {
     const events = upcomingEvents(1);
@@ -2767,21 +2798,6 @@ ShellRoot {
 	                verticalAlignment: Text.AlignVCenter
 	              }
 	              Rectangle {
-	                implicitWidth: 78
-	                implicitHeight: 30
-		                radius: Theme.radiusSm
-		                color: root.calendarCanUndo ? Theme.surface : "transparent"
-		                border.color: root.calendarCanUndo ? Theme.border : "transparent"
-		                border.width: 1
-		                Text { anchors.fill: parent; text: "Undo"; color: root.calendarCanUndo ? Theme.accent : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-	                MouseArea {
-	                  anchors.fill: parent
-	                  enabled: root.calendarCanUndo && !calendarTaskAction.running
-	                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-	                  onClicked: root.undoCalendarChange()
-	                }
-	              }
-	              Rectangle {
 	                implicitWidth: 92
 	                implicitHeight: 30
 		                radius: Theme.radiusSm
@@ -3577,6 +3593,55 @@ ShellRoot {
               font.bold: true
             }
             Rectangle {
+              implicitWidth: 64
+              implicitHeight: 28
+              radius: 8
+              color: root.calendarCanUndo ? Theme.surface : "transparent"
+              border.color: root.calendarCanUndo ? Theme.border : "transparent"
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: "Undo"
+                color: root.calendarCanUndo ? Theme.accent : "transparent"
+                font.family: Theme.fontSans
+                font.pixelSize: 11
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.calendarCanUndo && !calendarTaskAction.running
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.undoCalendarChange()
+              }
+            }
+            Rectangle {
+              visible: root.canDeleteSelectedOverallTodoList()
+              implicitWidth: root.overallTodoPendingDeleteListId === root.overallTodoListId ? 96 : 78
+              implicitHeight: 28
+              radius: 8
+              color: root.overallTodoPendingDeleteListId === root.overallTodoListId ? Theme.danger : Theme.surface
+              border.color: root.overallTodoPendingDeleteListId === root.overallTodoListId ? Theme.danger : Theme.border
+              border.width: 1
+              Text {
+                anchors.centerIn: parent
+                text: {
+                  if (root.overallTodoPendingDeleteListId !== root.overallTodoListId) return "Delete list";
+                  const list = root.selectedOverallTodoList();
+                  return list && list.taskCount > 0 ? "Delete " + list.taskCount + " tasks?" : "Confirm delete";
+                }
+                color: root.overallTodoPendingDeleteListId === root.overallTodoListId ? Theme.text : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                font.bold: true
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: !calendarTaskAction.running
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.deleteSelectedOverallTodoList()
+              }
+            }
+            Rectangle {
               implicitWidth: 74
               implicitHeight: 28
               radius: 8
@@ -3597,6 +3662,7 @@ ShellRoot {
                 onClicked: {
                   root.overallTodoCreatingList = !root.overallTodoCreatingList;
                   if (!root.overallTodoCreatingList) root.overallTodoListDraft = "";
+                  root.overallTodoPendingDeleteListId = "";
                 }
               }
             }
@@ -3670,7 +3736,10 @@ ShellRoot {
               MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.overallTodoListId = "*"
+                onClicked: {
+                  root.overallTodoListId = "*";
+                  root.overallTodoPendingDeleteListId = "";
+                }
               }
             }
             ListView {
@@ -3701,7 +3770,10 @@ ShellRoot {
                 MouseArea {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: root.overallTodoListId = taskListChip.modelData.id
+                  onClicked: {
+                    root.overallTodoListId = taskListChip.modelData.id;
+                    root.overallTodoPendingDeleteListId = "";
+                  }
                 }
               }
             }
@@ -3709,6 +3781,31 @@ ShellRoot {
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
+            Rectangle {
+              implicitWidth: 104
+              implicitHeight: 40
+              radius: 9
+              color: root.overallTodoHasDate ? Theme.surfaceAlt : Theme.surface
+              border.color: root.overallTodoHasDate ? Theme.accent : Theme.border
+              border.width: 1
+              Text {
+                anchors.fill: parent
+                anchors.margins: 6
+                text: root.overallTodoHasDate ? "Due " + root.calendarDateLabel(root.calendarSelectedDate) : "No date"
+                color: root.overallTodoHasDate ? Theme.accent : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.overallTodoHasDate = !root.overallTodoHasDate
+              }
+            }
             TextField {
               id: overallTodoInput
               Layout.fillWidth: true
@@ -3809,11 +3906,11 @@ ShellRoot {
                   verticalAlignment: Text.AlignVCenter
                 }
                 Text {
-                  text: modelData.source || "todo"
+                  text: (modelData.source || "todo") + (modelData.date ? " · " + root.calendarDateLabel(modelData.date) : "")
                   color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10
-                  Layout.maximumWidth: 100
+                  Layout.maximumWidth: 150
                   elide: Text.ElideRight
                 }
                 Rectangle {
