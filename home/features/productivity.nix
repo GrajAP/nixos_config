@@ -36,9 +36,16 @@
 
   providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
 
-  t3codeCatppuccin = pkgs.runCommand "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-catppuccin-mocha-blue" {} ''
+  t3codeUnwrappedQueued = pkgs.t3code.unwrapped.overrideAttrs (old: {
+    patches = (old.patches or []) ++ [./t3code-queued-messages.patch];
+  });
+  t3codeQueued = pkgs.t3code.override {
+    t3code-unwrapped = t3codeUnwrappedQueued;
+  };
+
+  t3codeCatppuccin = pkgs.runCommand "${t3codeQueued.pname or "t3code"}-${t3codeQueued.version or "wrapped"}-catppuccin-mocha-blue" {} ''
     mkdir -p "$out"
-    cp -a ${pkgs.t3code}/. "$out/"
+    cp -a ${t3codeQueued}/. "$out/"
     chmod -R u+w "$out"
 
     # Keep pnpm's symlink layout intact, and materialize only files that need
@@ -65,12 +72,12 @@
     main_js=("$client"/assets/index-*.js)
     materialize "''${main_js[0]}"
     substituteInPlace "''${main_js[0]}" \
-      --replace-fail 'var vG={light:`pierre-light`,dark:`pierre-dark`}' \
-      'var vG={light:`catppuccin-latte`,dark:`catppuccin-mocha`}'
+      --replace-fail 'light:`pierre-light`,dark:`pierre-dark`' \
+      'light:`catppuccin-latte`,dark:`catppuccin-mocha`'
   '';
 
   t3codeNoSandbox = pkgs.symlinkJoin {
-    name = "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-no-sandbox";
+    name = "${t3codeQueued.pname or "t3code"}-${t3codeQueued.version or "wrapped"}-no-sandbox";
     paths = [t3codeCatppuccin];
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
