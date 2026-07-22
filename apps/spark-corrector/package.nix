@@ -2,8 +2,14 @@
   lib,
   pkgs,
 }: let
-  outputSchema = pkgs.writeText "spark-corrector-response-schema.json" (
+  reviewOutputSchema = pkgs.writeText "spark-corrector-response-schema.json" (
     builtins.readFile ./schema.json
+  );
+  compactOutputSchema = pkgs.writeText "spark-corrector-compact-schema.json" (
+    builtins.readFile ./compact-schema.json
+  );
+  whisprflowContext = pkgs.writeText "spark-corrector-whisprflow-context.md" (
+    builtins.readFile ./whisprflow-context.md
   );
 in
   pkgs.writeShellApplication {
@@ -23,7 +29,7 @@ in
       ydotool
     ];
     text = builtins.readFile (pkgs.replaceVars ./spark-corrector {
-      inherit outputSchema;
+      inherit compactOutputSchema reviewOutputSchema whisprflowContext;
     });
     meta = {
       description = "Polish and English proofreader powered exclusively by GPT-5.3-Codex-Spark";

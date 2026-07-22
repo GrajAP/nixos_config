@@ -2,8 +2,8 @@
 
 Local push-to-talk dictation for Wayland. It records from PipeWire, transcribes
 locally with `faster-whisper`, lets you correct the text, learns correction
-pairs, improves Polish and English with GPT-5.3-Codex-Spark, copies the result
-and types it into the previously focused field.
+pairs, improves Polish and English with GPT-5.3-Codex-Spark, applies explicitly
+spoken formatting and types the result into the previously focused field.
 
 ## Run
 
@@ -34,12 +34,19 @@ bind = , PAUSE, exec, whisprflow start
 bindr = , PAUSE, exec, whisprflow stop
 ```
 
-The default model is `small`, with Polish and English candidates. Override it
-with `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `WHISPER_LANGS` or
-`WHISPER_SOURCE`. State and learned corrections can be relocated with
-`WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`. `ydotoold` is optional; `wtype` is
-used as a fallback. WhisprFlow pastes through the clipboard so Unicode text,
-including Polish characters, is preserved. The transcript remains in the
-clipboard if the paste shortcut fails. Spark correction runs automatically
-before the review window and never falls back to another Codex model. Set
-`WHISPER_SPARK_CORRECTION=0` to keep the raw local transcript.
+The default model is `small`. Language detection uses one multilingual
+inference pass instead of separately transcribing Polish and English. Force a
+language with `WHISPER_LANGUAGE`, adjust the search with
+`WHISPER_BEAM_SIZE` (default `3`), or override `WHISPER_MODEL`,
+`WHISPER_LANGS` and `WHISPER_SOURCE`. The last working microphone source is
+cached, avoiding a recording probe on every activation. State and learned
+corrections can be relocated with `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`.
+`ydotoold` is optional; `wtype` is used as a fallback. WhisprFlow pastes through
+the clipboard so Unicode text, including Polish characters, is preserved. The
+transcript remains in the clipboard if the paste shortcut fails. Spark
+correction runs automatically before the review window in its compact,
+low-latency `whisprflow` context and never falls back to another Codex model.
+This context recognizes explicit list and snippet cues such as `WhisprFlow,
+lista`, `punkt pierwszy`, `A ... B ... C`, `snippet` and `blok kodu`. Without a
+formatting cue, dictated prose remains prose. Set `WHISPER_SPARK_CORRECTION=0`
+to keep the raw local transcript.

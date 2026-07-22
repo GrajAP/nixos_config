@@ -1,8 +1,8 @@
 {
   lib,
   pkgs,
+  sparkCorrector ? pkgs.callPackage ../spark-corrector/package.nix {},
 }: let
-  sparkCorrector = pkgs.callPackage ../spark-corrector/package.nix {};
   whisperPython = pkgs.python3.withPackages (ps: [
     ps.faster-whisper
   ]);

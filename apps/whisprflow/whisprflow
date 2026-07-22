@@ -10,6 +10,7 @@ wav_file="$state_dir/record.wav"
 txt_file="$state_dir/record.txt"
 dict_file="$data_dir/dict.txt"
 corrections_file="$data_dir/corrections.tsv"
+source_cache_file="$data_dir/record-source"
 learn_script="$state_dir/learn.py"
 backend_file="$state_dir/backend"
 record_log="$state_dir/last-record.log"
@@ -298,35 +299,34 @@ list_source_candidates() {
   ' 2>/dev/null || true
 }
 
-probe_source() {
+source_is_available() {
   local source_name="$1"
-  local probe_file="$state_dir/source-probe.wav"
-  local probe_size
 
-  rm -f "$probe_file"
-  timeout --signal=INT --kill-after=1 0.4 \
-    pw-record \
-      --rate 16000 \
-      --channels 1 \
-      --format s16 \
-      --target "$source_name" \
-      "$probe_file" \
-      >/dev/null 2>>"$record_err" || true
-  probe_size="$(stat -c '%s' "$probe_file" 2>/dev/null || echo 0)"
-  rm -f "$probe_file"
-
-  (( probe_size > 44 ))
+  pw-dump 2>/dev/null \
+    | jq -e --arg source "$source_name" '
+      [
+        .[]
+        | select(.type == "PipeWire:Interface:Node")
+        | .info.props as $props
+        | select($props["media.class"] == "Audio/Source")
+        | $props["node.name"] // empty
+      ]
+      | any(. == $source)
+    ' >/dev/null 2>&1
 }
 
 select_record_source() {
   local requested_source="${WHISPER_SOURCE:-}"
+  local cached_source
   local default_source
   local source_name
   local -A seen=()
   local candidates=()
 
+  cached_source="$(cat "$source_cache_file" 2>/dev/null || true)"
   default_source="$(get_default_source)"
   [[ -n "$requested_source" ]] && candidates+=("$requested_source")
+  [[ -n "$cached_source" ]] && candidates+=("$cached_source")
   [[ -n "$default_source" ]] && candidates+=("$default_source")
   while IFS= read -r source_name; do
     [[ -n "$source_name" ]] && candidates+=("$source_name")
@@ -335,12 +335,12 @@ select_record_source() {
   for source_name in "${candidates[@]}"; do
     [[ -n "${seen[$source_name]:-}" ]] && continue
     seen[$source_name]=1
-    printf 'probe_source: %s\n' "$source_name" >>"$record_log"
-    if probe_source "$source_name"; then
+    if source_is_available "$source_name"; then
+      printf '%s\n' "$source_name" >"$source_cache_file"
       printf '%s\n' "$source_name"
       return 0
     fi
-    printf 'probe_failed: %s\n' "$source_name" >>"$record_log"
+    printf 'source_unavailable: %s\n' "$source_name" >>"$record_log"
   done
 
   return 1
@@ -552,8 +552,7 @@ PY
 
   log_file="$state_dir/last-error.log"
 
-  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-small}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" python3 - <<'PY' 2>"$log_file"; then
-import math
+  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-small}" WHISPER_BEAM_SIZE="${WHISPER_BEAM_SIZE:-3}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" python3 - <<'PY' 2>"$log_file"; then
 import os
 import re
 from pathlib import Path
@@ -562,6 +561,7 @@ from faster_whisper import WhisperModel
 wav_path = Path(os.environ["WAV_PATH"])
 txt_path = Path(os.environ["TXT_PATH"])
 model_name = os.environ.get("WHISPER_MODEL", "small")
+beam_size = int(os.environ.get("WHISPER_BEAM_SIZE", "3"))
 dict_path = Path(os.environ.get("DICT_PATH", ""))
 corrections_path = Path(os.environ.get("CORRECTIONS_PATH", ""))
 language = os.environ.get("WHISPER_LANGUAGE", "").strip() or None
@@ -571,6 +571,8 @@ if not allowed_languages:
 
 if language and language not in allowed_languages:
     raise SystemExit(f"Unsupported WHISPER_LANGUAGE={language!r}. Allowed: {', '.join(allowed_languages)}")
+if beam_size < 1:
+    raise SystemExit("WHISPER_BEAM_SIZE must be a positive integer")
 
 initial_prompt = None
 if dict_path and dict_path.exists():
@@ -603,46 +605,23 @@ if allowed_languages:
         initial_prompt = prefix[:1000]
 
 model = WhisperModel(model_name, device="cpu", compute_type="int8")
-
-def transcribe_once(lang: str):
-    segments, _info = model.transcribe(
-        str(wav_path),
-        beam_size=5,
-        initial_prompt=initial_prompt,
-        language=lang,
-    )
-    segments = list(segments)
-    text = "".join(seg.text for seg in segments).strip()
-
-    score = 0.0
-    saw_logprob = False
-    for seg in segments:
-        avg_logprob = getattr(seg, "avg_logprob", None)
-        if avg_logprob is None:
-            continue
-        saw_logprob = True
-        duration = max(0.1, float(getattr(seg, "end", 0.0)) - float(getattr(seg, "start", 0.0)))
-        score += float(avg_logprob) * duration
-
-    if not saw_logprob:
-        score = float(len(text))
-
-    return {
-        "language": lang,
-        "text": text,
-        "score": score if text else -math.inf,
-    }
-
-candidates = [language] if language else allowed_languages
-best = max((transcribe_once(lang) for lang in candidates), key=lambda item: (item["score"], len(item["text"])))
-text = best["text"]
+segments, _info = model.transcribe(
+    str(wav_path),
+    beam_size=beam_size,
+    best_of=1,
+    initial_prompt=initial_prompt,
+    language=language,
+    vad_filter=True,
+    condition_on_previous_text=False,
+)
+text = "".join(segment.text for segment in segments).strip()
 
 if text:
     def normalize(s: str) -> str:
-        s = s.lower().replace(".", "")
-        s = re.sub(r"\b(laugh|laughs|laughing|laughter)\b", "haha", s)
-        s = re.sub(r"\b(uh|um|erm|er|ah|oh|hmm|hm|uhm|yyy|eee)\b", "", s)
+        s = re.sub(r"\b(laugh|laughs|laughing|laughter)\b", "haha", s, flags=re.IGNORECASE)
+        s = re.sub(r"\b(uh|um|erm|er|ah|oh|hmm|hm|uhm|yyy|eee)\b", "", s, flags=re.IGNORECASE)
         s = re.sub(r"\s+", " ", s).strip()
+        s = re.sub(r"\s+([,.;:!?])", r"\1", s)
         return s
 
     def apply_redo(s: str):
@@ -650,12 +629,14 @@ if text:
         m = re.search(
             r"\b(no\s+){2,}(?:actually\s+|i mean\s+|i'm\s+|rather\s+|wait\s+|make that\s+|use\s+)?(?P<rest>.+)$",
             s,
+            flags=re.IGNORECASE,
         )
         if m and m.group("rest").strip():
             return m.group("rest").strip(), True
         m = re.search(
             r"\b(nie\s+){2,}(?:właściwie\s+|to\s+znaczy\s+|w\s+sen\s*?sie\s+|raczej\s+|czekaj\s+|poczekaj\s+|użyj\s+)?(?P<rest>.+)$",
             s,
+            flags=re.IGNORECASE,
         )
         if m and m.group("rest").strip():
             return m.group("rest").strip(), True
@@ -681,7 +662,7 @@ if text:
         ]
         last = None
         for pat in markers:
-            for match in re.finditer(pat, s):
+            for match in re.finditer(pat, s, flags=re.IGNORECASE):
                 last = match
         if last:
             rest = s[last.end() :].strip(" ,")
@@ -732,13 +713,17 @@ if text:
 
     for _label, (left, right), words in wrap_patterns:
         word_re = "|".join(re.escape(w) for w in words)
-        m = re.search(rf"\b(put|wstaw|daj|umieść|umiesc|wrzuć|wrzuc)\s+(.*?)\s+(in|w)\s+({word_re})\b", text)
+        m = re.search(
+            rf"\b(put|wstaw|daj|umieść|umiesc|wrzuć|wrzuc)\s+(.*?)\s+(in|w)\s+({word_re})\b",
+            text,
+            flags=re.IGNORECASE,
+        )
         if m and m.group(1).strip():
             text = wrap_with(m.group(2).strip(), left, right)
             wrap_applied = True
             break
 
-        m = re.search(rf"\b(in\s*side|inside|in|w)\s*({word_re})\b", text)
+        m = re.search(rf"\b(in\s*side|inside|in|w)\s*({word_re})\b", text, flags=re.IGNORECASE)
         if m:
             text = (text[:m.start()] + text[m.end() :]).strip(" ,")
             text = wrap_with(text, left, right) if text else wrap_with("", left, right)
@@ -746,7 +731,7 @@ if text:
             break
 
     if redo_applied or wrap_applied:
-        text = re.sub(r"^\s*use\s+(the\s+)?", "", text).strip()
+        text = re.sub(r"^\s*use\s+(the\s+)?", "", text, flags=re.IGNORECASE).strip()
 
     if corrections_path.exists():
         entries = []
@@ -788,8 +773,8 @@ PY
   if [[ "${WHISPER_SPARK_CORRECTION:-1}" != "0" ]]; then
     spark_output="$state_dir/spark-corrected.txt"
     rm -f "$spark_output" "$spark_log"
-    show_indicator "Whispr Flow" "Correcting Polish/English with GPT-5.3-Codex-Spark..." "working" 0
-    if spark-corrector filter --mode transcript <"$txt_file" >"$spark_output" 2>"$spark_log" \
+    show_indicator "Whispr Flow" "Correcting and formatting with Spark..." "working" 0
+    if spark-corrector filter --mode whisprflow <"$txt_file" >"$spark_output" 2>"$spark_log" \
       && [[ -s "$spark_output" ]]; then
       mv "$spark_output" "$txt_file"
     else

@@ -1,6 +1,8 @@
-{pkgs, ...}: {
+{pkgs, ...}: let
+  voiceSuite = pkgs.callPackage ../../apps/voice-suite/package.nix {};
+in {
   home.packages = [
-    (pkgs.callPackage ../../apps/spark-corrector/package.nix {})
-    (pkgs.callPackage ../../apps/whisprflow/package.nix {})
+    voiceSuite.sparkCorrector
+    voiceSuite.whisprflow
   ];
 }
