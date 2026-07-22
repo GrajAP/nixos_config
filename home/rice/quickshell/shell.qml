@@ -880,11 +880,12 @@ ShellRoot {
     return 1;
   }
   function isSmallWidget(page) {
-    return page === "audio" || page === "media" || page === "weather" || page === "clipboard" || page === "codex" || page === "shutdown" || page === "tray";
+    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown" || page === "tray";
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
     if (widgetPage === "calendar") return widgetWindow.width;
+    if (widgetPage === "clipboard") return 500;
     if (widgetPage === "tools") return 340;
     if (root.isSmallWidget(widgetPage)) return 430;
     return 420;
@@ -892,6 +893,7 @@ ShellRoot {
   function widgetPreferredHeight() {
     if (widgetPage === "screenshot") return 860;
     if (widgetPage === "calendar") return widgetWindow.height;
+    if (widgetPage === "clipboard") return widgetWindow.height;
     if (widgetPage === "tools") return 340;
     if (root.isSmallWidget(widgetPage)) return 500;
     return 620;

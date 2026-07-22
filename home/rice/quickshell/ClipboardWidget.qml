@@ -77,62 +77,92 @@ ColumnLayout {
     delegate: Rectangle {
       id: clipboardRow
       required property var modelData
+      readonly property bool imageEntry: modelData.kind === "image" && modelData.imagePath.length > 0
       width: ListView.view.width
-      height: 54
+      height: clipboardRowContent.implicitHeight + 20
       radius: 10
       color: clipboardRowMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
       border.color: clipboardRowMouse.containsMouse ? Theme.accent : Theme.border
       border.width: 1
 
-      RowLayout {
+      ColumnLayout {
+        id: clipboardRowContent
         z: 1
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         anchors.margins: 10
-        spacing: 10
+        spacing: 9
 
-        Text {
-          text: "󰅇"
-          color: Theme.accent
-          font.family: Theme.fontIcon
-          font.pixelSize: 18
-          Layout.preferredWidth: 24
-          horizontalAlignment: Text.AlignHCenter
-        }
-
-        ColumnLayout {
+        RowLayout {
           Layout.fillWidth: true
-          spacing: 2
+          spacing: 10
+
           Text {
-            Layout.fillWidth: true
-            text: clipboardRow.modelData.preview
-            color: Theme.text
-            font.family: Theme.fontSans
-            font.pixelSize: 12
-            maximumLineCount: 2
-            wrapMode: Text.Wrap
-            elide: Text.ElideRight
+            text: clipboardRow.imageEntry ? "󰋩" : "󰅇"
+            color: Theme.accent
+            font.family: Theme.fontIcon
+            font.pixelSize: 18
+            Layout.preferredWidth: 24
+            horizontalAlignment: Text.AlignHCenter
           }
-          Text {
+
+          ColumnLayout {
             Layout.fillWidth: true
-            text: "#" + clipboardRow.modelData.id
-            color: Theme.muted
-            font.family: Theme.fontSans
-            font.pixelSize: 10
-            elide: Text.ElideRight
+            spacing: 2
+            Text {
+              Layout.fillWidth: true
+              text: clipboardRow.modelData.preview
+              color: Theme.text
+              font.family: Theme.fontSans
+              font.pixelSize: 12
+              maximumLineCount: clipboardRow.imageEntry ? 1 : 4
+              wrapMode: Text.Wrap
+              elide: Text.ElideRight
+            }
+            Text {
+              Layout.fillWidth: true
+              text: "#" + clipboardRow.modelData.id
+              color: Theme.muted
+              font.family: Theme.fontSans
+              font.pixelSize: 10
+              elide: Text.ElideRight
+            }
+          }
+
+          Rectangle {
+            Layout.preferredWidth: 30
+            Layout.preferredHeight: 30
+            radius: 8
+            color: Theme.background
+            border.color: Theme.border
+            Text { anchors.centerIn: parent; text: "×"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: shell.runClipboardAction("delete", clipboardRow.modelData)
+            }
           }
         }
 
         Rectangle {
-          Layout.preferredWidth: 30
-          Layout.preferredHeight: 30
+          visible: clipboardRow.imageEntry
+          Layout.fillWidth: true
+          Layout.preferredHeight: clipboardRow.imageEntry
+            ? Math.min(260, Math.max(120, (clipboardRow.width - 20) * clipboardRow.modelData.imageHeight / clipboardRow.modelData.imageWidth))
+            : 0
           radius: 8
           color: Theme.background
           border.color: Theme.border
-          Text { anchors.centerIn: parent; text: "×"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16 }
-          MouseArea {
+          clip: true
+
+          Image {
             anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: shell.runClipboardAction("delete", clipboardRow.modelData)
+            anchors.margins: 6
+            source: clipboardRow.imageEntry ? "file://" + clipboardRow.modelData.imagePath : ""
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: false
           }
         }
       }
