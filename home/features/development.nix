@@ -39,4 +39,23 @@ in {
 
     sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
   };
+
+  systemd.user = {
+    services.t3code-update = {
+      Unit.Description = "Download the newest T3 Code desktop release";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${t3code.update}/bin/t3code-update";
+      };
+    };
+    timers.t3code-update = {
+      Unit.Description = "Keep T3 Code desktop current";
+      Timer = {
+        OnStartupSec = "2min";
+        OnUnitActiveSec = "30min";
+        Persistent = true;
+      };
+      Install.WantedBy = ["timers.target"];
+    };
+  };
 }
