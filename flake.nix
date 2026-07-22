@@ -74,7 +74,7 @@
           for file in ${inputs.self}/home/rice/quickshell/scripts/*.sh; do
             bash -n "$file"
           done
-          for file in weather-query calendar; do
+          for file in weather-query calendar clipboard; do
             sed -n '/^if True:/,/^PY$/p' ${inputs.self}/home/rice/quickshell/scripts/"$file".sh \
               | sed '$d' > "$file.py"
             python3 -m py_compile "$file.py"

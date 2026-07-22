@@ -885,7 +885,7 @@ ShellRoot {
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
     if (widgetPage === "calendar") return widgetWindow.width;
-    if (widgetPage === "clipboard") return 500;
+    if (widgetPage === "clipboard") return 560;
     if (widgetPage === "tools") return 340;
     if (root.isSmallWidget(widgetPage)) return 430;
     return 420;
@@ -1150,6 +1150,8 @@ ShellRoot {
     if (query.length === 0) return root.clipboardEntries;
     return root.clipboardEntries.filter(entry =>
       String(entry.preview || "").toLowerCase().includes(query) ||
+      String(entry.searchText || "").toLowerCase().includes(query) ||
+      String(entry.sourceName || "").toLowerCase().includes(query) ||
       String(entry.id || "").toLowerCase().includes(query));
   }
   function runClipboardAction(action, entry) {
@@ -1161,7 +1163,7 @@ ShellRoot {
       return;
     }
     if (!entry || !entry.line) return;
-    clipboardAction.exec(["@clipboardTool@", action, entry.line]);
+    clipboardAction.exec(["@clipboardTool@", action, entry.line, entry.mimeType || ""]);
     root.clipboardStatus = action === "copy" ? "Copied" : "Removed";
     if (action === "copy") root.closeWidget();
   }
