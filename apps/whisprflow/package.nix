@@ -27,7 +27,6 @@
       procps
       pulseaudio
       sparkCorrector
-      systemd
       wl-clipboard
       wtype
       yad

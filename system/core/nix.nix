@@ -183,11 +183,12 @@ in {
     #nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
     nixPath = ["nixpkgs=${inputs.nixpkgs}"];
 
-    # Keep enough headroom for large builds and recover before the disk fills.
+    # Keep enough headroom for large builds without repeatedly collecting freshly
+    # fetched flake inputs when the live system cannot reach max-free.
     extraOptions = ''
       warn-dirty = false
-      min-free = ${toString (44 * 1024 * 1024 * 1024)}
-      max-free = ${toString (55 * 1024 * 1024 * 1024)}
+      min-free = ${toString (32 * 1024 * 1024 * 1024)}
+      max-free = ${toString (40 * 1024 * 1024 * 1024)}
     '';
     settings = {
       flake-registry = "/etc/nix/registry.json";
@@ -200,6 +201,8 @@ in {
       max-jobs = "auto";
       # continue building derivations if one fails
       keep-going = true;
+      # A temporary outage of an optional binary cache must not block rebuilds.
+      fallback = true;
       log-lines = 40;
       experimental-features = ["flakes" "nix-command"];
       # use binary cache, its not gentoo

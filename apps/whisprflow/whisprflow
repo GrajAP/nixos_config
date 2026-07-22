@@ -259,68 +259,6 @@ review_text_popup() {
   return 1
 }
 
-run_voice_command() {
-  local text="$1"
-  local normalized
-  normalized="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
-
-  case "$normalized" in
-    hyprland\ *|hyperland\ *|hiperland\ *)
-      normalized="${normalized#* }"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-
-  case "$normalized" in
-    shutdown|poweroff|turn\ off|wyłącz\ komputer|wylacz\ komputer)
-      flash_indicator "Whispr Flow" "Running voice command: shutdown" "success" 1200
-      systemctl poweroff
-      return 0
-      ;;
-    reboot|restart)
-      flash_indicator "Whispr Flow" "Running voice command: reboot" "success" 1200
-      systemctl reboot
-      return 0
-      ;;
-    suspend|sleep|uśpij|uspij)
-      flash_indicator "Whispr Flow" "Running voice command: suspend" "success" 1200
-      systemctl suspend
-      return 0
-      ;;
-    lock|zablokuj)
-      flash_indicator "Whispr Flow" "Running voice command: lock" "success" 1200
-      loginctl lock-session
-      return 0
-      ;;
-    open\ terminal|terminal|open\ the\ terminal|otwórz\ terminal|otworz\ terminal)
-      hyprctl dispatch exec "foot -e sh -c 'exec tmux'" >/dev/null 2>&1 || true
-      flash_indicator "Whispr Flow" "Running voice command: terminal" "success" 1400
-      return 0
-      ;;
-    open\ browser|browser|open\ helium|przeglądarka|przegladarka)
-      hyprctl dispatch exec "helium" >/dev/null 2>&1 || true
-      flash_indicator "Whispr Flow" "Running voice command: browser" "success" 1400
-      return 0
-      ;;
-    open\ file\ manager|file\ manager|open\ nemo|nemo|menedżer\ plików|menedzer\ plikow)
-      hyprctl dispatch exec "nemo" >/dev/null 2>&1 || true
-      flash_indicator "Whispr Flow" "Running voice command: file manager" "success" 1400
-      return 0
-      ;;
-    logout|log\ out|wyloguj)
-      hyprctl dispatch exec "wlogout" >/dev/null 2>&1 || true
-      flash_indicator "Whispr Flow" "Running voice command: logout" "success" 1400
-      return 0
-      ;;
-    *)
-      flash_indicator "Whispr Flow" "Unknown voice command: $normalized" "error" 2200
-      return 0
-      ;;
-  esac
-}
-
 cleanup_stale_pid() {
   if [[ -f "$pid_file" ]]; then
     local pid
@@ -879,12 +817,6 @@ PY
     fi
     refocus_window "$focused_window"
     sleep 0.2
-  fi
-
-  final_text="$(cat "$txt_file" 2>/dev/null || true)"
-  if [[ -n "$final_text" ]] && run_voice_command "$final_text"; then
-    hide_indicator
-    return 0
   fi
 
   if ! wl-copy < "$txt_file"; then
