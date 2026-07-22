@@ -4,8 +4,8 @@
   ...
 }: let
   editorSettings = import ./editor-settings.nix;
+  editorExtensions = import ./editor-extensions.nix {inherit pkgs;};
   catppuccinTheme = pkgs.vscode-extensions.catppuccin.catppuccin-vsc;
-  catppuccinIcons = pkgs.vscode-extensions.catppuccin.catppuccin-vsc-icons;
   cursorSettings = pkgs.writeText "cursor-settings.json" (builtins.toJSON editorSettings);
 
   catppuccinWorkbenchCss =
@@ -45,19 +45,30 @@
 in {
   home.packages = [cursorCatppuccin];
 
-  # Catppuccin generates theme files when Cursor starts, so these extensions
-  # must be writable rather than symlinked directly into the Nix store.
-  home.activation.cursorCatppuccinExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  # Cursor and Catppuccin write extension-local state, so install writable
+  # copies instead of pointing Cursor directly at the Nix store.
+  home.activation.cursorConfiguration = lib.hm.dag.entryAfter ["writeBoundary"] ''
     extension_dir="$HOME/.cursor/extensions"
     temporary_dir="$HOME/.cache/nix-cursor-extensions"
     mkdir -p "$extension_dir"
     rm -rf "$temporary_dir"
     mkdir -p "$temporary_dir"
 
-    install_cursor_extension() {
+    install_cursor_extension_package() {
       source="$1"
-      target="$extension_dir/$2"
-      temporary="$temporary_dir/$2"
+      extension_id="$(basename "$source")"
+      target="$extension_dir/$extension_id-nix"
+      temporary="$temporary_dir/$extension_id-nix"
+
+      shopt -s nocaseglob
+      for existing in \
+        "$extension_dir/$extension_id" \
+        "$extension_dir/$extension_id"-*; do
+        if [[ -e "$existing" || -L "$existing" ]]; then
+          rm -rf "$existing"
+        fi
+      done
+      shopt -u nocaseglob
 
       mkdir -p "$temporary"
       cp -R "$source"/. "$temporary"/
@@ -66,12 +77,18 @@ in {
       mv "$temporary" "$target"
     }
 
-    install_cursor_extension \
-      "${catppuccinTheme}/share/vscode/extensions/catppuccin.catppuccin-vsc" \
-      "catppuccin-theme-nix"
-    install_cursor_extension \
-      "${catppuccinIcons}/share/vscode/extensions/catppuccin.catppuccin-vsc-icons" \
-      "catppuccin-icons-nix"
+    # Remove the two names used by the previous Catppuccin-only activation.
+    rm -rf \
+      "$extension_dir/catppuccin-theme-nix" \
+      "$extension_dir/catppuccin-icons-nix"
+
+    for package in ${lib.escapeShellArgs editorExtensions}; do
+      for source in "$package"/share/vscode/extensions/*; do
+        if [[ -d "$source" ]]; then
+          install_cursor_extension_package "$source"
+        fi
+      done
+    done
 
     settings_dir="$HOME/.config/Cursor/User"
     settings_target="$settings_dir/settings.json"
