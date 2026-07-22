@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  ...
 }: let
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
@@ -37,7 +36,7 @@
   providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
 
   t3codeUnwrappedQueued = pkgs.t3code.unwrapped.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [./t3code-queued-messages.patch];
+    patches = (old.patches or []) ++ [./queued-messages.patch];
   });
   t3codeQueued = pkgs.t3code.override {
     t3code-unwrapped = t3codeUnwrappedQueued;
@@ -64,7 +63,7 @@
 
     client="$out/libexec/t3code/apps/server/dist/client"
     materialize "$client/index.html"
-    cp ${./t3code-catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
+    cp ${./catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
     substituteInPlace "$client/index.html" \
       --replace-fail '#161616' '#1e1e2e' \
       --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
@@ -76,7 +75,7 @@
       'light:`catppuccin-latte`,dark:`catppuccin-mocha`'
   '';
 
-  t3codeNoSandbox = pkgs.symlinkJoin {
+  desktop = pkgs.symlinkJoin {
     name = "${t3codeQueued.pname or "t3code"}-${t3codeQueued.version or "wrapped"}-no-sandbox";
     paths = [t3codeCatppuccin];
     nativeBuildInputs = [pkgs.makeWrapper];
@@ -92,13 +91,13 @@
     '';
   };
 
-  t3codeNotify = pkgs.writeShellApplication {
+  notify = pkgs.writeShellApplication {
     name = "t3code-notify";
     runtimeInputs = with pkgs; [
       coreutils
       curl
       libnotify
-      t3codeNoSandbox
+      desktop
     ];
     text = ''
       set +e
@@ -155,12 +154,5 @@
     '';
   };
 in {
-  home.packages = with pkgs; [
-    github-desktop
-    libreoffice-fresh
-    nextcloud-client
-    rnote
-    t3codeNoSandbox
-    t3codeNotify
-  ];
+  inherit desktop notify;
 }

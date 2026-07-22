@@ -1,12 +1,10 @@
 {...}: {
   imports = [
-    # Core interaction and productivity tools
+    # Communication and development tools
     ./communication.nix
-    ./productivity.nix
-    ./mobile.nix
-
-    # Development and media tooling
     ./development.nix
+
+    # Media tooling
     ./bass.nix
 
     # Voice and gaming workflows

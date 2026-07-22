@@ -15,6 +15,18 @@
 in {
   nixpkgs.config.android_sdk.accept_license = true;
 
+  home-manager.users.grajpap = {
+    home.packages = with pkgs; [
+      android-studio
+      scrcpy
+    ];
+
+    home.sessionVariables = {
+      EXPO_CLI_PASSWORD_PROMPT = "false";
+      REACT_NATIVE_PACKAGER_HOSTNAME = "localhost";
+    };
+  };
+
   environment = {
     systemPackages = with pkgs; [
       android-tools
