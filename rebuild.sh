@@ -16,6 +16,7 @@ nh os switch --update
 echo "Cleaning old generations"
 systemctl start t3code-nh-clean.service
 
+git add -A
 git commit -m "$(date '+%Y-%m-%d %H:%M')"
 
 echo "Rebuild finished"
