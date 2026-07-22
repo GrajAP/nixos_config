@@ -7,7 +7,6 @@ alejandra /etc/nixos/ &>/dev/null \
   || ( alejandra /etc/nixos/ ; echo "formatting failed!" && exit 1 )
 
 git add -A
-nix-channel --update
 
 echo "Checking flake"
 nix flake check
@@ -15,7 +14,7 @@ nix flake check
 nh os switch --update
 
 echo "Cleaning old generations"
-nh clean all --keep 3
+systemctl start t3code-nh-clean.service
 
 git commit -m "$(date '+%Y-%m-%d %H:%M')"
 

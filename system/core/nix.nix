@@ -4,18 +4,50 @@
   inputs,
   ...
 }: let
+  nhAgentElevation = pkgs.writeShellApplication {
+    name = "nh-agent-elevation";
+    runtimeInputs = [pkgs.systemd];
+    text = ''
+      if [[ ''${1-} != "env" ]]; then
+        echo "Refusing unexpected elevation request" >&2
+        exit 2
+      fi
+      shift
+
+      while [[ ''${1-} == *=* ]]; do
+        shift
+      done
+
+      command="''${1-}"
+      action="''${2-}"
+
+      case "$command:$action" in
+        /nix/store/*-nixos-system-grajpap-*/bin/switch-to-configuration:test)
+          exec systemctl start t3code-os-switch.service
+          ;;
+        nix:build)
+          # The switch service already installed the validated candidate as the
+          # system profile.
+          exit 0
+          ;;
+        /nix/store/*-nixos-system-grajpap-*/bin/switch-to-configuration:boot)
+          # The switch service already activated the candidate and updated the
+          # bootloader.
+          exit 0
+          ;;
+        *)
+          echo "Refusing unexpected elevation command: $command $action" >&2
+          exit 2
+          ;;
+      esac
+    '';
+  };
   nhUnprivilegedSwitch = pkgs.writeShellApplication {
     name = "nh";
     text = ''
       if [[ $# -ge 2 && $1 == "os" && $2 == "switch" ]]; then
-        if [[ $# -eq 3 && $3 == "--update" ]]; then
-          ${lib.getExe pkgs.nix} flake update /etc/nixos
-        elif [[ $# -ne 2 ]]; then
-          echo "Supported forms: nh os switch, nh os switch --update" >&2
-          exit 2
-        fi
-
-        exec ${lib.getExe' pkgs.systemd "systemctl"} start t3code-os-switch.service
+        exec ${lib.getExe pkgs.nh} \
+          --elevation-strategy ${lib.getExe nhAgentElevation} "$@"
       fi
 
       exec ${lib.getExe pkgs.nh} "$@"

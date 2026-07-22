@@ -48,9 +48,14 @@ in {
         return polkit.Result.YES;
       }
 
+      var agentUnits = [
+        "t3code-nh-clean.service",
+        "t3code-os-switch.service"
+      ];
+
       if (
         action.id == "org.freedesktop.systemd1.manage-units" &&
-        action.lookup("unit") == "t3code-os-switch.service" &&
+        agentUnits.indexOf(action.lookup("unit")) >= 0 &&
         ["start", "restart"].indexOf(action.lookup("verb")) >= 0 &&
         subject.active &&
         subject.local &&
@@ -165,6 +170,14 @@ in {
 
   systemd = {
     services = {
+      t3code-nh-clean = {
+        description = "Clean old Nix generations without interactive elevation";
+        path = with pkgs; [nh nix];
+        serviceConfig.Type = "oneshot";
+        script = ''
+          exec nh clean all --keep 3
+        '';
+      };
       t3code-os-switch = {
         description = "Validate and apply /etc/nixos for the local coding agent";
         path = with pkgs; [git nix nix-output-monitor util-linux];
