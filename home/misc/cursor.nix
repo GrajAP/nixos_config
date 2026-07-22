@@ -5,45 +5,11 @@
 }: let
   editorSettings = import ./editor-settings.nix;
   editorExtensions = import ./editor-extensions.nix {inherit pkgs;};
-  catppuccinTheme = pkgs.vscode-extensions.catppuccin.catppuccin-vsc;
   cursorSettings = pkgs.writeText "cursor-settings.json" (builtins.toJSON editorSettings);
-
-  catppuccinWorkbenchCss =
-    pkgs.runCommand "cursor-catppuccin-mocha-blue.css" {
-      nativeBuildInputs = [pkgs.jq];
-    } ''
-      {
-        printf ':root, body, .monaco-workbench, .monaco-workbench.vs, .monaco-workbench.vs-dark {\n'
-        printf '  color-scheme: dark !important;\n'
-        sed 's/#cba6f7/#89b4fa/g' \
-          ${catppuccinTheme}/share/vscode/extensions/catppuccin.catppuccin-vsc/themes/mocha.json \
-          | jq -r '.colors | to_entries[] | "  --vscode-\(.key | gsub("\\."; "-")): \(.value) !important;"'
-        printf '}\n'
-        printf 'html, body, .monaco-workbench { background-color: #1e1e2e !important; color: #cdd6f4 !important; }\n'
-      } > "$out"
-    '';
-
-  cursorCatppuccin =
-    pkgs.runCommand "${pkgs.code-cursor.pname}-${pkgs.code-cursor.version}-catppuccin-mocha-blue" {
-      meta = pkgs.code-cursor.meta;
-    } ''
-      mkdir -p "$out"
-      cp -a ${pkgs.code-cursor}/. "$out"/
-
-      chmod u+w "$out/bin/cursor"
-      substituteInPlace "$out/bin/cursor" \
-        --replace-fail "${pkgs.code-cursor}" "$out"
-
-      for stylesheet in \
-        "$out/lib/cursor/resources/app/out/vs/workbench/workbench.desktop.main.css" \
-        "$out/lib/cursor/resources/app/out/vs/workbench/workbench.glass.main.css"; do
-        chmod u+w "$stylesheet"
-        printf '\n' >> "$stylesheet"
-        cat ${catppuccinWorkbenchCss} >> "$stylesheet"
-      done
-    '';
 in {
-  home.packages = [cursorCatppuccin];
+  # Keep Cursor's application files untouched so its integrity check passes.
+  # Catppuccin is applied through the extension and editor settings below.
+  home.packages = [pkgs.code-cursor];
 
   # Cursor and Catppuccin write extension-local state, so install writable
   # copies instead of pointing Cursor directly at the Nix store.
