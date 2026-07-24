@@ -63,7 +63,9 @@
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \
           ${inputs.self}/apps/whisprflow/whisprflow
-        shellcheck --shell=bash ${inputs.self}/home/scripts/bcn
+        shellcheck --shell=bash \
+          ${inputs.self}/home/scripts/bcn \
+          ${inputs.self}/home/scripts/loc
         shellcheck --shell=bash ${inputs.self}/home/rice/quickshell/scripts/*.sh
         touch $out
       '';

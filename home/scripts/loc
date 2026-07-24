@@ -1,0 +1,71 @@
+set -euo pipefail
+
+readonly source_types="Assembly,Astro,AWK,BASH,Bazel,C,C Header,C#,C++,C++ Header,C++ Module,CMake,Clojure,ClojureC,ClojureScript,Common Lisp,CSS,CUDA,D,Dart,Dockerfile,Elixir,Elm,Erlang,F#,Fish,GLSL,Go,GraphQL,Haskell,HCL,HLSL,HTML,Java,JavaScript,JSX,Julia,Kotlin,LESS,Lua,Makefile,Nim,Nix,OCaml,Perl,PHP,PowerShell,Protocol Buffers,Python,QML,R,Racket,Ruby,Rust,Sass,Scala,Scheme,Shell,Solidity,SQL,Svelte,Swift,SystemVerilog,TSX,TypeScript,Verilog,VHDL,Vue,WebAssembly,WebGPU Shader Language,Zig,Zsh"
+
+show_help() {
+  cat <<'EOF'
+loc - count source lines in a project
+
+Usage:
+  loc [PATH ...] [TOKEI_OPTIONS ...]
+  loc --all [PATH ...]
+  loc --help
+
+By default, loc shows only programming and source languages. It skips ignored
+files plus common dependency, build, cache, and generated-output directories.
+
+Options:
+  --all     Include every file type recognized by tokei, including docs and data.
+  -h,
+  --help    Show this help.
+
+Examples:
+  loc
+  loc ~/src/my-project
+  loc --files .
+  loc --all .
+EOF
+}
+
+all_types=false
+args=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --all)
+      all_types=true
+      ;;
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    *)
+      args+=("$arg")
+      ;;
+  esac
+done
+
+tokei_args=(
+  --sort code
+  --exclude .cache
+  --exclude .devenv
+  --exclude .direnv
+  --exclude .git
+  --exclude .next
+  --exclude .nuxt
+  --exclude .output
+  --exclude build
+  --exclude coverage
+  --exclude dist
+  --exclude node_modules
+  --exclude result
+  --exclude 'result-*'
+  --exclude target
+  --exclude vendor
+)
+
+if [[ "$all_types" == false ]]; then
+  tokei_args+=(--types "$source_types")
+fi
+
+exec tokei "${tokei_args[@]}" "${args[@]}"
