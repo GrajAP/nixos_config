@@ -51,7 +51,12 @@
   };
 
   t3codeUnwrappedQueued = pkgs.t3code.unwrapped.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [./queued-messages.patch];
+    patches =
+      (old.patches or [])
+      ++ [
+        ./queued-messages.patch
+        ./thread-completion-notifications.patch
+      ];
   });
   t3codeQueued = pkgs.t3code.override {
     t3code-unwrapped = t3codeUnwrappedQueued;
