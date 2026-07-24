@@ -35,6 +35,7 @@ in {
       };
 
       restic-backups-nextcloud = {
+        restartIfChanged = lib.mkForce true;
         after = [
           "mnt-HDD.mount"
           "mnt-Storage.mount"
@@ -98,8 +99,8 @@ in {
       ${pkgs.util-linux}/bin/runuser -u postgres -- \
         ${lib.getExe' config.services.postgresql.package "pg_dump"} \
         --format=custom \
-        --file=${stagingDir}/nextcloud.pgdump \
-        nextcloud
+        nextcloud \
+        > ${stagingDir}/nextcloud.pgdump
       chmod 0600 ${stagingDir}/nextcloud.pgdump
     '';
     backupCleanupCommand = ''
