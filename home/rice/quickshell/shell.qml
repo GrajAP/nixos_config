@@ -589,6 +589,11 @@ ShellRoot {
   function barWidgetText(page, inactiveColor) {
     return root.barWidgetActive(page) ? Theme.accent : inactiveColor;
   }
+  function isT3CodeClient(client) {
+    const className = String((client && client.className) || "").toLowerCase();
+    const title = String((client && client.title) || "").toLowerCase();
+    return className.includes("t3code") || title.includes("t3code") || title.includes("t3 code");
+  }
   function appIconForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
     if (value.includes("firefox")) return "󰈹";
@@ -598,7 +603,7 @@ ShellRoot {
     if (value.includes("discord") || value.includes("vesktop")) return "󰙯";
     if (value.includes("signal")) return "󰭹";
     if (value.includes("obsidian")) return "󰠮";
-    if (value.includes("code") || value.includes("codium") || value.includes("t3code")) return "󰨞";
+    if (root.isT3CodeClient(client) || value.includes("code") || value.includes("codium")) return "󰨞";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "";
     if (value.includes("steam")) return "";
     if (value.includes("obs")) return "󰻂";
@@ -617,8 +622,8 @@ ShellRoot {
     if (value.includes("vesktop") || value.includes("discord")) return "discord";
     if (value.includes("signal")) return "signal-desktop";
     if (value.includes("obsidian")) return "obsidian";
+    if (root.isT3CodeClient(client)) return "t3code";
     if (value.includes("codium")) return "vscodium";
-    if (value.includes("t3code")) return "t3code";
     if (value.includes("code")) return "visual-studio-code";
     if (value.includes("kitty")) return "kitty";
     if (value.includes("wezterm")) return "org.wezfurlong.wezterm";
@@ -634,14 +639,13 @@ ShellRoot {
   }
   function appIconSourceForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (root.isT3CodeClient(client)) return "file:///etc/profiles/per-user/grajpap/share/icons/t3code.png";
     if (value.includes("helium")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/256x256/apps/helium.png";
     if (value.includes("nemo")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/nemo.svg";
-    if (value.includes("t3code")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/t3code.svg";
     return Quickshell.iconPath(root.appThemeIconForClient(client), "application-x-executable");
   }
   function appIconSizeForClient(client, normalSize) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
-    if (value.includes("t3code")) return Math.max(14, normalSize - 5);
     if (value.includes("helium")) return Math.max(16, normalSize - 3);
     return normalSize;
   }
@@ -653,7 +657,7 @@ ShellRoot {
     if (value.includes("discord") || value.includes("vesktop")) return "#8b5cf6";
     if (value.includes("signal")) return "#38bdf8";
     if (value.includes("obsidian")) return "#a78bfa";
-    if (value.includes("code") || value.includes("codium") || value.includes("t3code")) return "#3b82f6";
+    if (root.isT3CodeClient(client) || value.includes("code") || value.includes("codium")) return "#3b82f6";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "#64748b";
     if (value.includes("steam")) return "#1d4ed8";
     if (value.includes("obs")) return "#7c3aed";

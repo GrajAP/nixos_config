@@ -93,6 +93,7 @@
       coreutils
       hyprland
       jq
+      uwsm
     ];
     text = ''
       set -euo pipefail
@@ -119,7 +120,11 @@
           esac
         fi
 
-        /run/current-system/sw/bin/spotify "$@" >/dev/null 2>&1 &
+        uwsm app \
+          -t service \
+          -a spotify \
+          -S both \
+          -- /run/current-system/sw/bin/spotify "$@"
       fi
 
       for _ in $(seq 1 30); do
@@ -170,6 +175,9 @@
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
     keybindHelp = builtins.toJSON keybinds.help;
+  };
+  launcherWindowConfig = pkgs.replaceVars ./LauncherWindow.qml {
+    uwsm = lib.getExe pkgs.uwsm;
   };
   mediaWidgetConfig = pkgs.replaceVars ./MediaWidget.qml {
     spotifyLauncher = "${spotifyLauncher}/bin/spotify";
@@ -283,7 +291,7 @@
     }
     {
       name = "LauncherWindow.qml";
-      path = ./LauncherWindow.qml;
+      path = launcherWindowConfig;
     }
     {
       name = "MediaWidget.qml";
@@ -353,7 +361,7 @@ in {
     "quickshell/ClipboardWidget.qml".source = ./ClipboardWidget.qml;
     "quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
     "quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
-    "quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
+    "quickshell/LauncherWindow.qml".source = launcherWindowConfig;
     "quickshell/MediaWidget.qml".source = mediaWidgetConfig;
     "quickshell/NotificationCenter.qml".source = ./NotificationCenter.qml;
     "quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
