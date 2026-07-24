@@ -37,6 +37,19 @@
 
   providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
 
+  # appimage-run normally hides host paths below /etc. T3 Code needs the
+  # configured workspace to remain visible so provider processes can start in
+  # the same directory selected by the desktop application.
+  t3codeAppimageRun = pkgs.appimage-run.override {
+    buildFHSEnv = args:
+      pkgs.buildFHSEnv (args
+        // {
+          extraBwrapArgs =
+            (args.extraBwrapArgs or [])
+            ++ ["--bind /etc/nixos /etc/nixos"];
+        });
+  };
+
   t3codeUnwrappedQueued = pkgs.t3code.unwrapped.overrideAttrs (old: {
     patches = (old.patches or []) ++ [./queued-messages.patch];
   });
@@ -65,16 +78,18 @@
 
     client="$out/libexec/t3code/apps/server/dist/client"
     materialize "$client/index.html"
-    cp ${catppuccinCss} "$client/catppuccin-mocha-blue.css"
     substituteInPlace "$client/index.html" \
-      --replace-fail '#161616' '#1e1e2e' \
-      --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
+      --replace-fail '#161616' '#1e1e2e'
 
     main_js=("$client"/assets/index-*.js)
     materialize "''${main_js[0]}"
     substituteInPlace "''${main_js[0]}" \
       --replace-fail 'light:`pierre-light`,dark:`pierre-dark`' \
       'light:`catppuccin-latte`,dark:`catppuccin-mocha`'
+
+    main_css=("$client"/assets/index-*.css)
+    materialize "''${main_css[0]}"
+    sed -i -e "\$r ${catppuccinCss}" "''${main_css[0]}"
   '';
 
   t3codeFallback = pkgs.symlinkJoin {
@@ -204,10 +219,10 @@
   t3codeDesktopLatest = pkgs.writeShellApplication {
     name = "t3code-desktop-latest";
     runtimeInputs = with pkgs; [
-      appimage-run
       coreutils
       gnugrep
       gnused
+      t3codeAppimageRun
       util-linux
       update
     ];
@@ -225,7 +240,7 @@
         app_hash="$(sha256sum "$app" | cut -d ' ' -f 1)"
         cache_root="''${XDG_CACHE_HOME:-$HOME/.cache}/appimage-run"
         app_dir="$cache_root/$app_hash"
-        marker="$app_dir/.catppuccin-mocha-blue-${catppuccinVersion}"
+        marker="$app_dir/.catppuccin-mocha-blue-v2-${catppuccinVersion}"
 
         mkdir -p "$cache_root"
         exec 8>"$cache_root/t3code-catppuccin.lock"
@@ -246,25 +261,21 @@
         client="$app_dir/resources/app.asar.unpacked/apps/server/dist/client"
         index="$client/index.html"
         main_js=("$client"/assets/index-*.js)
+        main_css=("$client"/assets/index-*.css)
 
         if [[ ! -f "$marker" ]]; then
-          if [[ ! -f "$index" || ! -f "''${main_js[0]}" ]]; then
+          if [[ ! -f "$index" || ! -f "''${main_js[0]}" || ! -f "''${main_css[0]}" ]]; then
             echo "The downloaded T3 Code layout is unsupported; using the Nix fallback" >&2
             exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
           fi
 
-          cp ${catppuccinCss} "$client/catppuccin-mocha-blue.css"
           sed -i -e 's/#161616/#1e1e2e/g' "$index"
-          if ! grep -Fq 'catppuccin-mocha-blue.css' "$index"; then
-            sed -i \
-              -e 's#</head>#<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>#' \
-              "$index"
-          fi
           sed -i \
             "s/light:\`pierre-light\`,dark:\`pierre-dark\`/light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`/" \
             "''${main_js[0]}"
+          sed -i -e "\$r ${catppuccinCss}" "''${main_css[0]}"
 
-          if ! grep -Fq 'catppuccin-mocha-blue.css' "$index" \
+          if ! grep -Fq 'Catppuccin Mocha, blue accent' "''${main_css[0]}" \
             || ! grep -Fq "light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`" "''${main_js[0]}"; then
             echo "Could not apply Catppuccin to the downloaded T3 Code release" >&2
             exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
@@ -275,7 +286,7 @@
 
         flock -u 8
         export APPIMAGE="$app"
-        exec ${lib.getExe pkgs.appimage-run} -w "$app_dir" -- --no-sandbox "$@"
+        exec ${lib.getExe t3codeAppimageRun} -w "$app_dir" -- --no-sandbox "$@"
       fi
 
       echo "No downloaded T3 Code release is available; using the Nix fallback" >&2
