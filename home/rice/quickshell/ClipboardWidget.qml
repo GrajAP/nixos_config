@@ -31,7 +31,7 @@ ColumnLayout {
   Layout.fillHeight: true
   spacing: 10
 
-  onEntriesChanged: Qt.callLater(() => clipboardFlick.contentY = 0)
+  onEntriesChanged: Qt.callLater(() => clipboardList.positionViewAtBeginning())
 
   Timer {
     id: wipeConfirmTimer
@@ -244,25 +244,25 @@ ColumnLayout {
 
   }
 
-  Flickable {
-    id: clipboardFlick
+  ListView {
+    id: clipboardList
 
     Layout.fillWidth: true
     Layout.fillHeight: true
     clip: true
-    contentWidth: width
-    contentHeight: clipboardColumn.height
-    flickableDirection: Flickable.VerticalFlick
+    spacing: 8
+    model: clipboardWidget.entries
+    cacheBuffer: 420
+    reuseItems: true
     boundsBehavior: Flickable.StopAtBounds
     maximumFlickVelocity: 2800
     flickDeceleration: 4800
     pixelAligned: true
-    interactive: contentHeight > height
 
     ScrollBar.vertical: ScrollBar {
       id: clipboardScrollBar
 
-      policy: clipboardFlick.contentHeight > clipboardFlick.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+      policy: clipboardList.contentHeight > clipboardList.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
       interactive: true
       width: 6
 
@@ -283,29 +283,20 @@ ColumnLayout {
       background: Item { implicitWidth: 6 }
     }
 
-    Column {
-      id: clipboardColumn
-
-      width: clipboardFlick.width - (clipboardScrollBar.visible ? 12 : 0)
-      spacing: 8
-
-      Repeater {
-        model: clipboardWidget.entries
-
-        delegate: Rectangle {
+    delegate: Rectangle {
           id: clipboardRow
 
           required property var modelData
           readonly property bool imageEntry: (modelData.kind === "image" || modelData.kind === "svg")
             && modelData.imagePath.length > 0
           readonly property bool richEntry: modelData.kind === "markdown" || modelData.kind === "html"
-          readonly property bool nearViewport: y + height >= clipboardFlick.contentY - 420
-            && y <= clipboardFlick.contentY + clipboardFlick.height + 420
+          readonly property bool nearViewport: y + height >= clipboardList.contentY - clipboardList.cacheBuffer
+            && y <= clipboardList.contentY + clipboardList.height + clipboardList.cacheBuffer
           readonly property real imagePreviewHeight: imageEntry
             ? Math.min(340, Math.max(140, (width - 20) * modelData.imageHeight / modelData.imageWidth))
             : 0
 
-          width: clipboardColumn.width
+          width: clipboardList.width - (clipboardScrollBar.visible ? 12 : 0)
           height: clipboardRowContent.implicitHeight + 20
           radius: Theme.radiusMd
           color: clipboardRowMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
@@ -513,12 +504,10 @@ ColumnLayout {
             onClicked: shell.runClipboardAction("copy", clipboardRow.modelData)
           }
         }
-      }
-    }
 
     Text {
       anchors.centerIn: parent
-      visible: clipboardWidget.entries.length === 0
+      visible: clipboardList.count === 0
       text: shell.clipboardLoading ? "Loading clipboard..." : (shell.clipboardStatus || "No matches")
       color: Theme.muted
       font.family: Theme.fontSans

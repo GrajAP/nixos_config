@@ -55,7 +55,7 @@ ShellRoot {
   property var screenshotInkColors: ["#ff4d6d", "#f59e0b", "#facc15", "#22c55e", "#06b6d4", "#3b82f6", "#a855f7", "#ffffff", "#111827"]
   property int screenshotInkWidth: 5
   property int screenshotTextSize: 32
-  property int widgetMotionMs: Theme.motionPanel
+  property int widgetMotionMs: widgetPage === "clipboard" ? Theme.motionMedium : Theme.motionPanel
   property bool widgetVisible: false
   property bool widgetWindowShown: false
   property string widgetPage: "audio"
@@ -2323,8 +2323,14 @@ ShellRoot {
       }
       Behavior on opacity { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
       Behavior on scale { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
-      Behavior on width { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
-      Behavior on height { NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic } }
+      Behavior on width {
+        enabled: root.widgetPage !== "clipboard"
+        NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic }
+      }
+      Behavior on height {
+        enabled: root.widgetPage !== "clipboard"
+        NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic }
+      }
       ColumnLayout {
         anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd
         RowLayout {
