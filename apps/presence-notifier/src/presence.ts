@@ -1,5 +1,10 @@
 export type Transition = "baseline" | "online" | "offline" | "unchanged";
 
+export interface DiscordPresenceSnapshot {
+  status?: string;
+  user?: {id?: string};
+}
+
 export interface StoredState {
   version: 1;
   statuses: Record<string, boolean>;
@@ -61,6 +66,26 @@ export function observe(state: StoredState, source: string, online: boolean): Tr
     return "unchanged";
   }
   return online ? "online" : "offline";
+}
+
+export function discordGuildMatches(
+  configuredGuildId: string | undefined,
+  eventGuildId: string | undefined,
+): boolean {
+  return eventGuildId !== undefined
+    && (configuredGuildId === undefined || eventGuildId === configuredGuildId);
+}
+
+export function discordGuildPresenceStatus(
+  presences: DiscordPresenceSnapshot[] | undefined,
+  targetUserId: string,
+  guildIsExplicitlyConfigured: boolean,
+): boolean | undefined {
+  const targetPresence = presences?.find((presence) => presence.user?.id === targetUserId);
+  if (targetPresence !== undefined) {
+    return targetPresence.status !== "offline";
+  }
+  return guildIsExplicitlyConfigured ? false : undefined;
 }
 
 export function cooldownRemainingSeconds(

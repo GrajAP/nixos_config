@@ -5,6 +5,8 @@ import path from "node:path";
 
 import {
   cooldownRemainingSeconds,
+  discordGuildMatches,
+  discordGuildPresenceStatus,
   emptyState,
   observe,
   parseState,
@@ -58,6 +60,8 @@ interface GuildCreatePayload {
 interface ReadyPayload {
   session_id?: string;
   resume_gateway_url?: string;
+  guilds?: Array<{id?: string; unavailable?: boolean}>;
+  user?: {id?: string};
 }
 
 function log(level: LogLevel, event: string, details: Record<string, unknown> = {}): void {
@@ -121,7 +125,7 @@ function loadConfig(): Config {
 
 function configSummary(config: Config): Record<string, unknown> {
   const discordPresence = Boolean(
-    config.discordToken && config.discordGuildId && config.discordPresenceUserId,
+    config.discordToken && config.discordPresenceUserId,
   );
   const steamPresence = Boolean(
     config.steamApiKey && (config.steamUserId || config.steamVanityName),
@@ -141,10 +145,10 @@ function configSummary(config: Config): Record<string, unknown> {
           !config.discordToken && "DISCORD_BOT_TOKEN",
           !config.discordPresenceRecipientId && "DISCORD_PRESENCE_RECIPIENT_ID",
         ].filter(Boolean),
+        guildScope: config.discordGuildId ?? "all_shared_guilds",
         label: config.discordPresenceLabel,
         missing: [
           !config.discordToken && "DISCORD_BOT_TOKEN",
-          !config.discordGuildId && "DISCORD_GUILD_ID",
           !config.discordPresenceUserId && "DISCORD_PRESENCE_USER_ID",
         ].filter(Boolean),
       },
@@ -463,7 +467,17 @@ class DiscordPresenceMonitor {
       this.sessionId = ready.session_id;
       this.resumeGatewayUrl = ready.resume_gateway_url;
       this.reconnectAttempts = 0;
-      log("info", "discord_gateway_ready");
+      const guildCount = ready.guilds?.length;
+      log("info", "discord_gateway_ready", {guildCount});
+      if (guildCount === 0) {
+        const clientId = ready.user?.id;
+        log("warn", "discord_bot_has_no_guilds", {
+          hint: "Add the bot to a server shared with the monitored user",
+          inviteUrl: clientId === undefined
+            ? undefined
+            : `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&scope=bot&permissions=0`,
+        });
+      }
       return;
     }
     if (payload.t === "RESUMED") {
@@ -473,25 +487,34 @@ class DiscordPresenceMonitor {
     }
     if (payload.t === "GUILD_CREATE") {
       const guild = payload.d as GuildCreatePayload;
-      if (guild.unavailable || guild.id !== this.config.discordGuildId) {
+      if (
+        guild.unavailable
+        || !discordGuildMatches(this.config.discordGuildId, guild.id)
+        || !this.config.discordPresenceUserId
+      ) {
         return;
       }
-      const targetPresence = guild.presences?.find(
-        (presence) => presence.user?.id === this.config.discordPresenceUserId,
+      const online = discordGuildPresenceStatus(
+        guild.presences,
+        this.config.discordPresenceUserId,
+        this.config.discordGuildId !== undefined,
       );
+      if (online === undefined) {
+        return;
+      }
       this.coordinator.record(
         `discord:${this.config.discordPresenceUserId}`,
         "Discord",
         this.config.discordPresenceLabel,
         this.config.discordPresenceRecipientId,
-        targetPresence !== undefined && targetPresence.status !== "offline",
+        online,
       );
       return;
     }
     if (payload.t === "PRESENCE_UPDATE") {
       const presence = payload.d as PresencePayload;
       if (
-        presence.guild_id === this.config.discordGuildId
+        discordGuildMatches(this.config.discordGuildId, presence.guild_id)
         && presence.user?.id === this.config.discordPresenceUserId
       ) {
         this.coordinator.record(
@@ -630,7 +653,7 @@ async function main(): Promise<void> {
   }
 
   const discordReady = Boolean(
-    config.discordToken && config.discordGuildId && config.discordPresenceUserId,
+    config.discordToken && config.discordPresenceUserId,
   );
   const steamReady = Boolean(config.steamApiKey && (config.steamUserId || config.steamVanityName));
   if (!discordReady && !steamReady) {

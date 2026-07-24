@@ -6,6 +6,8 @@ in {
   xdg.configFile."presence-notifier/secrets.env.example".text = ''
     # Token bota, nigdy token prywatnego konta Discord.
     DISCORD_BOT_TOKEN=
+    # Opcjonalnie ogranicza obserwację do jednego serwera. Puste oznacza
+    # wszystkie serwery współdzielone z obserwowaną osobą.
     DISCORD_GUILD_ID=
     DISCORD_PRESENCE_USER_ID=
     DISCORD_PRESENCE_LABEL=orixx10

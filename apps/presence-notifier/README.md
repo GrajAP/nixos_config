@@ -11,10 +11,14 @@ wiadomość zostanie wysłana po następnym uruchomieniu.
 
 1. Utwórz aplikację i bota w Discord Developer Portal.
 2. Na stronie bota włącz `Presence Intent`.
-3. Dodaj bota na wspólny serwer z obserwowaną osobą. Bot i odbiorca wiadomości
-   muszą móc otworzyć prywatną rozmowę.
-4. W Discordzie włącz tryb deweloperski. Skopiuj ID wspólnego serwera, ID osoby
-   `orixx10` oraz Discord ID każdej osoby, do której aplikacja ma pisać.
+3. Dodaj bota na co najmniej jeden wspólny serwer z obserwowaną osobą. Bot
+   i odbiorca wiadomości muszą móc otworzyć prywatną rozmowę. Jeżeli bot nie
+   należy do żadnego serwera, zapisze gotowy adres zaproszenia w logu
+   `discord_bot_has_no_guilds` i będzie czekał bez restartowania.
+4. W Discordzie włącz tryb deweloperski. Skopiuj ID osoby `orixx10` oraz Discord
+   ID każdej osoby, do której aplikacja ma pisać. `DISCORD_GUILD_ID` jest
+   opcjonalny. Ustaw go tylko wtedy, gdy obserwacja ma być ograniczona do jednego
+   wspólnego serwera.
 5. Utwórz klucz Steam Web API. Najpewniejszy jest 64-bitowy Steam ID. Nazwa
    `Mikuskins` zadziała tylko wtedy, gdy jest nazwą z adresu profilu (vanity URL),
    a nie samą nazwą wyświetlaną. Profil musi udostępniać status publicznie.

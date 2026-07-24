@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   cooldownRemainingSeconds,
+  discordGuildMatches,
+  discordGuildPresenceStatus,
   emptyState,
   observe,
   parseState,
@@ -46,5 +48,32 @@ test("invalid persisted fields are ignored", () => {
       statuses: {discord: true},
       lastMessageAtByRecipient: {alice: 12_000},
     },
+  );
+});
+
+test("Discord monitoring accepts every shared guild when no guild is configured", () => {
+  assert.equal(discordGuildMatches(undefined, "guild-a"), true);
+  assert.equal(discordGuildMatches("guild-a", "guild-a"), true);
+  assert.equal(discordGuildMatches("guild-a", "guild-b"), false);
+  assert.equal(discordGuildMatches(undefined, undefined), false);
+});
+
+test("automatic guild discovery does not infer offline from an unrelated guild", () => {
+  assert.equal(
+    discordGuildPresenceStatus(
+      [{status: "online", user: {id: "someone-else"}}],
+      "orixx10",
+      false,
+    ),
+    undefined,
+  );
+  assert.equal(discordGuildPresenceStatus([], "orixx10", true), false);
+  assert.equal(
+    discordGuildPresenceStatus(
+      [{status: "idle", user: {id: "orixx10"}}],
+      "orixx10",
+      false,
+    ),
+    true,
   );
 });
