@@ -981,7 +981,8 @@ if True:
           }
           events.extend([
               event for event in obsidian_events()
-              if obsidian_uid(event.get("path", "")) not in synced_obsidian_uids
+              if event.get("birthday")
+              and obsidian_uid(event.get("path", "")) not in synced_obsidian_uids
           ])
           events.sort(key=lambda item: (
               item.get("date", ""),
