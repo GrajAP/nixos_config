@@ -79,6 +79,14 @@
     ];
     text = builtins.readFile ./scripts/shutdown-timer.sh;
   };
+  kanataStatusMonitor = pkgs.writeShellApplication {
+    name = "quickshell-kanata-status-monitor";
+    runtimeInputs = [pkgs.dbus];
+    text = ''
+      exec dbus-monitor --system \
+        "type='signal',path='/org/freedesktop/systemd1/unit/kanata_2dinternalKeyboard_2eservice',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'"
+    '';
+  };
   spotifyLauncher = pkgs.writeShellApplication {
     name = "spotify";
     runtimeInputs = with pkgs; [
@@ -157,6 +165,7 @@
     calendarTask = "${calendarTool}/bin/quickshell-calendar";
     clipboardTool = "${clipboardTool}/bin/quickshell-clipboard";
     katanaSwitchTool = "${katanaSwitchTool}/bin/katana-switch";
+    kanataStatusMonitor = "${kanataStatusMonitor}/bin/quickshell-kanata-status-monitor";
     screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
@@ -211,6 +220,7 @@
   '';
   qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
+    singleton WorkspaceState 1.0 WorkspaceState.qml
     BarWorkspaceList 1.0 BarWorkspaceList.qml
     ClipboardWidget 1.0 ClipboardWidget.qml
     CodexUsageWindow 1.0 CodexUsageWindow.qml
@@ -304,6 +314,10 @@
       path = ./WeatherWidget.qml;
     }
     {
+      name = "WorkspaceState.qml";
+      path = ./WorkspaceState.qml;
+    }
+    {
       name = "assets";
       path = quickshellAssets;
     }
@@ -347,6 +361,7 @@ in {
     "quickshell/ToolsWidget.qml".source = ./ToolsWidget.qml;
     "quickshell/TrayWidget.qml".source = ./TrayWidget.qml;
     "quickshell/WeatherWidget.qml".source = ./WeatherWidget.qml;
+    "quickshell/WorkspaceState.qml".source = ./WorkspaceState.qml;
     "quickshell/assets".source = quickshellAssets;
     "quickshell/qmldir".source = qmldirConfig;
   };

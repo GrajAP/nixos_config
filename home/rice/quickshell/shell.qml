@@ -87,8 +87,8 @@ ShellRoot {
   property string codexUsageError: ""
   property bool kanataActive: false
   property bool kanataKnown: false
-  property var workspaceEntries: []
-  property var workspaceClientsById: ({})
+  readonly property var workspaceEntries: WorkspaceState.entries
+  readonly property var workspaceClientsById: WorkspaceState.clientsById
   property var workspaceDragClient: null
   property var workspaceDragTarget: 0
   property var weatherData: null
@@ -101,7 +101,7 @@ ShellRoot {
   readonly property bool clipboardLoading: clipboardQuery.running
   property int calendarMonthOffset: 0
   property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
-  property string calendarEntryMode: "task"
+  property string calendarEntryMode: "event"
   property string calendarTitleDraft: ""
   property string overallTodoDraft: ""
   property string overallTodoEditingHref: ""
@@ -219,21 +219,6 @@ ShellRoot {
     repeat: true
     onTriggered: root.refreshShutdownStatus()
   }
-  Timer {
-    interval: 3000
-    running: true
-    repeat: true
-    onTriggered: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
-  }
-  Timer {
-    interval: 1500
-    running: true
-    repeat: true
-    onTriggered: {
-      if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true;
-      if (!workspaceQuery.running) workspaceQuery.running = true;
-    }
-  }
   Process {
     id: brightnessQuery
     command: ["brightnessctl", "-m"]
@@ -264,68 +249,21 @@ ShellRoot {
     onExited: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
   }
   Process {
-    id: workspaceClientsQuery
-    command: ["hyprctl", "clients", "-j"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const clients = JSON.parse(text);
-          const byWorkspace = {};
-          for (const client of clients) {
-            if (!client || !client.mapped || !client.workspace || client.workspace.id === 0)
-              continue;
-            const key = String(client.workspace.id);
-            if (!byWorkspace[key]) byWorkspace[key] = [];
-            byWorkspace[key].push({
-              address: client.address || "",
-              className: client.class || client.initialClass || "",
-              title: client.title || client.initialTitle || "",
-              workspaceId: client.workspace.id,
-              workspaceName: client.workspace.name || String(client.workspace.id)
-            });
-          }
-          root.workspaceClientsById = byWorkspace;
-        } catch (error) {
-          root.workspaceClientsById = {};
-        }
+    id: kanataEventMonitor
+    command: ["@kanataStatusMonitor@"]
+    running: true
+    stdout: SplitParser {
+      onRead: data => {
+        if (data.startsWith("signal ") && !kanataStatusQuery.running)
+          kanataStatusQuery.running = true;
       }
     }
+    onExited: kanataEventRestart.start()
   }
-  Process {
-    id: workspaceQuery
-    command: ["hyprctl", "workspaces", "-j"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const parsed = JSON.parse(text)
-            .filter(workspace => workspace && workspace.id !== 0)
-            .sort((a, b) => a.id - b.id);
-          const byId = {};
-          let maxId = 0;
-          for (const workspace of parsed) {
-            byId[String(workspace.id)] = workspace;
-            if (workspace.id > 0)
-              maxId = Math.max(maxId, workspace.id);
-          }
-          const entries = [];
-          for (let id = 1; id <= maxId; id++) {
-            entries.push(byId[String(id)] || {
-              id: id,
-              name: String(id),
-              windows: 0
-            });
-          }
-          const specialEntries = parsed
-            .filter(workspace => workspace.id < 0)
-            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
-          for (const workspace of specialEntries)
-            entries.push(workspace);
-          root.workspaceEntries = entries;
-        } catch (error) {
-          root.workspaceEntries = [];
-        }
-      }
-    }
+  Timer {
+    id: kanataEventRestart
+    interval: 5000
+    onTriggered: if (!kanataEventMonitor.running) kanataEventMonitor.running = true
   }
   Process {
     id: codexUsageQuery
@@ -378,7 +316,7 @@ ShellRoot {
         try {
           const payload = JSON.parse(text);
           root.calendarEvents = payload.events || [];
-          root.calendarTaskLists = payload.taskLists || [];
+          root.calendarTaskLists = root.sortedCalendarTaskLists(payload.taskLists || []);
           root.calendarCanUndo = Boolean(payload.canUndo);
           const selectedListStillExists = root.calendarTaskLists.some(list => list.id === root.overallTodoListId);
           if (root.overallTodoListId.length > 0 && root.overallTodoListId !== "*" && !selectedListStillExists)
@@ -428,7 +366,8 @@ ShellRoot {
             }
           }
         } catch (error) {
-          calendarTaskAction.succeeded = true;
+          calendarTaskAction.succeeded = false;
+          root.calendarError = "Calendar action returned invalid data";
         }
       }
     }
@@ -501,8 +440,6 @@ ShellRoot {
     weatherQuery.running = true;
     calendarQuery.running = true;
     codexUsageQuery.running = true;
-    workspaceClientsQuery.running = true;
-    workspaceQuery.running = true;
   }
   Timer {
     interval: 15 * 60 * 1000
@@ -796,10 +733,7 @@ ShellRoot {
     if (root.workspaceIsSpecial(workspaceId))
       Quickshell.execDetached(["sync-special-workspaces-monitor"]);
     root.clearWorkspaceInteraction();
-    Qt.callLater(() => {
-      if (!workspaceClientsQuery.running) workspaceClientsQuery.running = true;
-      if (!workspaceQuery.running) workspaceQuery.running = true;
-    });
+    WorkspaceState.scheduleRefresh();
   }
   function refreshCodexUsage() {
     if (!codexUsageQuery.running) codexUsageQuery.running = true;
@@ -1339,6 +1273,7 @@ ShellRoot {
     const today = dateKey(clock.date);
     const counts = {};
     for (const event of root.calendarEvents) {
+      if (root.calendarTaskIsGeneral(event)) continue;
       counts[event.date] = (counts[event.date] || 0) + 1;
     }
     const cells = [];
@@ -1364,7 +1299,7 @@ ShellRoot {
   function calendarDayItems(date, limit) {
     if (!date) return [];
     const items = root.calendarEvents
-      .filter(event => event.date === date)
+      .filter(event => event.date === date && !root.calendarTaskIsGeneral(event))
       .map(event => {
         const copy = Object.assign({}, event);
         copy.nowMarker = false;
@@ -1385,7 +1320,9 @@ ShellRoot {
   }
   function calendarDayOverflow(date, limit) {
     if (!date) return 0;
-    const count = root.calendarEvents.filter(event => event.date === date).length;
+    const count = root.calendarEvents
+      .filter(event => event.date === date && !root.calendarTaskIsGeneral(event))
+      .length;
     return Math.max(0, count - (limit || 3));
   }
   function calendarEventStartDate(event) {
@@ -1417,6 +1354,7 @@ ShellRoot {
     const today = root.dateKey(clock.date);
     const tasks = root.calendarEvents
       .filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today)
+      .filter(event => !root.calendarTaskIsGeneral(event))
       .slice()
       .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? tasks : tasks.slice(0, limit);
@@ -1439,6 +1377,11 @@ ShellRoot {
     if (!event || event.task) return 2400;
     if (event.allDay) return -1;
     return root.calendarMinutesFromClock(event.startTime, 0);
+  }
+  function calendarTaskIsGeneral(event) {
+    if (!event || !Boolean(event.task)) return false;
+    const category = String(event.source || event.taskListName || "").trim().toLowerCase();
+    return category === "to watch" || category === "ideas";
   }
   function calendarTaskSortKey(task) {
     if (!task || !task.date) return "9999-99-99";
@@ -1511,7 +1454,10 @@ ShellRoot {
   }
   function agendaTodayTaskCount() {
     const today = root.dateKey(clock.date);
-    return root.calendarEvents.filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today).length;
+    return root.calendarEvents
+      .filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today)
+      .filter(event => !root.calendarTaskIsGeneral(event))
+      .length;
   }
   function agendaTaskDateLabel(task) {
     if (!task || !task.date) return "";
@@ -1529,7 +1475,7 @@ ShellRoot {
   }
 	  function selectedDayEvents() {
 	    return root.calendarEvents
-	      .filter(event => event.date === root.calendarSelectedDate)
+	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
 	      .slice()
 	      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
 	  }
@@ -1542,6 +1488,18 @@ ShellRoot {
       .sort((a, b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99"))
         || String(a.source || "").localeCompare(String(b.source || ""))
         || String(a.title || "").localeCompare(String(b.title || "")));
+  }
+  function calendarTaskListPriority(list) {
+    const name = String(list && list.name || "").trim().toLowerCase();
+    if (name === "synced calendar") return 0;
+    if (name === "todo") return 1;
+    if (name === "tasks" || name === "zadania") return 2;
+    return 3;
+  }
+  function sortedCalendarTaskLists(lists) {
+    return (lists || []).slice().sort((a, b) =>
+      root.calendarTaskListPriority(a) - root.calendarTaskListPriority(b)
+        || String(a.name || "").localeCompare(String(b.name || "")));
   }
   function selectedOverallTodoList() {
     for (const list of root.calendarTaskLists) {
@@ -1606,6 +1564,7 @@ ShellRoot {
     return Math.max(15, Math.min(480, duration));
   }
   function resetCalendarEditor() {
+    root.calendarEntryMode = "event";
     root.calendarTitleDraft = "";
     root.calendarStartDraft = "";
     root.calendarEndDraft = "";
@@ -1616,15 +1575,17 @@ ShellRoot {
   function editCalendarItem(item) {
     if (!item || !item.href || item.note || item.source === "Obsidian")
       return;
-    root.calendarEditingHref = item.href;
-    root.calendarEditingKind = item.task ? "task" : "event";
-    root.calendarEntryMode = root.calendarEditingKind;
-    root.calendarTitleDraft = item.title || "";
-    root.calendarAllDay = !item.task && Boolean(item.allDay);
-    if (!item.task) {
-      root.calendarEventStartMinutes = root.calendarMinutesFromClock(item.startTime, root.calendarEventStartMinutes);
-      root.calendarEventDurationMinutes = root.calendarDurationFromClocks(item.startTime, item.endTime);
+    if (item.task) {
+      root.editOverallTodo(item);
+      return;
     }
+    root.calendarEditingHref = item.href;
+    root.calendarEditingKind = "event";
+    root.calendarEntryMode = "event";
+    root.calendarTitleDraft = item.title || "";
+    root.calendarAllDay = Boolean(item.allDay);
+    root.calendarEventStartMinutes = root.calendarMinutesFromClock(item.startTime, root.calendarEventStartMinutes);
+    root.calendarEventDurationMinutes = root.calendarDurationFromClocks(item.startTime, item.endTime);
   }
   function calendarSaveLabel() {
     return root.calendarEditingHref.length > 0 ? "Save" : "+";
@@ -1657,22 +1618,16 @@ ShellRoot {
     const title = root.calendarTitleDraft.trim();
     if (title.length === 0 || calendarTaskAction.running)
       return;
-    if (root.calendarEntryMode === "event") {
-      const action = root.calendarEditingHref.length > 0 ? "edit-event" : "add-event";
-      const args = ["@calendarTask@", action];
-      if (root.calendarEditingHref.length > 0) args.push(root.calendarEditingHref);
-      args.push(root.calendarSelectedDate);
-      args.push(title);
-      if (!root.calendarAllDay) {
-        args.push(root.calendarClock(root.calendarEventStartMinutes));
-        args.push(root.calendarEndClock());
-      }
-      root.runCalendarAction(args);
-    } else if (root.calendarEditingHref.length > 0) {
-      root.runCalendarAction(["@calendarTask@", "edit-task", root.calendarEditingHref, root.calendarSelectedDate, title]);
-    } else {
-      root.runCalendarAction(["@calendarTask@", "add-task", root.calendarSelectedDate, title]);
+    const action = root.calendarEditingHref.length > 0 ? "edit-event" : "add-event";
+    const args = ["@calendarTask@", action];
+    if (root.calendarEditingHref.length > 0) args.push(root.calendarEditingHref);
+    args.push(root.calendarSelectedDate);
+    args.push(title);
+    if (!root.calendarAllDay) {
+      args.push(root.calendarClock(root.calendarEventStartMinutes));
+      args.push(root.calendarEndClock());
     }
+    root.runCalendarAction(args);
   }
   function addOverallTodo() {
     const title = root.overallTodoDraft.trim();
@@ -1873,15 +1828,14 @@ ShellRoot {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 36
             Layout.preferredHeight: 46
-            readonly property var tasks: root.agendaTasks(1)
             readonly property int taskCount: root.agendaTaskCount()
-            readonly property int overdueCount: root.agendaOverdueTaskCount()
             readonly property int todayCount: root.agendaTodayTaskCount()
+            readonly property bool hasTodayTasks: todayCount > 0
             visible: taskCount > 0
             radius: 8
-            color: overdueCount > 0 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.055)
-            border.color: overdueCount > 0 ? Theme.danger : "transparent"
-            border.width: overdueCount > 0 ? 1 : 0
+            color: hasTodayTasks ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.055)
+            border.color: hasTodayTasks ? Theme.danger : "transparent"
+            border.width: hasTodayTasks ? 1 : 0
             clip: true
 
             ColumnLayout {
@@ -1891,14 +1845,14 @@ ShellRoot {
               Text {
                 Layout.fillWidth: true
                 text: "󰄬"
-                color: agendaTaskCard.overdueCount > 0 ? Theme.danger : Theme.accent
+                color: agendaTaskCard.hasTodayTasks ? Theme.danger : Theme.accent
                 font.family: Theme.fontIcon
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
               }
               Text {
                 Layout.fillWidth: true
-                text: String(agendaTaskCard.taskCount)
+                text: String(agendaTaskCard.todayCount)
                 color: Theme.text
                 font.family: Theme.fontMono
                 font.pixelSize: 12
@@ -1907,11 +1861,11 @@ ShellRoot {
               }
               Text {
                 Layout.fillWidth: true
-                text: agendaTaskCard.overdueCount > 0 ? "!" + agendaTaskCard.overdueCount : (agendaTaskCard.todayCount > 0 ? "td " + agendaTaskCard.todayCount : root.agendaCompactDateLabel(agendaTaskCard.tasks.length > 0 ? agendaTaskCard.tasks[0].date : ""))
-                color: agendaTaskCard.overdueCount > 0 ? Theme.danger : root.secondaryText
+                text: "today"
+                color: agendaTaskCard.hasTodayTasks ? Theme.danger : root.secondaryText
                 font.family: Theme.fontSans
                 font.pixelSize: 8
-                font.bold: agendaTaskCard.overdueCount > 0
+                font.bold: agendaTaskCard.hasTodayTasks
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
               }
@@ -1920,8 +1874,7 @@ ShellRoot {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                const firstTask = agendaTaskCard.tasks.length > 0 ? agendaTaskCard.tasks[0] : null;
-                root.calendarSelectedDate = firstTask && firstTask.date ? firstTask.date : root.dateKey(clock.date);
+                root.calendarSelectedDate = root.dateKey(clock.date);
                 root.toggleWidget("calendar");
               }
             }
@@ -2528,45 +2481,72 @@ ShellRoot {
           }
         }
 
-        CodexUsageWindow {
-          visible: root.widgetPage === "codex"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "codex"
+          visible: active
           Layout.fillWidth: true
           Layout.fillHeight: true
+          sourceComponent: Component { CodexUsageWindow { shell: root } }
         }
 
-        TrayWidget {
-          visible: root.widgetPage === "tray"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "tray"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { TrayWidget { shell: root } }
         }
 
-        MediaWidget {
-          visible: root.widgetPage === "media"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "media"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { MediaWidget { shell: root } }
         }
 
-        WeatherWidget {
-          visible: root.widgetPage === "weather"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "weather"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { WeatherWidget { shell: root } }
         }
 
-        ClipboardWidget {
-          visible: root.widgetPage === "clipboard"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "clipboard"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { ClipboardWidget { shell: root } }
         }
 
-        ToolsWidget {
-          visible: root.widgetPage === "tools"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "tools"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { ToolsWidget { shell: root } }
         }
 
-        ShutdownWidget {
-          visible: root.widgetPage === "shutdown"
-          shell: root
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "shutdown"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { ShutdownWidget { shell: root } }
         }
 
-        ColumnLayout {
-          visible: root.widgetPage === "screenshot"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 12
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "screenshot"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component {
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              spacing: 12
           Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -2777,20 +2757,30 @@ ShellRoot {
               Text { anchors.centerIn: parent; text: "Retake"; color: Theme.accent; font.family: Theme.font }
               MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.captureScreenshot("edit", true) }
             }
+              }
+            }
           }
         }
 
-        ColumnLayout {
-          visible: root.widgetPage === "calendar"; Layout.fillWidth: true; Layout.fillHeight: true; spacing: 10
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "calendar"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component {
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.fillHeight: true
+              spacing: 10
 	          RowLayout {
 	            Layout.fillWidth: true
 	            Text {
 	              text: Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "dddd, d MMMM")
 	              color: Theme.muted
 	              font.family: Theme.fontSans
-	              Layout.fillWidth: true
-	            }
-	          }
+		              Layout.fillWidth: true
+			        }
+            }
           ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -2833,45 +2823,30 @@ ShellRoot {
 			              Layout.alignment: Qt.AlignLeft
 			              Layout.leftMargin: 135
 			              spacing: 8
-              Repeater {
-                model: [
-                  { key: "task", label: "Task" },
-                  { key: "event", label: "Event" }
-                ]
-	                Rectangle {
-	                  required property var modelData
-	                  implicitWidth: 72
-	                  implicitHeight: 40
-	                  radius: 8
-                  color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.surface
-                  border.color: root.calendarEntryMode === modelData.key ? Theme.accent : Theme.border
-                  border.width: 1
-                  Text {
-		                    anchors.fill: parent
-		                    text: modelData.label
-		                    color: root.calendarEntryMode === modelData.key ? Theme.background : Theme.text
-		                    font.family: Theme.fontSans
-		                    font.pixelSize: 14
-		                    font.bold: true
-		                    horizontalAlignment: Text.AlignHCenter
-		                    verticalAlignment: Text.AlignVCenter
-                  }
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                      root.resetCalendarEditor();
-                      root.calendarEntryMode = parent.modelData.key;
-                    }
-                  }
+              Rectangle {
+                implicitWidth: 72
+                implicitHeight: 40
+                radius: 8
+                color: Theme.accent
+                border.color: Theme.accent
+                border.width: 1
+                Text {
+                  anchors.fill: parent
+                  text: "Event"
+                  color: Theme.background
+                  font.family: Theme.fontSans
+                  font.pixelSize: 14
+                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
                 }
-	              }
+              }
               TextField {
                 Layout.preferredWidth: 360
                 Layout.maximumWidth: 360
                 implicitHeight: 40
                 text: root.calendarTitleDraft
-                placeholderText: root.calendarEntryMode === "event" ? "Add event" : "Add task"
+                placeholderText: root.calendarEditingHref.length > 0 ? "Edit event" : "Add event"
                 color: Theme.text
                 placeholderTextColor: Theme.muted
                 font.family: Theme.font
@@ -3086,7 +3061,7 @@ ShellRoot {
 		                  color: Theme.surface
 		                  border.color: Theme.border
 		                  border.width: 1
-		                  Text { anchors.fill: parent; text: "Today"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+		                  Text { anchors.fill: parent; text: "Dzisiaj"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
 		                  MouseArea {
 		                    anchors.fill: parent
 		                    cursorShape: Qt.PointingHandCursor
@@ -3182,12 +3157,12 @@ ShellRoot {
                         width: parent.width
                         height: 20
                         radius: 5
-                        color: modelData.nowMarker ? "#f38ba8" : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10))))
+                        color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
                         Text {
                           anchors.fill: parent
                           anchors.leftMargin: 7
                           anchors.rightMargin: 7
-                          text: modelData.nowMarker ? "now " + modelData.title : ((modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")) + modelData.title)
+                          text: modelData.nowMarker ? "now " + modelData.title : ((modelData.birthday ? "✦ " : (modelData.note ? "≡ " : (modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")))) + modelData.title)
                           color: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
                           font.family: Theme.fontSans
                           font.pixelSize: 12
@@ -3212,7 +3187,10 @@ ShellRoot {
                   }
                 }
                 MouseArea {
-                  anchors.fill: parent
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  height: 44
                   enabled: modelData.inMonth
                   cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                   onClicked: root.calendarSelectedDate = modelData.date
@@ -3486,7 +3464,7 @@ ShellRoot {
                 }
 	                Text { text: modelData.title; color: modelData.completed ? Theme.muted : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; font.strikeout: Boolean(modelData.completed) }
 	                Text {
-	                  text: modelData.note ? "note" : (modelData.task ? (modelData.completed ? "done" : "task") : (modelData.allDay ? "all day" : (modelData.startTime || "")))
+	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? ((modelData.completed ? "done" : "task") + (modelData.source ? " · " + modelData.source : "")) : (modelData.allDay ? "all day" : (modelData.startTime || ""))))
 	                  color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10
@@ -3591,7 +3569,7 @@ ShellRoot {
             Text {
               anchors.centerIn: parent
               visible: parent.count === 0
-              text: "No events or tasks"
+              text: "No events, tasks or notes"
               color: Theme.muted
               font.family: Theme.fontSans
               font.pixelSize: 12
@@ -4018,8 +3996,10 @@ ShellRoot {
           }
               }
             }
+	          }
+		        }
+            }
           }
-	        }
       }
       Keys.onEscapePressed: root.closeWidget()
       Keys.onPressed: event => {

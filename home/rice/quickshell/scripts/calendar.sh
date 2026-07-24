@@ -27,7 +27,8 @@ if True:
       CALENDAR_HOME = f"/remote.php/dav/calendars/{USER}/"
       PASSWORD_FILE = Path.home() / ".config/quickshell/nextcloud-app-password"
       UNDO_FILE = Path.home() / ".cache/quickshell/calendar-undo.json"
-      EVENTS_FOLDER = Path.home() / "other/Obsidian Vault/obsidian/Events"
+      EVENTS_FOLDER = Path.home() / "Nextcloud/Notes/obsidian/Events"
+      OBSIDIAN_INDEX_FILE = EVENTS_FOLDER.parent / ".tocano-index.json"
       RANGE_START = date.today() - timedelta(days=60)
       RANGE_END = date.today() + timedelta(days=366)
       NS = {
@@ -104,11 +105,14 @@ if True:
 
           return {
               "date": event_date,
+              "dateOfBirth": frontmatter.get("dateOfBirth"),
               "title": title,
               "allDay": frontmatter.get("allDay", "true") != "false",
               "startTime": frontmatter.get("startTime"),
               "endTime": frontmatter.get("endTime"),
               "birthday": frontmatter.get("birthday", "false") == "true",
+              "seriesId": frontmatter.get("seriesId"),
+              "recurringType": frontmatter.get("recurringType"),
               "path": str(path),
               "source": "Obsidian",
           }
@@ -127,13 +131,94 @@ if True:
               parsed = parse_frontmatter(entry)
               if parsed:
                   events.append(parsed)
+          ordinary = [event for event in events if not event.get("birthday")]
+          birthday_groups = {}
+          for event in events:
+              if not event.get("birthday"):
+                  continue
+              birthday_date = event.get("dateOfBirth")
+              try:
+                  origin = date.fromisoformat(birthday_date or event["date"])
+              except (TypeError, ValueError):
+                  continue
+              series_key = (
+                  f"{event.get('title', '').strip().casefold()}|"
+                  f"{origin.month:02d}-{origin.day:02d}"
+              )
+              candidate = dict(event)
+              candidate["date"] = origin.isoformat()
+              candidate["recurringType"] = "yearly"
+              birthday_groups.setdefault(series_key, []).append(candidate)
+          birthdays = []
+          for group in birthday_groups.values():
+              canonical = dict(min(group, key=lambda item: item["path"]))
+              canonical["seriesPaths"] = sorted(item["path"] for item in group)
+              birthdays.append(canonical)
+          return ordinary + birthdays
+
+      def obsidian_events(source_events=None):
+          events = []
+          for event in source_events if source_events is not None else all_obsidian_events():
+              if not event.get("birthday"):
+                  if RANGE_START.isoformat() <= event["date"] <= RANGE_END.isoformat():
+                      events.append(event)
+                  continue
+              try:
+                  origin = date.fromisoformat(event["date"])
+              except (TypeError, ValueError):
+                  continue
+              for year in range(max(RANGE_START.year, origin.year), RANGE_END.year + 1):
+                  try:
+                      occurrence = origin.replace(year=year)
+                  except ValueError:
+                      occurrence = date(year, 2, 28)
+                  if occurrence < RANGE_START or occurrence > RANGE_END:
+                      continue
+                  instance = dict(event)
+                  instance["date"] = occurrence.isoformat()
+                  events.append(instance)
           return events
 
-      def obsidian_events():
-          return [
-              event for event in all_obsidian_events()
-              if RANGE_START.isoformat() <= event["date"] <= RANGE_END.isoformat()
-          ]
+      def relative_obsidian_path(path):
+          try:
+              return str(Path(path).relative_to(EVENTS_FOLDER.parent))
+          except (TypeError, ValueError):
+              return str(path)
+
+      def write_obsidian_index(events):
+          birthdays = []
+          for event in events:
+              if not event.get("birthday"):
+                  continue
+              birthdays.append({
+                  "title": event.get("title") or "Untitled birthday",
+                  "date": event.get("date"),
+                  "path": relative_obsidian_path(event.get("path", "")),
+                  "seriesPaths": [
+                      relative_obsidian_path(path)
+                      for path in event.get("seriesPaths", [event.get("path", "")])
+                  ],
+              })
+          payload = json.dumps(
+              {
+                  "version": 1,
+                  "birthdays": sorted(
+                      birthdays,
+                      key=lambda item: (item["date"] or "", item["title"].casefold()),
+                  ),
+              },
+              ensure_ascii=False,
+              indent=2,
+          ) + "\n"
+          try:
+              current = OBSIDIAN_INDEX_FILE.read_text(encoding="utf-8")
+          except FileNotFoundError:
+              current = ""
+          if current == payload:
+              return
+          temporary = OBSIDIAN_INDEX_FILE.with_suffix(".json.tmp")
+          temporary.write_text(payload, encoding="utf-8")
+          temporary.replace(OBSIDIAN_INDEX_FILE)
 
       def note_date(note):
           content = note.get("content") or ""
@@ -154,6 +239,8 @@ if True:
                   continue
               title = note.get("title") or "Untitled note"
               category = note.get("category") or "Notes"
+              if category.strip("/").casefold().startswith("obsidian/events"):
+                  continue
               events.append({
                   "date": item_date,
                   "title": title,
@@ -265,7 +352,10 @@ if True:
               "allDay": not isinstance(start, datetime),
               "startTime": time_value(start),
               "endTime": time_value(end) if end is not None else None,
-              "birthday": False,
+              "birthday": (
+                  str(component.get("X-QUICKSHELL-BIRTHDAY", "")).upper() == "TRUE"
+                  or "BIRTHDAY" in str(component.get("CATEGORIES", "")).upper()
+              ),
               "task": False,
               "note": False,
               "href": href,
@@ -810,7 +900,13 @@ if True:
 
       def sync_obsidian_events(args):
           include_all = "--all" in args
-          source_events = all_obsidian_events() if include_all else obsidian_events()
+          all_source_events = all_obsidian_events()
+          write_obsidian_index(all_source_events)
+          source_events = all_source_events if include_all else [
+              event for event in all_source_events
+              if event.get("birthday")
+              or RANGE_START.isoformat() <= event["date"] <= RANGE_END.isoformat()
+          ]
           collection = choose_calendar("VEVENT")
           existing = existing_event_uids(collection)
           created = 0
@@ -827,9 +923,14 @@ if True:
               end_clock = None if event.get("allDay") else maybe_clock(event.get("endTime"))
               extra_lines = [
                   f"DESCRIPTION:{escape_ics('Synced from Obsidian: ' + path)}",
-                  "CATEGORIES:Obsidian",
+                  "CATEGORIES:Obsidian,Birthday" if event.get("birthday") else "CATEGORIES:Obsidian",
                   f"X-QUICKSHELL-OBSIDIAN-PATH:{escape_ics(path)}",
               ]
+              if event.get("birthday"):
+                  extra_lines.extend([
+                      "RRULE:FREQ=YEARLY",
+                      "X-QUICKSHELL-BIRTHDAY:TRUE",
+                  ])
               try:
                   ics = event_ics(uid, event["date"], event["title"], start_clock, end_clock, extra_lines)
                   href = existing.get(uid)
@@ -966,24 +1067,65 @@ if True:
           subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
           print(json.dumps({"ok": True, "type": "note", "opened": True}))
 
+      def event_identity(item):
+          normalized_title = unicodedata.normalize(
+              "NFKC",
+              str(item.get("title") or ""),
+          ).casefold()
+          normalized_title = re.sub(r"\s+", " ", normalized_title).strip()
+          kind = "task" if item.get("task") else "note" if item.get("note") else "event"
+          return (
+              kind,
+              normalized_title,
+              item.get("date") or "",
+              item.get("startTime") or "",
+          )
+
+      def merge_obsidian_events(events, obsidian_items):
+          merged = list(events)
+          for obsidian_item in obsidian_items:
+              identity = event_identity(obsidian_item)
+              mirror_indexes = [
+                  index for index, existing in enumerate(merged)
+                  if existing.get("obsidianPath")
+                  and event_identity(existing) == identity
+              ]
+              if not mirror_indexes:
+                  merged.append(obsidian_item)
+                  continue
+
+              if not obsidian_item.get("birthday"):
+                  continue
+
+              marked_birthday_exists = any(
+                  merged[index].get("birthday")
+                  for index in mirror_indexes
+              )
+              for index in reversed(mirror_indexes):
+                  if not marked_birthday_exists or not merged[index].get("birthday"):
+                      del merged[index]
+              if not marked_birthday_exists:
+                  merged.append(obsidian_item)
+          return merged
+
       def query():
           events = []
           task_lists = []
           error = ""
+          obsidian_source_events = all_obsidian_events()
+          write_obsidian_index(obsidian_source_events)
           try:
               events, task_lists = nextcloud_events()
+              events.extend(nextcloud_notes())
           except Exception as exc:
               error = str(exc)
-          synced_obsidian_uids = {
-              item.get("uid", "")
-              for item in events
-              if item.get("uid", "").startswith("obsidian-")
-          }
-          events.extend([
-              event for event in obsidian_events()
-              if event.get("birthday")
-              and obsidian_uid(event.get("path", "")) not in synced_obsidian_uids
-          ])
+          events = merge_obsidian_events(
+              events,
+              obsidian_events([
+                  event for event in obsidian_source_events
+                  if event.get("birthday")
+              ]),
+          )
           events.sort(key=lambda item: (
               item.get("date", ""),
               item.get("startTime") or "",
