@@ -1,4 +1,6 @@
 {pkgs, ...}: {
+  security.pam.services.greetd.enableGnomeKeyring = true;
+
   services = {
     pulseaudio.enable = false;
     openssh = {
@@ -23,6 +25,8 @@
     };
 
     gnome.glib-networking.enable = true;
+    # Nextcloud uses Secret Service to persist its app password between logins.
+    gnome.gnome-keyring.enable = true;
     logind.settings.Login = {
       HandleLidSwitch = "suspend";
       HandleLidSwitchExternalPower = "lock";

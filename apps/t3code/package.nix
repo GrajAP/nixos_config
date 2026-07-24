@@ -2,6 +2,8 @@
   lib,
   pkgs,
 }: let
+  catppuccinCss = ./catppuccin-mocha-blue.css;
+  catppuccinVersion = builtins.hashFile "sha256" catppuccinCss;
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
     runtimeInputs = [pkgs.nodejs];
@@ -63,7 +65,7 @@
 
     client="$out/libexec/t3code/apps/server/dist/client"
     materialize "$client/index.html"
-    cp ${./catppuccin-mocha-blue.css} "$client/catppuccin-mocha-blue.css"
+    cp ${catppuccinCss} "$client/catppuccin-mocha-blue.css"
     substituteInPlace "$client/index.html" \
       --replace-fail '#161616' '#1e1e2e' \
       --replace-fail '</head>' '<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>'
@@ -201,8 +203,17 @@
 
   t3codeDesktopLatest = pkgs.writeShellApplication {
     name = "t3code-desktop-latest";
-    runtimeInputs = [pkgs.appimage-run update];
+    runtimeInputs = with pkgs; [
+      appimage-run
+      coreutils
+      gnugrep
+      gnused
+      util-linux
+      update
+    ];
     text = ''
+      set -euo pipefail
+
       app="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop/T3-Code.AppImage"
 
       if ! ${lib.getExe update}; then
@@ -211,8 +222,60 @@
 
       export PATH="${providerPath}:$PATH"
       if [[ -x "$app" ]]; then
+        app_hash="$(sha256sum "$app" | cut -d ' ' -f 1)"
+        cache_root="''${XDG_CACHE_HOME:-$HOME/.cache}/appimage-run"
+        app_dir="$cache_root/$app_hash"
+        marker="$app_dir/.catppuccin-mocha-blue-${catppuccinVersion}"
+
+        mkdir -p "$cache_root"
+        exec 8>"$cache_root/t3code-catppuccin.lock"
+        flock 8
+
+        if [[ ! -x "$app_dir/AppRun" ]]; then
+          staging="$(mktemp -d --tmpdir="$cache_root" ".t3code-$app_hash.XXXXXX")"
+          cleanup() {
+            rm -rf "$staging"
+          }
+          trap cleanup EXIT
+          appimage-run -x "$staging" "$app"
+          rm -rf "$app_dir"
+          mv "$staging" "$app_dir"
+          trap - EXIT
+        fi
+
+        client="$app_dir/resources/app.asar.unpacked/apps/server/dist/client"
+        index="$client/index.html"
+        main_js=("$client"/assets/index-*.js)
+
+        if [[ ! -f "$marker" ]]; then
+          if [[ ! -f "$index" || ! -f "''${main_js[0]}" ]]; then
+            echo "The downloaded T3 Code layout is unsupported; using the Nix fallback" >&2
+            exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
+          fi
+
+          cp ${catppuccinCss} "$client/catppuccin-mocha-blue.css"
+          sed -i -e 's/#161616/#1e1e2e/g' "$index"
+          if ! grep -Fq 'catppuccin-mocha-blue.css' "$index"; then
+            sed -i \
+              -e 's#</head>#<link rel="stylesheet" href="/catppuccin-mocha-blue.css"></head>#' \
+              "$index"
+          fi
+          sed -i \
+            "s/light:\`pierre-light\`,dark:\`pierre-dark\`/light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`/" \
+            "''${main_js[0]}"
+
+          if ! grep -Fq 'catppuccin-mocha-blue.css' "$index" \
+            || ! grep -Fq "light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`" "''${main_js[0]}"; then
+            echo "Could not apply Catppuccin to the downloaded T3 Code release" >&2
+            exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
+          fi
+
+          touch "$marker"
+        fi
+
+        flock -u 8
         export APPIMAGE="$app"
-        exec ${lib.getExe pkgs.appimage-run} "$app" --no-sandbox "$@"
+        exec ${lib.getExe pkgs.appimage-run} -w "$app_dir" -- --no-sandbox "$@"
       fi
 
       echo "No downloaded T3 Code release is available; using the Nix fallback" >&2

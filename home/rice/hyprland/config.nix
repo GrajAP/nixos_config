@@ -103,8 +103,6 @@
         "m[DP-1], layoutopt:direction:right"
       ];
       windowgroup = [
-        "social,class:discord"
-        "social,class:vesktop"
         "social,class:signal"
         "social,class:Ferdium"
         "tools,class:Spotify"
@@ -113,10 +111,10 @@
         "tools,class:Obsidian"
       ];
       windowrule = [
-        "workspace special:social,match:class discord"
-        "workspace special:social,match:class vesktop"
         "workspace special:social,match:class signal"
         "workspace special:social,match:class Ferdium"
+        "workspace 1,match:class t3code"
+        "workspace 2,match:class helium"
         "workspace special:obs,match:class obs"
         "workspace special:obs,match:class OBS"
         "workspace special:obs,match:class com.obsproject.Studio"
