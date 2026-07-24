@@ -30,8 +30,10 @@ Rules:
 
 ## File layout
 
-- `shell.qml` owns global state, IPC handlers, processes, shared functions, the bar, widget routing and lock surface.
+- `shell.qml` owns IPC handlers, shared actions, the bar, widget routing and lock surface.
+- Event-backed runtime models belong in focused singleton files. `WorkspaceState.qml` derives workspace and client state from Quickshell's Hyprland model and raw events, without periodic `hyprctl` processes.
 - Bar subviews with their own interaction model, such as workspace app grouping, clipboard history, tray or weather, should live in focused component files and receive `shell` as their state/action boundary.
+- Widget routes must use `Loader` and stay inactive while their surface is closed. Heavy inline surfaces may remain in a `Component` during an incremental extraction, because `Component` keeps their object trees lazy.
 - Keep extracted components medium-sized and cohesive. Split by visible surface or interaction model, not by tiny helper fragments.
 - `*Window.qml` files are standalone overlay windows extracted from the main shell. They receive `shell` as a required property and should not duplicate global state.
 - `default.nix` wires generated helper scripts, theme values, QML files and the systemd user service.

@@ -79,7 +79,20 @@ PanelWindow {
             width: ListView.view.width; height: 48; radius: 9
             color: ListView.isCurrentItem ? Theme.surfaceAlt : "transparent"
             scale: 1
-            function launch() { modelData.execute(); shell.launcherVisible = false; search.text = ""; }
+            function launch() {
+              Quickshell.execDetached([
+                "@uwsm@",
+                "app",
+                "-t",
+                "service",
+                "-S",
+                "both",
+                "--",
+                modelData.id + ".desktop"
+              ]);
+              shell.launcherVisible = false;
+              search.text = "";
+            }
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor

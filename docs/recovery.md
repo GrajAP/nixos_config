@@ -2,24 +2,43 @@
 
 ## Nextcloud
 
-- RPO: at most 24 hours. The local Restic job runs daily at 03:15 with a randomized delay.
+- RPO: at most 24 hours. The core Nextcloud job runs daily at 03:15 and the external-storage job at 04:15, both with a randomized delay.
 - RTO target: four hours for restoring PostgreSQL, Nextcloud state and the external-storage mount on a prepared NixOS host.
-- Local repository: `/mnt/HDD/Backups/restic/grajpap-nextcloud`.
+- Core repository: `/mnt/HDD/Backups/restic/grajpap-nextcloud-core`.
+- External-storage repository: `/mnt/HDD/Backups/restic/grajpap-nextcloud`.
 - Repository password: `/var/lib/restic-nextcloud/password`. Copy this secret to an offline password manager. A copy on the same host is not disaster recovery.
 - An off-host Restic repository must be configured when a remote destination is selected. Until then, disk theft or a host-wide incident is not covered.
 
-Validate the repository with `systemctl start restic-backups-nextcloud.service`, then inspect `journalctl -u restic-backups-nextcloud.service`. Restore into an empty directory with:
+The core job briefly enables maintenance mode, creates the PostgreSQL dump, disables maintenance mode immediately and then backs up the dump with `/var/lib/nextcloud`. Start it without attaching the shell, monitor it until `ActiveState` becomes `inactive`, then validate it before running the restore test:
 
 ```sh
-sudo install -d -m 0700 /var/lib/restic-nextcloud/restore-test
-sudo RESTIC_PASSWORD_FILE=/var/lib/restic-nextcloud/password \
-  restic -r /mnt/HDD/Backups/restic/grajpap-nextcloud restore latest \
-  --target /var/lib/restic-nextcloud/restore-test
-sudo -u postgres pg_restore --list \
-  /var/lib/restic-nextcloud/restore-test/var/lib/restic-nextcloud/staging/nextcloud.pgdump
+systemctl start --no-block restic-backups-nextcloud.service
+systemctl show restic-backups-nextcloud.service \
+  --property=ActiveState --property=Result --property=ExecMainStatus
+systemctl start collect-system-health.service
+system-health | jq '.backup'
 ```
 
-Do not leave Nextcloud in maintenance mode after a failed operation. Run `sudo nextcloud-occ maintenance:mode --off` if required.
+The potentially long external-storage job is separate and never enables Nextcloud maintenance mode. Start it without attaching the shell to the systemd job:
+
+```sh
+systemctl start --no-block restic-backups-nextcloud-storage.service
+systemctl show restic-backups-nextcloud-storage.service \
+  --property=ActiveState --property=Result --property=ExecMainStatus
+```
+
+The declared restore test restores the latest PostgreSQL dump, validates it with `pg_restore --list`, removes the temporary restore and records the last successful timestamp:
+
+```sh
+systemctl start restic-nextcloud-restore-test.service
+systemctl show restic-nextcloud-restore-test.service --property=Result --property=ExecMainStatus
+systemctl start collect-system-health.service
+system-health | jq '.backup.restoreTest'
+```
+
+The service cleans its temporary directory on success and failure. The health report exposes the durable success timestamps without exposing the repository password or its protected state directory. Keep one encrypted copy of the Restic password away from this host.
+
+The core backup also disables Nextcloud maintenance mode in `ExecStopPost`, including after a failed preparation. Confirm that cleanup in the unit journal before investigating a failure.
 
 ## SSH activation stop-point
 

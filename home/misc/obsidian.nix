@@ -20,7 +20,7 @@ in {
       text = builtins.toJSON {
         vaults = {
           "a1dd4927315f80b0" = {
-            path = "${config.home.homeDirectory}/other/Obsidian Vault";
+            path = "${config.home.homeDirectory}/Nextcloud/Notes";
             ts = 1769436944861;
             open = true;
           };

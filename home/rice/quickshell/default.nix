@@ -26,6 +26,19 @@
     ];
     text = builtins.readFile ./scripts/codex-usage-query.sh;
   };
+  workspaceStateQuery = pkgs.writeShellApplication {
+    name = "quickshell-workspace-state";
+    runtimeInputs = with pkgs; [
+      hyprland
+      jq
+    ];
+    text = ''
+      jq -n \
+        --slurpfile workspaces <(hyprctl -j workspaces) \
+        --slurpfile clients <(hyprctl -j clients) \
+        '{workspaces: $workspaces[0], clients: $clients[0]}'
+    '';
+  };
   calendarTool = pkgs.writeShellApplication {
     name = "quickshell-calendar";
     runtimeInputs = with pkgs; [
@@ -79,12 +92,21 @@
     ];
     text = builtins.readFile ./scripts/shutdown-timer.sh;
   };
+  kanataStatusMonitor = pkgs.writeShellApplication {
+    name = "quickshell-kanata-status-monitor";
+    runtimeInputs = [pkgs.dbus];
+    text = ''
+      exec dbus-monitor --system \
+        "type='signal',path='/org/freedesktop/systemd1/unit/kanata_2dinternalKeyboard_2eservice',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'"
+    '';
+  };
   spotifyLauncher = pkgs.writeShellApplication {
     name = "spotify";
     runtimeInputs = with pkgs; [
       coreutils
       hyprland
       jq
+      uwsm
     ];
     text = ''
       set -euo pipefail
@@ -111,7 +133,11 @@
           esac
         fi
 
-        /run/current-system/sw/bin/spotify "$@" >/dev/null 2>&1 &
+        uwsm app \
+          -t service \
+          -a spotify \
+          -S both \
+          -- /run/current-system/sw/bin/spotify "$@"
       fi
 
       for _ in $(seq 1 30); do
@@ -157,13 +183,20 @@
     calendarTask = "${calendarTool}/bin/quickshell-calendar";
     clipboardTool = "${clipboardTool}/bin/quickshell-clipboard";
     katanaSwitchTool = "${katanaSwitchTool}/bin/katana-switch";
+    kanataStatusMonitor = "${kanataStatusMonitor}/bin/quickshell-kanata-status-monitor";
     screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
     keybindHelp = builtins.toJSON keybinds.help;
   };
+  launcherWindowConfig = pkgs.replaceVars ./LauncherWindow.qml {
+    uwsm = lib.getExe pkgs.uwsm;
+  };
   mediaWidgetConfig = pkgs.replaceVars ./MediaWidget.qml {
     spotifyLauncher = "${spotifyLauncher}/bin/spotify";
+  };
+  workspaceStateConfig = pkgs.replaceVars ./WorkspaceState.qml {
+    workspaceStateQuery = "${workspaceStateQuery}/bin/quickshell-workspace-state";
   };
   themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton
@@ -211,6 +244,7 @@
   '';
   qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
+    singleton WorkspaceState 1.0 WorkspaceState.qml
     BarWorkspaceList 1.0 BarWorkspaceList.qml
     ClipboardWidget 1.0 ClipboardWidget.qml
     CodexUsageWindow 1.0 CodexUsageWindow.qml
@@ -273,7 +307,7 @@
     }
     {
       name = "LauncherWindow.qml";
-      path = ./LauncherWindow.qml;
+      path = launcherWindowConfig;
     }
     {
       name = "MediaWidget.qml";
@@ -302,6 +336,10 @@
     {
       name = "WeatherWidget.qml";
       path = ./WeatherWidget.qml;
+    }
+    {
+      name = "WorkspaceState.qml";
+      path = workspaceStateConfig;
     }
     {
       name = "assets";
@@ -339,7 +377,7 @@ in {
     "quickshell/ClipboardWidget.qml".source = ./ClipboardWidget.qml;
     "quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
     "quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;
-    "quickshell/LauncherWindow.qml".source = ./LauncherWindow.qml;
+    "quickshell/LauncherWindow.qml".source = launcherWindowConfig;
     "quickshell/MediaWidget.qml".source = mediaWidgetConfig;
     "quickshell/NotificationCenter.qml".source = ./NotificationCenter.qml;
     "quickshell/PowerMenuWindow.qml".source = ./PowerMenuWindow.qml;
@@ -347,6 +385,7 @@ in {
     "quickshell/ToolsWidget.qml".source = ./ToolsWidget.qml;
     "quickshell/TrayWidget.qml".source = ./TrayWidget.qml;
     "quickshell/WeatherWidget.qml".source = ./WeatherWidget.qml;
+    "quickshell/WorkspaceState.qml".source = workspaceStateConfig;
     "quickshell/assets".source = quickshellAssets;
     "quickshell/qmldir".source = qmldirConfig;
   };

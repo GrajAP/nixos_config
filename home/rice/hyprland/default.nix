@@ -362,16 +362,28 @@
       exec cliphist store
     '';
   };
-  graphicalAutostart = command: delay: {
+  graphicalAutostartService = command: {
     Unit = {
       After = ["graphical-session.target"];
       PartOf = ["graphical-session.target"];
     };
     Service = {
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep ${toString delay}";
       ExecStart = command;
       Restart = "on-abnormal";
       RestartSec = 5;
+      TimeoutStopSec = 10;
+    };
+  };
+  graphicalAutostartTimer = unit: delay: {
+    Unit = {
+      Description = "Delay ${unit} until the graphical session is ready";
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
+    };
+    Timer = {
+      OnActiveSec = "${toString delay}s";
+      AccuracySec = "1s";
+      Unit = "${unit}.service";
     };
     Install.WantedBy = ["graphical-session.target"];
   };
@@ -673,11 +685,18 @@ in {
         };
         Install.WantedBy = ["graphical-session.target"];
       };
-      autostart-kdeconnect = graphicalAutostart "${lib.getExe' pkgs.kdePackages.kdeconnect-kde "kdeconnect-indicator"}" 2;
-      autostart-signal = graphicalAutostart (lib.getExe pkgs.signal-desktop) 4;
-      autostart-ferdium = graphicalAutostart (lib.getExe' pkgs.ferdium "ferdium") 6;
-      autostart-t3code = graphicalAutostart "${config.home.profileDirectory}/bin/t3code-desktop" 8;
-      autostart-helium = graphicalAutostart "${config.home.profileDirectory}/bin/helium" 10;
+      autostart-kdeconnect = graphicalAutostartService "${lib.getExe' pkgs.kdePackages.kdeconnect-kde "kdeconnect-indicator"}";
+      autostart-signal = graphicalAutostartService (lib.getExe pkgs.signal-desktop);
+      autostart-ferdium = graphicalAutostartService (lib.getExe' pkgs.ferdium "ferdium");
+      autostart-t3code = graphicalAutostartService "${config.home.profileDirectory}/bin/t3code-desktop";
+      autostart-helium = graphicalAutostartService "${config.home.profileDirectory}/bin/helium";
+    };
+    timers = {
+      autostart-kdeconnect = graphicalAutostartTimer "autostart-kdeconnect" 2;
+      autostart-signal = graphicalAutostartTimer "autostart-signal" 4;
+      autostart-ferdium = graphicalAutostartTimer "autostart-ferdium" 6;
+      autostart-t3code = graphicalAutostartTimer "autostart-t3code" 8;
+      autostart-helium = graphicalAutostartTimer "autostart-helium" 10;
     };
     # Some tray applications still wait for this compatibility target.
     targets.tray.Unit = {

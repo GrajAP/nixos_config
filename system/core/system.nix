@@ -49,6 +49,10 @@ in {
       }
 
       var agentUnits = [
+        "collect-system-health.service",
+        "restic-backups-nextcloud.service",
+        "restic-backups-nextcloud-storage.service",
+        "restic-nextcloud-restore-test.service",
         "t3code-nh-clean.service",
         "t3code-os-switch.service"
       ];
