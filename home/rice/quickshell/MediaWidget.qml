@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Mpris
 import qs
 
@@ -11,6 +12,12 @@ ColumnLayout {
   required property var shell
   readonly property var player: shell.mediaPlayer
   property real lastAudibleVolume: 0.65
+  property bool pickerOpen: false
+  property bool spotifyAuthenticated: false
+  property bool authenticationBusy: false
+  property bool searchBusy: false
+  property string searchMessage: ""
+  property var searchResults: []
 
   Layout.fillWidth: true
   Layout.fillHeight: true
@@ -27,6 +34,31 @@ ColumnLayout {
     if (!mediaRoot.player || !mediaRoot.player.canSeek)
       return;
     mediaRoot.player.seek(seconds);
+  }
+
+  function formatDuration(milliseconds) {
+    return formatTime(Math.floor((Number(milliseconds) || 0) / 1000));
+  }
+
+  function startSearch() {
+    const query = spotifySearch.text.trim();
+    if (query.length < 2 || spotifySearchProcess.running)
+      return;
+    searchBusy = true;
+    searchMessage = "";
+    searchResults = [];
+    spotifySearchProcess.command = ["@spotifyPickerTool@", "search", query];
+    spotifySearchProcess.running = true;
+  }
+
+  function playTrack(track) {
+    if (!track || !track.uri)
+      return;
+    if (mediaRoot.player)
+      mediaRoot.player.openUri(track.uri);
+    else
+      Quickshell.execDetached(["@spotifyLauncher@", track.uri]);
+    pickerOpen = false;
   }
 
   function cycleLoopMode() {
@@ -68,11 +100,122 @@ ColumnLayout {
     onTriggered: mediaRoot.player.positionChanged()
   }
 
+  Process {
+    id: spotifyStatusProcess
+
+    command: ["@spotifyPickerTool@", "status"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          mediaRoot.spotifyAuthenticated = Boolean(payload.authenticated);
+        } catch (error) {
+          mediaRoot.spotifyAuthenticated = false;
+        }
+      }
+    }
+  }
+
+  Process {
+    id: spotifyAuthenticateProcess
+
+    command: ["@spotifyPickerTool@", "authenticate"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          if (!payload.ok)
+            mediaRoot.searchMessage = payload.message || "Could not connect Spotify";
+        } catch (error) {
+          mediaRoot.searchMessage = "Could not connect Spotify";
+        }
+      }
+    }
+    onExited: {
+      mediaRoot.authenticationBusy = false;
+      spotifyStatusProcess.running = true;
+    }
+  }
+
+  Process {
+    id: spotifySearchProcess
+
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          if (!payload.ok) {
+            mediaRoot.searchResults = [];
+            mediaRoot.searchMessage = payload.message || "Spotify search failed";
+            if (payload.code === "auth_required")
+              mediaRoot.spotifyAuthenticated = false;
+            return;
+          }
+          mediaRoot.spotifyAuthenticated = true;
+          mediaRoot.searchResults = payload.tracks || [];
+          mediaRoot.searchMessage = mediaRoot.searchResults.length > 0 ? "" : "No matching songs";
+        } catch (error) {
+          mediaRoot.searchResults = [];
+          mediaRoot.searchMessage = "Spotify returned an invalid response";
+        }
+      }
+    }
+    onExited: mediaRoot.searchBusy = false
+  }
+
+  Component.onCompleted: spotifyStatusProcess.running = true
+
+  RowLayout {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 34
+    spacing: 8
+
+    Text {
+      Layout.fillWidth: true
+      text: mediaRoot.pickerOpen ? "Find a track" : "Now playing"
+      color: Theme.muted
+      font.family: Theme.fontSans
+      font.pixelSize: 12
+      font.bold: true
+    }
+
+    Rectangle {
+      Layout.preferredWidth: mediaRoot.pickerOpen ? 72 : 112
+      Layout.preferredHeight: 32
+      radius: 9
+      color: mediaPickerMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+      border.color: mediaRoot.pickerOpen ? Theme.border : Theme.accent
+      border.width: 1
+
+      Text {
+        anchors.centerIn: parent
+        text: mediaRoot.pickerOpen ? "󰁍  Back" : "󰍉  Choose song"
+        color: mediaRoot.pickerOpen ? Theme.text : Theme.accent
+        font.family: Theme.fontSans
+        font.pixelSize: 11
+        font.bold: true
+      }
+
+      MouseArea {
+        id: mediaPickerMouse
+
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          mediaRoot.pickerOpen = !mediaRoot.pickerOpen;
+          if (mediaRoot.pickerOpen)
+            Qt.callLater(() => spotifySearch.forceActiveFocus());
+        }
+      }
+    }
+  }
+
   Rectangle {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.alignment: Qt.AlignHCenter
-    Layout.preferredWidth: 154
-    Layout.preferredHeight: 154
+    Layout.preferredWidth: 128
+    Layout.preferredHeight: 128
     radius: 14
     clip: true
     color: Theme.surface
@@ -88,7 +231,7 @@ ColumnLayout {
   }
 
   Item {
-    visible: mediaRoot.player === null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player === null
     Layout.fillWidth: true
     Layout.preferredHeight: 220
 
@@ -116,7 +259,7 @@ ColumnLayout {
   }
 
   ColumnLayout {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.fillWidth: true
     spacing: 2
 
@@ -149,7 +292,7 @@ ColumnLayout {
   }
 
   ColumnLayout {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.fillWidth: true
     spacing: 2
 
@@ -219,7 +362,7 @@ ColumnLayout {
   }
 
   RowLayout {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.alignment: Qt.AlignHCenter
     spacing: 12
 
@@ -362,7 +505,7 @@ ColumnLayout {
   }
 
   RowLayout {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.fillWidth: true
     spacing: 8
 
@@ -416,7 +559,7 @@ ColumnLayout {
   }
 
   RowLayout {
-    visible: mediaRoot.player !== null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player !== null
     Layout.fillWidth: true
     spacing: 8
 
@@ -489,7 +632,7 @@ ColumnLayout {
   }
 
   Rectangle {
-    visible: mediaRoot.player === null
+    visible: !mediaRoot.pickerOpen && mediaRoot.player === null
     Layout.fillWidth: true
     Layout.preferredHeight: 42
     radius: Theme.radiusSm
@@ -512,7 +655,303 @@ ColumnLayout {
     }
   }
 
+  ColumnLayout {
+    visible: mediaRoot.pickerOpen
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    spacing: 10
+
+    Rectangle {
+      visible: !mediaRoot.spotifyAuthenticated
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      radius: 12
+      color: Theme.surface
+      border.color: Theme.border
+      border.width: 1
+
+      ColumnLayout {
+        width: Math.min(parent.width - 32, 300)
+        anchors.centerIn: parent
+        spacing: 12
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: ""
+          color: Theme.accent
+          font.family: Theme.fontIcon
+          font.pixelSize: 54
+        }
+
+        Text {
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
+          text: mediaRoot.authenticationBusy ? "Finish connecting in your browser" : "Connect Spotify search"
+          color: Theme.text
+          font.family: Theme.fontSans
+          font.pixelSize: 15
+          font.bold: true
+          wrapMode: Text.Wrap
+        }
+
+        Text {
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
+          text: mediaRoot.authenticationBusy
+            ? "This panel will update when authorization completes."
+            : "One-time browser authorization is needed to search the Spotify catalogue. No client secret is stored."
+          color: Theme.muted
+          font.family: Theme.fontSans
+          font.pixelSize: 11
+          wrapMode: Text.Wrap
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 40
+          enabled: !mediaRoot.authenticationBusy
+          opacity: enabled ? 1 : 0.65
+          radius: 9
+          color: Theme.accent
+
+          Text {
+            anchors.centerIn: parent
+            text: mediaRoot.authenticationBusy ? "Waiting for Spotify…" : "Connect in browser"
+            color: Theme.background
+            font.family: Theme.fontSans
+            font.pixelSize: 12
+            font.bold: true
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            enabled: parent.enabled
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: {
+              mediaRoot.authenticationBusy = true;
+              mediaRoot.searchMessage = "";
+              spotifyAuthenticateProcess.running = true;
+            }
+          }
+        }
+
+        Text {
+          visible: mediaRoot.searchMessage.length > 0
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
+          text: mediaRoot.searchMessage
+          color: Theme.warning
+          font.family: Theme.fontSans
+          font.pixelSize: 10
+          wrapMode: Text.Wrap
+        }
+      }
+    }
+
+    RowLayout {
+      visible: mediaRoot.spotifyAuthenticated
+      Layout.fillWidth: true
+      spacing: 8
+
+      TextField {
+        id: spotifySearch
+
+        Layout.fillWidth: true
+        implicitHeight: 40
+        leftPadding: 36
+        rightPadding: 12
+        placeholderText: "Song, artist or album"
+        color: Theme.text
+        placeholderTextColor: Theme.muted
+        selectionColor: Theme.accent
+        selectedTextColor: Theme.background
+        selectByMouse: true
+        font.family: Theme.fontSans
+        font.pixelSize: 12
+        cursorDelegate: shell.themedCursor
+        onAccepted: mediaRoot.startSearch()
+
+        background: Rectangle {
+          radius: 9
+          color: spotifySearch.activeFocus ? Theme.surfaceAlt : Theme.surface
+          border.color: spotifySearch.activeFocus ? Theme.accent : Theme.border
+          border.width: 1
+        }
+
+        Text {
+          anchors.left: parent.left
+          anchors.leftMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          text: "󰍉"
+          color: spotifySearch.activeFocus ? Theme.accent : Theme.muted
+          font.family: Theme.fontIcon
+          font.pixelSize: 14
+        }
+      }
+
+      Rectangle {
+        Layout.preferredWidth: 70
+        Layout.preferredHeight: 40
+        enabled: spotifySearch.text.trim().length >= 2 && !mediaRoot.searchBusy
+        opacity: enabled ? 1 : 0.5
+        radius: 9
+        color: enabled ? Theme.accent : Theme.surface
+
+        Text {
+          anchors.centerIn: parent
+          text: mediaRoot.searchBusy ? "…" : "Search"
+          color: parent.enabled ? Theme.background : Theme.muted
+          font.family: Theme.fontSans
+          font.pixelSize: 11
+          font.bold: true
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: parent.enabled
+          cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+          onClicked: mediaRoot.startSearch()
+        }
+      }
+    }
+
+    Item {
+      visible: mediaRoot.spotifyAuthenticated
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+
+      ListView {
+        id: spotifyResults
+
+        anchors.fill: parent
+        clip: true
+        spacing: 7
+        model: mediaRoot.searchResults
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {
+          policy: spotifyResults.contentHeight > spotifyResults.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        }
+
+        delegate: Rectangle {
+          required property var modelData
+
+          width: ListView.view.width
+          height: 62
+          radius: 10
+          color: songMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+          border.color: songMouse.containsMouse ? Theme.accent : Theme.border
+          border.width: 1
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 10
+
+            Rectangle {
+              Layout.preferredWidth: 46
+              Layout.preferredHeight: 46
+              radius: 7
+              clip: true
+              color: Theme.surfaceAlt
+
+              Image {
+                anchors.fill: parent
+                source: modelData.image || ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+              }
+
+              Text {
+                visible: !modelData.image
+                anchors.centerIn: parent
+                text: "♪"
+                color: Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 18
+              }
+            }
+
+            ColumnLayout {
+              Layout.fillWidth: true
+              spacing: 1
+
+              Text {
+                Layout.fillWidth: true
+                text: modelData.title
+                color: Theme.text
+                font.family: Theme.fontSans
+                font.pixelSize: 12
+                font.bold: true
+                elide: Text.ElideRight
+              }
+
+              Text {
+                Layout.fillWidth: true
+                text: modelData.artists + (modelData.album ? " · " + modelData.album : "")
+                color: Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                elide: Text.ElideRight
+              }
+            }
+
+            Text {
+              text: (modelData.explicit ? "E  " : "") + mediaRoot.formatDuration(modelData.durationMs)
+              color: Theme.muted
+              font.family: Theme.fontMono
+              font.pixelSize: 9
+            }
+
+            Text {
+              text: "󰐊"
+              color: Theme.accent
+              font.family: Theme.fontIcon
+              font.pixelSize: 19
+            }
+          }
+
+          MouseArea {
+            id: songMouse
+
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mediaRoot.playTrack(parent.modelData)
+          }
+        }
+      }
+
+      ColumnLayout {
+        visible: mediaRoot.searchResults.length === 0
+        anchors.centerIn: parent
+        width: parent.width - 32
+        spacing: 8
+
+        Text {
+          Layout.alignment: Qt.AlignHCenter
+          text: mediaRoot.searchBusy ? "󰔟" : "󰎆"
+          color: mediaRoot.searchBusy ? Theme.accent : Theme.muted
+          font.family: Theme.fontIcon
+          font.pixelSize: 34
+        }
+
+        Text {
+          Layout.fillWidth: true
+          horizontalAlignment: Text.AlignHCenter
+          text: mediaRoot.searchBusy
+            ? "Searching Spotify…"
+            : (mediaRoot.searchMessage.length > 0 ? mediaRoot.searchMessage : "Search, then click a song to play it here")
+          color: mediaRoot.searchMessage.length > 0 ? Theme.warning : Theme.muted
+          font.family: Theme.fontSans
+          font.pixelSize: 11
+          wrapMode: Text.Wrap
+        }
+      }
+    }
+  }
+
   Item {
+    visible: !mediaRoot.pickerOpen
     Layout.fillHeight: true
   }
 }

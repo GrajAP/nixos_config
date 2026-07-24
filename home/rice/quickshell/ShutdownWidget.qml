@@ -11,22 +11,26 @@ ScrollView {
   readonly property string pendingTarget: alarmMode ? shell.alarmPendingTarget : shell.shutdownPendingTarget
   readonly property int pendingRemaining: alarmMode ? shell.alarmRemaining : shell.shutdownRemaining
   readonly property color modeColor: alarmMode ? Theme.warning : Theme.danger
+  readonly property int sectionLabelHeight: 18
 
   Layout.fillWidth: true
   Layout.fillHeight: true
   clip: true
   ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-  ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+  ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
   ColumnLayout {
     width: timerScroll.availableWidth
     spacing: 10
 
     Text {
+      Layout.fillWidth: true
+      Layout.preferredHeight: timerScroll.sectionLabelHeight
       text: "Timer action"
       color: Theme.muted
       font.family: Theme.fontSans
       font.bold: true
+      verticalAlignment: Text.AlignVCenter
     }
 
     RowLayout {
@@ -76,10 +80,13 @@ ScrollView {
     }
 
     Text {
+      Layout.fillWidth: true
+      Layout.preferredHeight: timerScroll.sectionLabelHeight
       text: timerScroll.alarmMode ? "Notify in" : "Shutdown in"
       color: Theme.muted
       font.family: Theme.fontSans
       font.bold: true
+      verticalAlignment: Text.AlignVCenter
     }
 
     Rectangle {
@@ -197,13 +204,19 @@ ScrollView {
       }
     }
 
-    Text {
+    Item {
       Layout.fillWidth: true
-      text: timerScroll.alarmMode ? "Alarm shows a persistent critical notification and never powers off the computer." : "Overnight checks still run at 00:00-06:00."
-      color: Theme.muted
-      font.family: Theme.fontSans
-      font.pixelSize: 11
-      wrapMode: Text.Wrap
+      Layout.preferredHeight: 32
+
+      Text {
+        anchors.fill: parent
+        text: timerScroll.alarmMode ? "Alarm shows a persistent critical notification and never powers off the computer." : "Overnight checks still run at 00:00-06:00."
+        color: Theme.muted
+        font.family: Theme.fontSans
+        font.pixelSize: 11
+        verticalAlignment: Text.AlignVCenter
+        wrapMode: Text.Wrap
+      }
     }
 
     Rectangle {

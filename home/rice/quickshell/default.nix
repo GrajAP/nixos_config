@@ -93,6 +93,19 @@
     ];
     text = builtins.readFile ./scripts/shutdown-timer.sh;
   };
+  spotifyPickerScript = pkgs.writeText "quickshell-spotify-picker.mjs" (
+    builtins.readFile ./scripts/spotify-picker.mjs
+  );
+  spotifyPickerTool = pkgs.writeShellApplication {
+    name = "quickshell-spotify-picker";
+    runtimeInputs = with pkgs; [
+      nodejs
+      xdg-utils
+    ];
+    text = ''
+      exec node ${spotifyPickerScript} "$@"
+    '';
+  };
   kanataStatusMonitor = pkgs.writeShellApplication {
     name = "quickshell-kanata-status-monitor";
     runtimeInputs = [pkgs.dbus];
@@ -107,10 +120,12 @@
       coreutils
       hyprland
       jq
+      playerctl
       uwsm
     ];
     text = ''
       set -euo pipefail
+      requested_uri="''${1:-}"
 
       spotify_client_exists() {
         hyprctl clients -j \
@@ -147,6 +162,10 @@
       done
 
       spotify_client_exists || exit 1
+
+      if [[ -n "$requested_uri" ]]; then
+        playerctl --player=spotify open "$requested_uri" >/dev/null 2>&1 || true
+      fi
 
       visible_monitor="$(
         hyprctl monitors -j \
@@ -195,6 +214,7 @@
   };
   mediaWidgetConfig = pkgs.replaceVars ./MediaWidget.qml {
     spotifyLauncher = "${spotifyLauncher}/bin/spotify";
+    spotifyPickerTool = "${spotifyPickerTool}/bin/quickshell-spotify-picker";
   };
   workspaceStateConfig = pkgs.replaceVars ./WorkspaceState.qml {
     workspaceStateQuery = "${workspaceStateQuery}/bin/quickshell-workspace-state";
@@ -356,6 +376,7 @@ in {
     quickshell
     quickshellIpc
     spotifyLauncher
+    spotifyPickerTool
   ];
 
   xdg.desktopEntries.spotify = {
