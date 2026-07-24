@@ -26,6 +26,19 @@
     ];
     text = builtins.readFile ./scripts/codex-usage-query.sh;
   };
+  workspaceStateQuery = pkgs.writeShellApplication {
+    name = "quickshell-workspace-state";
+    runtimeInputs = with pkgs; [
+      hyprland
+      jq
+    ];
+    text = ''
+      jq -n \
+        --slurpfile workspaces <(hyprctl -j workspaces) \
+        --slurpfile clients <(hyprctl -j clients) \
+        '{workspaces: $workspaces[0], clients: $clients[0]}'
+    '';
+  };
   calendarTool = pkgs.writeShellApplication {
     name = "quickshell-calendar";
     runtimeInputs = with pkgs; [
@@ -182,6 +195,9 @@
   mediaWidgetConfig = pkgs.replaceVars ./MediaWidget.qml {
     spotifyLauncher = "${spotifyLauncher}/bin/spotify";
   };
+  workspaceStateConfig = pkgs.replaceVars ./WorkspaceState.qml {
+    workspaceStateQuery = "${workspaceStateQuery}/bin/quickshell-workspace-state";
+  };
   themeConfig = pkgs.writeText "Theme.qml" ''
     pragma Singleton
     import QtQuick
@@ -323,7 +339,7 @@
     }
     {
       name = "WorkspaceState.qml";
-      path = ./WorkspaceState.qml;
+      path = workspaceStateConfig;
     }
     {
       name = "assets";
@@ -369,7 +385,7 @@ in {
     "quickshell/ToolsWidget.qml".source = ./ToolsWidget.qml;
     "quickshell/TrayWidget.qml".source = ./TrayWidget.qml;
     "quickshell/WeatherWidget.qml".source = ./WeatherWidget.qml;
-    "quickshell/WorkspaceState.qml".source = ./WorkspaceState.qml;
+    "quickshell/WorkspaceState.qml".source = workspaceStateConfig;
     "quickshell/assets".source = quickshellAssets;
     "quickshell/qmldir".source = qmldirConfig;
   };

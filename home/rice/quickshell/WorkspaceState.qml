@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell.Hyprland
+import Quickshell.Io
 
 Item {
   id: state
@@ -22,42 +23,41 @@ Item {
   }
 
   function scheduleRefresh() {
-    if (state.refreshQueued) return;
     state.refreshQueued = true;
-    Qt.callLater(() => {
-      state.refreshQueued = false;
-      state.refresh();
-    });
+    refreshDebounce.restart();
   }
 
-  function windowAddress(toplevel, ipc) {
-    const address = String(toplevel.address || ipc.address || "");
+  function windowAddress(client) {
+    const address = String(client.address || "");
     if (address.length === 0 || address.toLowerCase().indexOf("0x") === 0)
       return address;
     return "0x" + address;
   }
 
-  function refresh() {
-    const workspaces = Hyprland.workspaces && Hyprland.workspaces.values
-      ? Hyprland.workspaces.values
-      : [];
-    const toplevels = Hyprland.toplevels && Hyprland.toplevels.values
-      ? Hyprland.toplevels.values
-      : [];
+  function startRefresh() {
+    if (workspaceQuery.running)
+      return;
+    state.refreshQueued = false;
+    workspaceQuery.running = true;
+  }
+
+  function refresh(snapshot) {
+    const workspaces = snapshot.workspaces || [];
+    const toplevels = snapshot.clients || [];
     const clients = {};
 
     for (const toplevel of toplevels) {
-      if (!toplevel || !toplevel.workspace || toplevel.workspace.id === 0)
+      if (!toplevel || !toplevel.workspace || Number(toplevel.workspace.id) === 0)
         continue;
 
-      const workspaceId = toplevel.workspace.id;
+      const workspaceId = Number(toplevel.workspace.id);
       const key = String(workspaceId);
-      const ipc = toplevel.lastIpcObject || {};
       if (!clients[key]) clients[key] = [];
       clients[key].push({
-        address: state.windowAddress(toplevel, ipc),
-        className: ipc["class"] || ipc.initialClass || "",
-        title: toplevel.title || ipc.title || ipc.initialTitle || "",
+        address: state.windowAddress(toplevel),
+        className: toplevel["class"] || toplevel.initialClass || "",
+        title: toplevel.title || toplevel.initialTitle || "",
+        urgent: Boolean(toplevel.urgent),
         workspaceId: workspaceId,
         workspaceName: toplevel.workspace.name || String(workspaceId)
       });
@@ -66,19 +66,42 @@ Item {
     const byId = {};
     let maxId = 0;
     for (const workspace of workspaces) {
-      if (!workspace || workspace.id === 0)
+      if (!workspace || Number(workspace.id) === 0)
         continue;
-      const key = String(workspace.id);
+      const workspaceId = Number(workspace.id);
+      const key = String(workspaceId);
+      const workspaceClients = clients[key] || [];
+      const isFocused = Hyprland.focusedWorkspace
+        && Hyprland.focusedWorkspace.id === workspaceId;
       byId[key] = {
-        id: workspace.id,
+        id: workspaceId,
         name: workspace.name || key,
-        windows: (clients[key] || []).length,
-        active: workspace.active,
-        focused: workspace.focused,
-        urgent: workspace.urgent
+        windows: workspaceClients.length,
+        active: isFocused,
+        focused: isFocused,
+        urgent: workspaceClients.some(client => client.urgent)
       };
-      if (workspace.id > 0)
-        maxId = Math.max(maxId, workspace.id);
+      if (workspaceId > 0)
+        maxId = Math.max(maxId, workspaceId);
+    }
+
+    for (const key of Object.keys(clients)) {
+      if (byId[key])
+        continue;
+      const workspaceClients = clients[key];
+      const workspaceId = Number(key);
+      const isFocused = Hyprland.focusedWorkspace
+        && Hyprland.focusedWorkspace.id === workspaceId;
+      byId[key] = {
+        id: workspaceId,
+        name: workspaceClients[0].workspaceName || key,
+        windows: workspaceClients.length,
+        active: isFocused,
+        focused: isFocused,
+        urgent: workspaceClients.some(client => client.urgent)
+      };
+      if (workspaceId > 0)
+        maxId = Math.max(maxId, workspaceId);
     }
 
     const nextEntries = [];
@@ -103,6 +126,25 @@ Item {
     state.entries = nextEntries;
   }
 
+  Process {
+    id: workspaceQuery
+
+    command: ["@workspaceStateQuery@"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          state.refresh(JSON.parse(text));
+        } catch (error) {
+          console.warn("Could not refresh Hyprland workspace state:", error);
+        }
+      }
+    }
+    onExited: {
+      if (state.refreshQueued)
+        refreshDebounce.restart();
+    }
+  }
+
   Connections {
     target: Hyprland
 
@@ -113,16 +155,18 @@ Item {
   }
 
   Timer {
-    id: initialRefresh
+    id: refreshDebounce
 
-    interval: 250
-    onTriggered: state.refresh()
+    interval: 60
+    onTriggered: state.startRefresh()
   }
 
-  Component.onCompleted: {
-    Hyprland.refreshWorkspaces();
-    Hyprland.refreshToplevels();
-    state.scheduleRefresh();
-    initialRefresh.start();
+  Timer {
+    interval: 5000
+    repeat: true
+    running: true
+    onTriggered: state.scheduleRefresh()
   }
+
+  Component.onCompleted: state.scheduleRefresh()
 }
