@@ -295,13 +295,16 @@
   };
 
   desktop = pkgs.symlinkJoin {
-    name = "t3code-latest";
-    paths = [t3codeFallback update];
-    nativeBuildInputs = [pkgs.makeWrapper];
-    postBuild = ''
-      rm -f "$out/bin/t3code-desktop"
-      makeWrapper ${lib.getExe t3codeDesktopLatest} "$out/bin/t3code-desktop"
-    '';
+    name = "t3code-with-message-queue";
+    # Keep the source-patched build as the default desktop application. The
+    # downloaded AppImage does not include queued messages, so using it here
+    # silently bypasses queued-messages.patch. Keep the latest launcher
+    # available explicitly as t3code-desktop-latest.
+    paths = [
+      t3codeFallback
+      t3codeDesktopLatest
+      update
+    ];
   };
 
   notify = pkgs.writeShellApplication {
