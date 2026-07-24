@@ -592,6 +592,7 @@ if True:
               "type": "task-list",
               "taskListId": collection["href"],
               "taskListName": collection["displayName"],
+              "requiresDavxActivation": True,
           }))
 
       def delete_task_list(args):

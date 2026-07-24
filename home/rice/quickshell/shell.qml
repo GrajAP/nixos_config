@@ -108,6 +108,7 @@ ShellRoot {
   property string overallTodoListId: ""
   property string overallTodoListDraft: ""
   property bool overallTodoCreatingList: false
+  property string overallTodoSyncNotice: ""
   property bool overallTodoHasDate: false
   property string overallTodoPendingDeleteListId: ""
   property string calendarStartDraft: ""
@@ -354,6 +355,10 @@ ShellRoot {
               root.overallTodoListDraft = "";
               root.overallTodoCreatingList = false;
               root.overallTodoListId = payload.taskListId || "";
+              if (payload.requiresDavxActivation) {
+                const listName = payload.taskListName || "New list";
+                root.overallTodoSyncNotice = "List \"" + listName + "\" is on the server. Phone: DAVx⁵ > grajpap > Refresh list > enable it > Synchronise now.";
+              }
             }
             if (calendarTaskAction.actionName === "delete-task-list") {
               root.overallTodoListId = "";
@@ -3716,6 +3721,48 @@ ShellRoot {
                 enabled: root.overallTodoListDraft.trim().length > 0 && !calendarTaskAction.running
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: root.createOverallTodoList()
+              }
+            }
+          }
+          Rectangle {
+            visible: root.overallTodoSyncNotice.length > 0
+            Layout.fillWidth: true
+            implicitHeight: 42
+            radius: Theme.radiusSm
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.10)
+            border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
+            border.width: 1
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 10
+              anchors.rightMargin: 6
+              spacing: 8
+              Text {
+                Layout.fillWidth: true
+                text: root.overallTodoSyncNotice
+                color: Theme.text
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                wrapMode: Text.Wrap
+                verticalAlignment: Text.AlignVCenter
+              }
+              Rectangle {
+                implicitWidth: 26
+                implicitHeight: 26
+                radius: 8
+                color: "transparent"
+                Text {
+                  anchors.centerIn: parent
+                  text: "×"
+                  color: Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 16
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.overallTodoSyncNotice = ""
+                }
               }
             }
           }
