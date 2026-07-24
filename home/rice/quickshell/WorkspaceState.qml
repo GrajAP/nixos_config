@@ -30,6 +30,13 @@ Item {
     });
   }
 
+  function windowAddress(toplevel, ipc) {
+    const address = String(toplevel.address || ipc.address || "");
+    if (address.length === 0 || address.toLowerCase().indexOf("0x") === 0)
+      return address;
+    return "0x" + address;
+  }
+
   function refresh() {
     const workspaces = Hyprland.workspaces && Hyprland.workspaces.values
       ? Hyprland.workspaces.values
@@ -48,7 +55,7 @@ Item {
       const ipc = toplevel.lastIpcObject || {};
       if (!clients[key]) clients[key] = [];
       clients[key].push({
-        address: toplevel.address || "",
+        address: state.windowAddress(toplevel, ipc),
         className: ipc["class"] || ipc.initialClass || "",
         title: toplevel.title || ipc.title || ipc.initialTitle || "",
         workspaceId: workspaceId,
