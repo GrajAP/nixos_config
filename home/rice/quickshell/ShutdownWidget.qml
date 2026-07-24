@@ -4,8 +4,13 @@ import QtQuick.Layouts
 import qs
 
 ScrollView {
-  id: shutdownScroll
+  id: timerScroll
+
   required property var shell
+  readonly property bool alarmMode: shell.shutdownTimerMode === "alarm"
+  readonly property string pendingTarget: alarmMode ? shell.alarmPendingTarget : shell.shutdownPendingTarget
+  readonly property int pendingRemaining: alarmMode ? shell.alarmRemaining : shell.shutdownRemaining
+  readonly property color modeColor: alarmMode ? Theme.warning : Theme.danger
 
   Layout.fillWidth: true
   Layout.fillHeight: true
@@ -14,11 +19,64 @@ ScrollView {
   ScrollBar.vertical.policy: contentHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
 
   ColumnLayout {
-    width: shutdownScroll.availableWidth
+    width: timerScroll.availableWidth
     spacing: 10
 
     Text {
-      text: "Shutdown in"
+      text: "Timer action"
+      color: Theme.muted
+      font.family: Theme.fontSans
+      font.bold: true
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Repeater {
+        model: [
+          {
+            key: "shutdown",
+            icon: "󰐥",
+            label: "Shutdown"
+          },
+          {
+            key: "alarm",
+            icon: "󰀠",
+            label: "Alarm only"
+          }
+        ]
+
+        delegate: Rectangle {
+          required property var modelData
+
+          Layout.fillWidth: true
+          implicitHeight: 38
+          radius: 9
+          color: shell.shutdownTimerMode === modelData.key ? Theme.accent : Theme.surface
+          border.color: shell.shutdownTimerMode === modelData.key ? Theme.accent : Theme.border
+          border.width: 1
+
+          Text {
+            anchors.centerIn: parent
+            text: modelData.icon + "  " + modelData.label
+            color: shell.shutdownTimerMode === modelData.key ? Theme.background : Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 12
+            font.bold: true
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.shutdownTimerMode = modelData.key
+          }
+        }
+      }
+    }
+
+    Text {
+      text: timerScroll.alarmMode ? "Notify in" : "Shutdown in"
       color: Theme.muted
       font.family: Theme.fontSans
       font.bold: true
@@ -74,7 +132,7 @@ ScrollView {
           Text {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: "relative timer"
+            text: timerScroll.alarmMode ? "notification timer" : "relative timer"
             color: Theme.muted
             font.family: Theme.fontSans
             font.pixelSize: 11
@@ -115,6 +173,7 @@ ScrollView {
 
         delegate: Rectangle {
           required property int modelData
+
           Layout.fillWidth: true
           Layout.preferredHeight: 34
           radius: 8
@@ -140,7 +199,7 @@ ScrollView {
 
     Text {
       Layout.fillWidth: true
-      text: "Overnight checks still run at 00:00-06:00."
+      text: timerScroll.alarmMode ? "Alarm shows a persistent critical notification and never powers off the computer." : "Overnight checks still run at 00:00-06:00."
       color: Theme.muted
       font.family: Theme.fontSans
       font.pixelSize: 11
@@ -151,8 +210,8 @@ ScrollView {
       Layout.fillWidth: true
       implicitHeight: 58
       radius: 10
-      color: shell.shutdownPendingTarget.length > 0 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16) : Theme.surface
-      border.color: shell.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.border
+      color: timerScroll.pendingTarget.length > 0 ? Qt.rgba(timerScroll.modeColor.r, timerScroll.modeColor.g, timerScroll.modeColor.b, 0.16) : Theme.surface
+      border.color: timerScroll.pendingTarget.length > 0 ? timerScroll.modeColor : Theme.border
       border.width: 1
 
       ColumnLayout {
@@ -162,8 +221,12 @@ ScrollView {
 
         Text {
           Layout.fillWidth: true
-          text: shell.shutdownPendingTarget.length > 0 ? "Shutdown " + shell.shutdownPendingTarget : "No shutdown timer set"
-          color: shell.shutdownPendingTarget.length > 0 ? Theme.danger : Theme.text
+          text: {
+            if (timerScroll.pendingTarget.length === 0)
+              return timerScroll.alarmMode ? "No alarm set" : "No shutdown timer set";
+            return (timerScroll.alarmMode ? "Alarm " : "Shutdown ") + timerScroll.pendingTarget;
+          }
+          color: timerScroll.pendingTarget.length > 0 ? timerScroll.modeColor : Theme.text
           font.family: Theme.fontSans
           font.bold: true
           font.pixelSize: 13
@@ -172,7 +235,7 @@ ScrollView {
 
         Text {
           Layout.fillWidth: true
-          text: shell.shutdownPendingTarget.length > 0 ? shell.shutdownRemainingLabel() + " left" : "Use the timer above to schedule one"
+          text: timerScroll.pendingTarget.length > 0 ? shell.timerRemainingLabel(timerScroll.pendingRemaining) + " left" : "Use the timer above to schedule one"
           color: Theme.muted
           font.family: Theme.fontSans
           font.pixelSize: 11
@@ -189,12 +252,12 @@ ScrollView {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
         radius: 9
-        color: Theme.surface
+        color: timerScroll.alarmMode ? Theme.warning : Theme.surface
 
         Text {
           anchors.centerIn: parent
-          text: "󰐥  Set timer"
-          color: Theme.text
+          text: timerScroll.alarmMode ? "󰀠  Set alarm" : "󰐥  Set shutdown"
+          color: timerScroll.alarmMode ? Theme.background : Theme.text
           font.family: Theme.fontSans
           font.bold: true
         }
@@ -202,15 +265,15 @@ ScrollView {
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          onClicked: shell.scheduleShutdown()
+          onClicked: shell.scheduleSelectedTimer()
         }
       }
 
       Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
-        enabled: shell.shutdownPendingTarget.length > 0
-        opacity: shell.shutdownPendingTarget.length > 0 ? 1 : 0.55
+        enabled: timerScroll.pendingTarget.length > 0
+        opacity: enabled ? 1 : 0.55
         radius: 9
         color: Theme.surface
 
@@ -224,9 +287,9 @@ ScrollView {
 
         MouseArea {
           anchors.fill: parent
-          enabled: shell.shutdownPendingTarget.length > 0
+          enabled: timerScroll.pendingTarget.length > 0
           cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-          onClicked: shell.cancelPendingShutdown()
+          onClicked: shell.cancelSelectedTimer()
         }
       }
     }

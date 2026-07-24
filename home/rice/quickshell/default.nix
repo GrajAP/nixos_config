@@ -89,6 +89,7 @@
       coreutils
       gawk
       libnotify
+      systemd
     ];
     text = builtins.readFile ./scripts/shutdown-timer.sh;
   };

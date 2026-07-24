@@ -79,9 +79,12 @@ ShellRoot {
     }
   }
   property int shutdownDelayMinutes: 30
+  property string shutdownTimerMode: "shutdown"
   property string shutdownCustomTarget: ""
   property string shutdownPendingTarget: ""
   property int shutdownRemaining: 0
+  property string alarmPendingTarget: ""
+  property int alarmRemaining: 0
   property string shutdownStatus: ""
   property var codexUsage: null
   property string codexUsageError: ""
@@ -216,7 +219,7 @@ ShellRoot {
   }
   Timer {
     interval: 1000
-    running: root.widgetVisible && root.widgetPage === "shutdown" && root.shutdownPendingTarget.length > 0
+    running: root.widgetVisible && root.widgetPage === "shutdown" && (root.shutdownPendingTarget.length > 0 || root.alarmPendingTarget.length > 0)
     repeat: true
     onTriggered: root.refreshShutdownStatus()
   }
@@ -1000,7 +1003,10 @@ ShellRoot {
     return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
   }
   function shutdownRemainingLabel() {
-    const seconds = Math.max(0, root.shutdownRemaining);
+    return root.timerRemainingLabel(root.shutdownRemaining);
+  }
+  function timerRemainingLabel(value) {
+    const seconds = Math.max(0, Number(value) || 0);
     const minutes = Math.floor(seconds / 60);
     const rest = seconds % 60;
     return root.pad2(minutes) + ":" + root.pad2(rest);
@@ -1011,8 +1017,12 @@ ShellRoot {
       root.shutdownCustomTarget = payload.custom || "";
       root.shutdownPendingTarget = payload.pending || "";
       root.shutdownRemaining = Number(payload.remaining || 0);
+      root.alarmPendingTarget = payload.alarmPending || "";
+      root.alarmRemaining = Number(payload.alarmRemaining || 0);
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
+      else if (root.alarmPendingTarget.length > 0)
+        root.shutdownStatus = "Alarm " + root.alarmPendingTarget + " · " + root.timerRemainingLabel(root.alarmRemaining) + " left";
       else if (root.shutdownCustomTarget.length > 0)
         root.shutdownStatus = "Shutdown set " + root.shutdownCustomTarget;
       else
@@ -1031,8 +1041,26 @@ ShellRoot {
   function scheduleShutdown() {
     root.runShutdownTimer(["schedule-in", String(root.shutdownDelayMinutes)]);
   }
+  function scheduleAlarm() {
+    root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes)]);
+  }
+  function scheduleSelectedTimer() {
+    if (root.shutdownTimerMode === "alarm")
+      root.scheduleAlarm();
+    else
+      root.scheduleShutdown();
+  }
   function cancelPendingShutdown() {
     root.runShutdownTimer(["cancel-pending"]);
+  }
+  function cancelAlarm() {
+    root.runShutdownTimer(["cancel-alarm"]);
+  }
+  function cancelSelectedTimer() {
+    if (root.shutdownTimerMode === "alarm")
+      root.cancelAlarm();
+    else
+      root.cancelPendingShutdown();
   }
   function notificationTimeLabel(notification) {
     if (!notification) return "";
@@ -1194,6 +1222,37 @@ ShellRoot {
   }
   function dateKey(date) {
     return Qt.formatDateTime(date, "yyyy-MM-dd");
+  }
+  function calendarDateFromKey(value) {
+    const parts = String(value || "").split("-");
+    if (parts.length !== 3)
+      return null;
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day))
+      return null;
+    const parsed = new Date(year, month - 1, day, 12, 0, 0);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day)
+      return null;
+    return parsed;
+  }
+  function selectCalendarDate(value, syncMonth) {
+    const parsed = root.calendarDateFromKey(value);
+    if (!parsed)
+      return;
+    root.calendarSelectedDate = root.dateKey(parsed);
+    if (syncMonth !== false) {
+      root.calendarMonthOffset = (parsed.getFullYear() - clock.date.getFullYear()) * 12
+        + parsed.getMonth() - clock.date.getMonth();
+    }
+  }
+  function shiftCalendarSelectedDate(days) {
+    const selected = root.calendarDateFromKey(root.calendarSelectedDate);
+    if (!selected)
+      return;
+    selected.setDate(selected.getDate() + Number(days || 0));
+    root.selectCalendarDate(root.dateKey(selected), true);
   }
   function calendarDisplayDate() {
     return new Date(clock.date.getFullYear(), clock.date.getMonth() + root.calendarMonthOffset, 1);
@@ -1653,7 +1712,7 @@ ShellRoot {
     root.overallTodoEditingHref = todo.href || "";
     root.overallTodoDraft = todo.title || "";
     root.overallTodoHasDate = Boolean(todo.date);
-    if (todo.date) root.calendarSelectedDate = todo.date;
+    if (todo.date) root.selectCalendarDate(todo.date, true);
     if (todo.taskListId) root.overallTodoListId = todo.taskListId;
     overallTodoInput.forceActiveFocus();
     overallTodoInput.selectAll();
@@ -1826,7 +1885,7 @@ ShellRoot {
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 if (agendaEventCard.nextEvent && agendaEventCard.nextEvent.date)
-                  root.calendarSelectedDate = agendaEventCard.nextEvent.date;
+                  root.selectCalendarDate(agendaEventCard.nextEvent.date, true);
                 root.toggleWidget("calendar");
               }
             }
@@ -1883,7 +1942,7 @@ ShellRoot {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                root.calendarSelectedDate = root.dateKey(clock.date);
+                root.selectCalendarDate(root.dateKey(clock.date), true);
                 root.toggleWidget("calendar");
               }
             }
@@ -3076,7 +3135,7 @@ ShellRoot {
 		                    cursorShape: Qt.PointingHandCursor
 		                    onClicked: {
 		                      root.calendarMonthOffset = 0;
-		                      root.calendarSelectedDate = root.dateKey(clock.date);
+		                      root.selectCalendarDate(root.dateKey(clock.date), true);
 		                    }
 		                  }
 		                }
@@ -3202,7 +3261,7 @@ ShellRoot {
                   height: 44
                   enabled: modelData.inMonth
                   cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                  onClicked: root.calendarSelectedDate = modelData.date
+                  onClicked: root.selectCalendarDate(modelData.date, true)
                 }
               }
             }
@@ -3836,29 +3895,89 @@ ShellRoot {
           RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Rectangle {
-              implicitWidth: 104
-              implicitHeight: 40
-              radius: 9
-              color: root.overallTodoHasDate ? Theme.surfaceAlt : Theme.surface
-              border.color: root.overallTodoHasDate ? Theme.accent : Theme.border
-              border.width: 1
-              Text {
-                anchors.fill: parent
-                anchors.margins: 6
-                text: root.overallTodoHasDate ? "Due " + root.calendarDateLabel(root.calendarSelectedDate) : "No date"
-                color: root.overallTodoHasDate ? Theme.accent : Theme.muted
-                font.family: Theme.fontSans
-                font.pixelSize: 10
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
+            RowLayout {
+              spacing: 4
+
+              Rectangle {
+                visible: root.overallTodoHasDate
+                implicitWidth: 28
+                implicitHeight: 40
+                radius: 9
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+
+                Text {
+                  anchors.centerIn: parent
+                  text: "‹"
+                  color: Theme.text
+                  font.family: Theme.fontSans
+                  font.pixelSize: 20
+                  font.bold: true
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftCalendarSelectedDate(-1)
+                }
               }
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.overallTodoHasDate = !root.overallTodoHasDate
+
+              Rectangle {
+                implicitWidth: 104
+                implicitHeight: 40
+                radius: 9
+                color: root.overallTodoHasDate ? Theme.surfaceAlt : Theme.surface
+                border.color: root.overallTodoHasDate ? Theme.accent : Theme.border
+                border.width: 1
+
+                Text {
+                  anchors.fill: parent
+                  anchors.margins: 6
+                  text: root.overallTodoHasDate ? "Due " + root.calendarDateLabel(root.calendarSelectedDate) : "No date"
+                  color: root.overallTodoHasDate ? Theme.accent : Theme.muted
+                  font.family: Theme.fontSans
+                  font.pixelSize: 10
+                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  elide: Text.ElideRight
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    root.overallTodoHasDate = !root.overallTodoHasDate;
+                    if (root.overallTodoHasDate)
+                      root.selectCalendarDate(root.calendarSelectedDate, true);
+                  }
+                }
+              }
+
+              Rectangle {
+                visible: root.overallTodoHasDate
+                implicitWidth: 28
+                implicitHeight: 40
+                radius: 9
+                color: Theme.surface
+                border.color: Theme.border
+                border.width: 1
+
+                Text {
+                  anchors.centerIn: parent
+                  text: "›"
+                  color: Theme.text
+                  font.family: Theme.fontSans
+                  font.pixelSize: 20
+                  font.bold: true
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftCalendarSelectedDate(1)
+                }
               }
             }
             TextField {
