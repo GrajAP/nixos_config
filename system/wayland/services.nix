@@ -1,5 +1,10 @@
 {pkgs, ...}: {
-  security.pam.services.greetd.enableGnomeKeyring = true;
+  security.pam.services.greetd = {
+    enableGnomeKeyring = true;
+    # Fingerprint and automatic login do not provide the password that
+    # pam_gnome_keyring needs to unlock login.keyring.
+    fprintAuth = false;
+  };
 
   services = {
     pulseaudio.enable = false;
@@ -15,12 +20,12 @@
     };
     greetd = {
       enable = true;
-      settings = rec {
-        initial_session = {
-          command = "${pkgs.uwsm}/bin/uwsm start -e -D Hyprland hyprland.desktop";
-          user = "grajpap";
+      useTextGreeter = true;
+      settings = {
+        default_session = {
+          command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --asterisks --cmd '${pkgs.uwsm}/bin/uwsm start -e -D Hyprland hyprland.desktop'";
+          user = "greeter";
         };
-        default_session = initial_session;
       };
     };
 

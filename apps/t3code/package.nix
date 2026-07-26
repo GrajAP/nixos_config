@@ -300,16 +300,22 @@
   };
 
   desktop = pkgs.symlinkJoin {
-    name = "t3code-with-message-queue";
-    # Keep the source-patched build as the default desktop application. The
-    # downloaded AppImage does not include queued messages, so using it here
-    # silently bypasses queued-messages.patch. Keep the latest launcher
-    # available explicitly as t3code-desktop-latest.
+    name = "t3code-latest-with-fallback";
+    # The provider protocol evolves together with Codex. Run the current
+    # upstream desktop release by default so its thread index remains
+    # compatible with the installed provider. Keep the source-patched build
+    # for the CLI and as an offline fallback.
     paths = [
       t3codeFallback
       t3codeDesktopLatest
       update
     ];
+    nativeBuildInputs = [pkgs.makeWrapper];
+    postBuild = ''
+      rm -f "$out/bin/t3code-desktop"
+      ln -s ${lib.getExe' t3codeFallback "t3code-desktop"} "$out/bin/t3code-desktop-patched"
+      makeWrapper ${lib.getExe t3codeDesktopLatest} "$out/bin/t3code-desktop"
+    '';
   };
 
   notify = pkgs.writeShellApplication {
