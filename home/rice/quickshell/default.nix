@@ -231,6 +231,7 @@
     weatherQuery = "${weatherQuery}/bin/quickshell-weather-query";
     codexUsageQuery = "${codexUsageQuery}/bin/quickshell-codex-usage";
     agentStatusQuery = "${agentStatusQuery}/bin/quickshell-agent-status";
+    agentReadyNotify = lib.getExe' pkgs.libnotify "notify-send";
     calendarQuery = "${calendarTool}/bin/quickshell-calendar";
     calendarTask = "${calendarTool}/bin/quickshell-calendar";
     clipboardTool = "${clipboardTool}/bin/quickshell-clipboard";

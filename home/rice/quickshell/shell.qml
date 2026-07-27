@@ -89,6 +89,7 @@ ShellRoot {
   property var codexUsage: null
   property string codexUsageError: ""
   property bool agentStatusKnown: false
+  property bool agentStatusInitialized: false
   property bool t3AgentWorking: false
   property bool codexAgentWorking: false
   readonly property bool aiAgentWorking: t3AgentWorking || codexAgentWorking
@@ -303,14 +304,33 @@ ShellRoot {
           const payload = JSON.parse(text);
           if (!payload || payload.ok === false)
             throw new Error("Agent status unavailable");
-          root.t3AgentWorking = Boolean(payload.t3);
-          root.codexAgentWorking = Boolean(payload.codex);
+          const wasWorking = root.agentStatusKnown && root.aiAgentWorking;
+          const nextT3Working = Boolean(payload.t3);
+          const nextCodexWorking = Boolean(payload.codex);
+          const nextWorking = nextT3Working || nextCodexWorking;
+          root.t3AgentWorking = nextT3Working;
+          root.codexAgentWorking = nextCodexWorking;
           root.agentStatusKnown = true;
+          if (root.agentStatusInitialized && wasWorking && !nextWorking && !agentReadyNotification.running)
+            agentReadyNotification.running = true;
+          root.agentStatusInitialized = true;
         } catch (error) {
           root.agentStatusKnown = false;
         }
       }
     }
+  }
+  Process {
+    id: agentReadyNotification
+    command: [
+      "@agentReadyNotify@",
+      "--app-name=AI Agent",
+      "--icon=dialog-information-symbolic",
+      "--urgency=normal",
+      "--expire-time=10000",
+      "AI ready for a prompt",
+      "T3code and Codex finished working. Send the next prompt."
+    ]
   }
   Process {
     id: weatherQuery
@@ -975,14 +995,6 @@ ShellRoot {
   function agentStatusShortLabel() {
     if (!root.agentStatusKnown || root.t3AgentWorking === root.codexAgentWorking) return "AI";
     return root.t3AgentWorking ? "T3" : "CX";
-  }
-  function agentStatusTooltipText() {
-    if (!root.agentStatusKnown) return "AI agent status unavailable";
-    const activeAgents = [];
-    if (root.t3AgentWorking) activeAgents.push("T3code");
-    if (root.codexAgentWorking) activeAgents.push("Codex");
-    if (activeAgents.length > 0) return activeAgents.join(" + ") + " working";
-    return "AI ready. Send a new prompt.";
   }
   function codexUsageRemainingPercent(value) {
     const used = Number(value);
@@ -2247,19 +2259,16 @@ ShellRoot {
           Layout.preferredHeight: 34
           implicitWidth: 34
           implicitHeight: 34
-          ToolTip.visible: agentStatusMouse.containsMouse
-          ToolTip.delay: 350
-          ToolTip.text: root.agentStatusTooltipText()
 
           Rectangle {
             anchors.fill: parent
             radius: 8
             color: {
               if (!root.agentStatusKnown) return Theme.surface;
-              const tone = root.aiAgentWorking ? Theme.accent : Theme.success;
-              return Qt.rgba(tone.r, tone.g, tone.b, 0.14);
+              if (!root.aiAgentWorking) return Theme.warning;
+              return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14);
             }
-            border.color: !root.agentStatusKnown ? Theme.border : (root.aiAgentWorking ? Theme.accent : Theme.success)
+            border.color: !root.agentStatusKnown ? Theme.border : (root.aiAgentWorking ? Theme.accent : Theme.warning)
             border.width: 1
           }
 
@@ -2271,7 +2280,7 @@ ShellRoot {
             Text {
               width: parent.width
               text: root.agentStatusShortLabel()
-              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.success)
+              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.background)
               font.family: Theme.fontMono
               font.pixelSize: 11
               font.bold: true
@@ -2281,10 +2290,10 @@ ShellRoot {
             Text {
               id: agentStatusStateText
               width: parent.width
-              text: !root.agentStatusKnown ? "?" : (root.aiAgentWorking ? "RUN" : "READY")
-              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.success)
+              text: !root.agentStatusKnown ? "?" : (root.aiAgentWorking ? "RUN" : "PROMPT")
+              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.background)
               font.family: Theme.fontSans
-              font.pixelSize: root.aiAgentWorking ? 7 : 6
+              font.pixelSize: 6
               font.bold: true
               horizontalAlignment: Text.AlignHCenter
 
@@ -2297,58 +2306,52 @@ ShellRoot {
               }
             }
           }
-
-          MouseArea {
-            id: agentStatusMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: if (!agentStatusQuery.running) agentStatusQuery.running = true
-          }
         }
 
         Item {
           Layout.alignment: Qt.AlignHCenter
           Layout.preferredWidth: 34
-          Layout.preferredHeight: 46
+          Layout.preferredHeight: 56
           implicitWidth: 34
-          implicitHeight: 46
+          implicitHeight: 56
           id: codexButton
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: root.barWidgetBackground("codex")
-            border.color: root.barWidgetBorder("codex")
+            color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : Theme.surface
+            border.color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accent : Theme.border
             border.width: 1
           }
 
           Column {
             anchors.centerIn: parent
             width: 28
-            spacing: 1
+            spacing: 2
 
             Row {
               width: parent.width
-              height: 9
+              height: 11
 
               Text {
-                width: 8
+                width: 11
                 height: parent.height
-                text: "C"
+                text: "CX"
                 color: root.codexUsageBarColor("codexPrimaryUsedPercent")
                 font.family: Theme.fontMono
-                font.pixelSize: 7
+                font.pixelSize: 8
                 font.bold: true
                 verticalAlignment: Text.AlignVCenter
               }
 
               Text {
-                width: 20
+                width: 17
                 height: parent.height
                 text: root.codexUsageMetricText("codexPrimaryUsedPercent")
                 color: Theme.text
                 font.family: Theme.fontMono
-                font.pixelSize: 7
+                font.pixelSize: 9
+                minimumPixelSize: 7
+                fontSizeMode: Text.Fit
                 font.bold: true
                 horizontalAlignment: Text.AlignRight
                 verticalAlignment: Text.AlignVCenter
@@ -2357,13 +2360,16 @@ ShellRoot {
 
             Rectangle {
               width: parent.width
-              height: 5
-              radius: 2.5
-              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.13)
+              height: 7
+              radius: 3.5
+              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
               clip: true
 
               Rectangle {
-                width: parent.width * root.codexUsagePercent("codexPrimaryUsedPercent") / 100
+                width: {
+                  const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
+                  return percent <= 0 ? 0 : Math.max(2, parent.width * percent / 100);
+                }
                 height: parent.height
                 radius: parent.radius
                 color: root.codexUsageBarColor("codexPrimaryUsedPercent")
@@ -2373,26 +2379,28 @@ ShellRoot {
 
             Row {
               width: parent.width
-              height: 9
+              height: 11
 
               Text {
-                width: 8
+                width: 11
                 height: parent.height
-                text: "S"
+                text: "SP"
                 color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
                 font.family: Theme.fontMono
-                font.pixelSize: 7
+                font.pixelSize: 8
                 font.bold: true
                 verticalAlignment: Text.AlignVCenter
               }
 
               Text {
-                width: 20
+                width: 17
                 height: parent.height
                 text: root.codexUsageMetricText("sparkPrimaryUsedPercent")
                 color: Theme.text
                 font.family: Theme.fontMono
-                font.pixelSize: 7
+                font.pixelSize: 9
+                minimumPixelSize: 7
+                fontSizeMode: Text.Fit
                 font.bold: true
                 horizontalAlignment: Text.AlignRight
                 verticalAlignment: Text.AlignVCenter
@@ -2401,13 +2409,16 @@ ShellRoot {
 
             Rectangle {
               width: parent.width
-              height: 5
-              radius: 2.5
-              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.13)
+              height: 7
+              radius: 3.5
+              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
               clip: true
 
               Rectangle {
-                width: parent.width * root.codexUsagePercent("sparkPrimaryUsedPercent") / 100
+                width: {
+                  const percent = root.codexUsagePercent("sparkPrimaryUsedPercent");
+                  return percent <= 0 ? 0 : Math.max(2, parent.width * percent / 100);
+                }
                 height: parent.height
                 radius: parent.radius
                 color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
