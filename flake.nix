@@ -62,6 +62,7 @@
           ${inputs.self}/rebuild.sh \
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \
+          ${inputs.self}/apps/spark-corrector/test.sh \
           ${inputs.self}/apps/whisprflow/whisprflow
         shellcheck --shell=bash \
           ${inputs.self}/home/scripts/bcn \
@@ -69,6 +70,13 @@
         shellcheck --shell=bash ${inputs.self}/home/rice/quickshell/scripts/*.sh
         touch $out
       '';
+      spark-corrector =
+        pkgs.runCommand "check-spark-corrector" {
+          nativeBuildInputs = [pkgs.bash pkgs.coreutils pkgs.jq];
+        } ''
+          bash ${inputs.self}/apps/spark-corrector/test.sh
+          touch $out
+        '';
       quickshell-scripts =
         pkgs.runCommand "check-quickshell-scripts" {
           nativeBuildInputs = [pkgs.bash pkgs.python3];

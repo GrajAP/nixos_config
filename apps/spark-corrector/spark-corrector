@@ -29,7 +29,6 @@ cleanup() {
     rm -rf "$work_dir"
   fi
 }
-trap cleanup EXIT
 
 notify_status() {
   local title="$1"
@@ -372,56 +371,60 @@ $details
 
 You can edit the corrected text before applying it."
 
-  set +e
   if [[ "$replace_enabled" == "1" ]]; then
-    yad --text-info \
-      --editable \
-      --filename="$corrected_file" \
-      --in-place \
-      --title="Spark Corrector" \
-      --text="$prompt" \
-      --width=900 \
-      --height=520 \
-      --center \
-      --on-top \
-      --fixed \
-      --sticky \
-      --skip-taskbar \
-      --window-type=dialog \
-      --borders=18 \
-      --wrap \
-      --margins=12 \
-      --css="$review_css_file" \
-      --button="Cancel:1" \
-      --button="Copy:2" \
-      --button="Replace selection:0" \
-      >/dev/null 2>>"$log_file"
-    status=$?
+    if yad --text-info \
+        --editable \
+        --filename="$corrected_file" \
+        --in-place \
+        --title="Spark Corrector" \
+        --text="$prompt" \
+        --width=900 \
+        --height=520 \
+        --center \
+        --on-top \
+        --fixed \
+        --sticky \
+        --skip-taskbar \
+        --window-type=dialog \
+        --borders=18 \
+        --wrap \
+        --margins=12 \
+        --css="$review_css_file" \
+        --button="Cancel:1" \
+        --button="Copy:2" \
+        --button="Replace selection:0" \
+        >/dev/null 2>>"$log_file"; then
+      status=0
+    else
+      status=$?
+    fi
   else
-    yad --text-info \
-      --editable \
-      --filename="$corrected_file" \
-      --in-place \
-      --title="Spark Corrector" \
-      --text="$prompt" \
-      --width=900 \
-      --height=520 \
-      --center \
-      --on-top \
-      --fixed \
-      --sticky \
-      --skip-taskbar \
-      --window-type=dialog \
-      --borders=18 \
-      --wrap \
-      --margins=12 \
-      --css="$review_css_file" \
-      --button="Cancel:1" \
-      --button="Copy:0" \
-      >/dev/null 2>>"$log_file"
-    status=$?
+    if yad --text-info \
+        --editable \
+        --filename="$corrected_file" \
+        --in-place \
+        --title="Spark Corrector" \
+        --text="$prompt" \
+        --width=900 \
+        --height=520 \
+        --center \
+        --on-top \
+        --fixed \
+        --sticky \
+        --skip-taskbar \
+        --window-type=dialog \
+        --borders=18 \
+        --wrap \
+        --margins=12 \
+        --css="$review_css_file" \
+        --button="Cancel:1" \
+        --button="Copy:0" \
+        >/dev/null 2>>"$log_file"; then
+      status=0
+    else
+      status=$?
+    fi
   fi
-  set -e
 
   return "$status"
 }
@@ -451,10 +454,11 @@ correct_selection() {
   fi
   release_lock
 
-  set +e
-  review_correction 1
-  review_status=$?
-  set -e
+  if review_correction 1; then
+    review_status=0
+  else
+    review_status=$?
+  fi
 
   case "$review_status" in
     0)
@@ -496,10 +500,11 @@ correct_clipboard() {
   fi
   release_lock
 
-  set +e
-  review_correction 0
-  review_status=$?
-  set -e
+  if review_correction 0; then
+    review_status=0
+  else
+    review_status=$?
+  fi
 
   if [[ $review_status -eq 0 ]]; then
     wl-copy 9>&- <"$corrected_file"
@@ -554,31 +559,38 @@ gpt-5.3-codex-spark; there is no fallback to another model.
 EOF
 }
 
-validate_settings
+main() {
+  validate_settings
 
-case "${1:-selection}" in
-  selection)
-    shift
-    [[ $# -eq 0 ]] || fail "selection does not accept arguments."
-    correct_selection
-    ;;
-  clipboard)
-    shift
-    [[ $# -eq 0 ]] || fail "clipboard does not accept arguments."
-    correct_clipboard
-    ;;
-  filter)
-    shift
-    filter_text "$@"
-    ;;
-  model)
-    printf '%s\n' "$model"
-    ;;
-  help | -h | --help)
-    print_usage
-    ;;
-  *)
-    print_usage >&2
-    exit 2
-    ;;
-esac
+  case "${1:-selection}" in
+    selection)
+      shift
+      [[ $# -eq 0 ]] || fail "selection does not accept arguments."
+      correct_selection
+      ;;
+    clipboard)
+      shift
+      [[ $# -eq 0 ]] || fail "clipboard does not accept arguments."
+      correct_clipboard
+      ;;
+    filter)
+      shift
+      filter_text "$@"
+      ;;
+    model)
+      printf '%s\n' "$model"
+      ;;
+    help | -h | --help)
+      print_usage
+      ;;
+    *)
+      print_usage >&2
+      return 2
+      ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  trap cleanup EXIT
+  main "$@"
+fi
