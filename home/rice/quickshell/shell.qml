@@ -85,6 +85,7 @@ ShellRoot {
   property int shutdownRemaining: 0
   property string alarmPendingTarget: ""
   property int alarmRemaining: 0
+  property bool alarmRinging: false
   property string shutdownStatus: ""
   property var codexUsage: null
   property string codexUsageError: ""
@@ -224,7 +225,9 @@ ShellRoot {
   }
   Timer {
     interval: 1000
-    running: root.widgetVisible && root.widgetPage === "shutdown" && (root.shutdownPendingTarget.length > 0 || root.alarmPendingTarget.length > 0)
+    running: root.alarmRinging
+      || root.alarmPendingTarget.length > 0
+      || (root.widgetVisible && root.widgetPage === "shutdown" && root.shutdownPendingTarget.length > 0)
     repeat: true
     onTriggered: root.refreshShutdownStatus()
   }
@@ -491,6 +494,7 @@ ShellRoot {
     calendarQuery.running = true;
     codexUsageQuery.running = true;
     agentStatusQuery.running = true;
+    root.refreshShutdownStatus();
   }
   Timer {
     interval: 15 * 60 * 1000
@@ -1077,8 +1081,11 @@ ShellRoot {
       root.shutdownRemaining = Number(payload.remaining || 0);
       root.alarmPendingTarget = payload.alarmPending || "";
       root.alarmRemaining = Number(payload.alarmRemaining || 0);
+      root.alarmRinging = Boolean(payload.alarmRinging);
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
+      else if (root.alarmRinging)
+        root.shutdownStatus = "Alarm is ringing";
       else if (root.alarmPendingTarget.length > 0)
         root.shutdownStatus = "Alarm " + root.alarmPendingTarget + " · " + root.timerRemainingLabel(root.alarmRemaining) + " left";
       else if (root.shutdownCustomTarget.length > 0)
@@ -1113,6 +1120,9 @@ ShellRoot {
   }
   function cancelAlarm() {
     root.runShutdownTimer(["cancel-alarm"]);
+  }
+  function acknowledgeAlarm() {
+    root.runShutdownTimer(["acknowledge-alarm"]);
   }
   function cancelSelectedTimer() {
     if (root.shutdownTimerMode === "alarm")
@@ -2310,119 +2320,51 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 56
-          implicitWidth: 34
-          implicitHeight: 56
+          Layout.preferredWidth: 24
+          Layout.preferredHeight: 42
+          implicitWidth: 24
+          implicitHeight: 42
           id: codexButton
           Rectangle {
             anchors.fill: parent
-            radius: 8
-            color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : Theme.surface
-            border.color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accent : Theme.border
-            border.width: 1
+            radius: 7
+            color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : "transparent"
           }
 
           Column {
             anchors.centerIn: parent
-            width: 28
-            spacing: 2
+            width: 14
+            spacing: 4
 
-            Row {
-              width: parent.width
-              height: 11
-
-              Text {
-                width: 11
-                height: parent.height
-                text: "CX"
-                color: root.codexUsageBarColor("codexPrimaryUsedPercent")
-                font.family: Theme.fontMono
-                font.pixelSize: 8
-                font.bold: true
-                verticalAlignment: Text.AlignVCenter
-              }
-
-              Text {
-                width: 17
-                height: parent.height
-                text: root.codexUsageMetricText("codexPrimaryUsedPercent")
-                color: Theme.text
-                font.family: Theme.fontMono
-                font.pixelSize: 9
-                minimumPixelSize: 7
-                fontSizeMode: Text.Fit
-                font.bold: true
-                horizontalAlignment: Text.AlignRight
-                verticalAlignment: Text.AlignVCenter
-              }
+            Image {
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: 13
+              height: 13
+              source: root.barWidgetActive("codex") || codexMouse.containsMouse
+                ? "assets/codex-accent.svg"
+                : "assets/codex.svg"
+              fillMode: Image.PreserveAspectFit
+              smooth: true
             }
 
             Rectangle {
-              width: parent.width
-              height: 7
-              radius: 3.5
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: 6
+              height: 19
+              radius: 3
               color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
               clip: true
 
               Rectangle {
-                width: {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: {
                   const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
-                  return percent <= 0 ? 0 : Math.max(2, parent.width * percent / 100);
+                  return percent <= 0 ? 0 : Math.max(2, parent.height * percent / 100);
                 }
-                height: parent.height
                 radius: parent.radius
                 color: root.codexUsageBarColor("codexPrimaryUsedPercent")
-                Behavior on width { NumberAnimation { duration: Theme.motionMedium } }
-              }
-            }
-
-            Row {
-              width: parent.width
-              height: 11
-
-              Text {
-                width: 11
-                height: parent.height
-                text: "SP"
-                color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
-                font.family: Theme.fontMono
-                font.pixelSize: 8
-                font.bold: true
-                verticalAlignment: Text.AlignVCenter
-              }
-
-              Text {
-                width: 17
-                height: parent.height
-                text: root.codexUsageMetricText("sparkPrimaryUsedPercent")
-                color: Theme.text
-                font.family: Theme.fontMono
-                font.pixelSize: 9
-                minimumPixelSize: 7
-                fontSizeMode: Text.Fit
-                font.bold: true
-                horizontalAlignment: Text.AlignRight
-                verticalAlignment: Text.AlignVCenter
-              }
-            }
-
-            Rectangle {
-              width: parent.width
-              height: 7
-              radius: 3.5
-              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
-              clip: true
-
-              Rectangle {
-                width: {
-                  const percent = root.codexUsagePercent("sparkPrimaryUsedPercent");
-                  return percent <= 0 ? 0 : Math.max(2, parent.width * percent / 100);
-                }
-                height: parent.height
-                radius: parent.radius
-                color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
-                Behavior on width { NumberAnimation { duration: Theme.motionMedium } }
+                Behavior on height { NumberAnimation { duration: Theme.motionMedium } }
               }
             }
           }
@@ -2448,16 +2390,25 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: root.barWidgetBackground("shutdown")
-            border.color: root.barWidgetBorder("shutdown")
+            color: root.alarmRinging ? Theme.warning : root.barWidgetBackground("shutdown")
+            border.color: root.alarmRinging ? Theme.warning : root.barWidgetBorder("shutdown")
             border.width: 1
           }
           Text {
+            id: shutdownIcon
             anchors.centerIn: parent
             text: "󰐥"
-            color: root.barWidgetText("shutdown", Theme.text)
+            color: root.alarmRinging ? Theme.background : root.barWidgetText("shutdown", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 17
+
+            SequentialAnimation on opacity {
+              running: root.alarmRinging
+              loops: Animation.Infinite
+              NumberAnimation { from: 1; to: 0.35; duration: 420; easing.type: Easing.InOutSine }
+              NumberAnimation { from: 0.35; to: 1; duration: 420; easing.type: Easing.InOutSine }
+              onRunningChanged: if (!running) shutdownIcon.opacity = 1
+            }
           }
           MouseArea {
             id: shutdownMouse

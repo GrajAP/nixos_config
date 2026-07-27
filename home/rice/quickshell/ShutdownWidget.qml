@@ -10,6 +10,8 @@ ScrollView {
   readonly property bool alarmMode: shell.shutdownTimerMode === "alarm"
   readonly property string pendingTarget: alarmMode ? shell.alarmPendingTarget : shell.shutdownPendingTarget
   readonly property int pendingRemaining: alarmMode ? shell.alarmRemaining : shell.shutdownRemaining
+  readonly property bool ringing: alarmMode && shell.alarmRinging
+  readonly property bool active: pendingTarget.length > 0 || ringing
   readonly property color modeColor: alarmMode ? Theme.warning : Theme.danger
   readonly property int sectionLabelHeight: 18
 
@@ -223,8 +225,8 @@ ScrollView {
       Layout.fillWidth: true
       implicitHeight: 58
       radius: 10
-      color: timerScroll.pendingTarget.length > 0 ? Qt.rgba(timerScroll.modeColor.r, timerScroll.modeColor.g, timerScroll.modeColor.b, 0.16) : Theme.surface
-      border.color: timerScroll.pendingTarget.length > 0 ? timerScroll.modeColor : Theme.border
+      color: timerScroll.active ? Qt.rgba(timerScroll.modeColor.r, timerScroll.modeColor.g, timerScroll.modeColor.b, 0.16) : Theme.surface
+      border.color: timerScroll.active ? timerScroll.modeColor : Theme.border
       border.width: 1
 
       ColumnLayout {
@@ -235,11 +237,13 @@ ScrollView {
         Text {
           Layout.fillWidth: true
           text: {
+            if (timerScroll.ringing)
+              return "Alarm is ringing";
             if (timerScroll.pendingTarget.length === 0)
               return timerScroll.alarmMode ? "No alarm set" : "No shutdown timer set";
             return (timerScroll.alarmMode ? "Alarm " : "Shutdown ") + timerScroll.pendingTarget;
           }
-          color: timerScroll.pendingTarget.length > 0 ? timerScroll.modeColor : Theme.text
+          color: timerScroll.active ? timerScroll.modeColor : Theme.text
           font.family: Theme.fontSans
           font.bold: true
           font.pixelSize: 13
@@ -248,7 +252,9 @@ ScrollView {
 
         Text {
           Layout.fillWidth: true
-          text: timerScroll.pendingTarget.length > 0 ? shell.timerRemainingLabel(timerScroll.pendingRemaining) + " left" : "Use the timer above to schedule one"
+          text: timerScroll.ringing
+            ? "Confirm below to silence the sound"
+            : (timerScroll.pendingTarget.length > 0 ? shell.timerRemainingLabel(timerScroll.pendingRemaining) + " left" : "Use the timer above to schedule one")
           color: Theme.muted
           font.family: Theme.fontSans
           font.pixelSize: 11
@@ -264,6 +270,7 @@ ScrollView {
       Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
+        visible: !timerScroll.ringing
         radius: 9
         color: timerScroll.alarmMode ? Theme.warning : Theme.surface
 
@@ -285,6 +292,7 @@ ScrollView {
       Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 44
+        visible: !timerScroll.ringing
         enabled: timerScroll.pendingTarget.length > 0
         opacity: enabled ? 1 : 0.55
         radius: 9
@@ -303,6 +311,28 @@ ScrollView {
           enabled: timerScroll.pendingTarget.length > 0
           cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
           onClicked: shell.cancelSelectedTimer()
+        }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        visible: timerScroll.ringing
+        radius: 9
+        color: Theme.warning
+
+        Text {
+          anchors.centerIn: parent
+          text: "✓  Confirm and silence"
+          color: Theme.background
+          font.family: Theme.fontSans
+          font.bold: true
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: shell.acknowledgeAlarm()
         }
       }
     }

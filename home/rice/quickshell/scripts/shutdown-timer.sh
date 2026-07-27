@@ -1,5 +1,9 @@
 set -euo pipefail
 
+# AppImage-launched sessions can leak incompatible libraries into user services.
+# Every executable below comes from the Nix wrapper's PATH.
+unset LD_LIBRARY_PATH
+
 action="${1:-status}"
 target="${2:-}"
 runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
@@ -11,6 +15,8 @@ agent_wait_file="$runtime_dir/agent-waiting"
 alarm_pending_file="$runtime_dir/alarm-pending"
 alarm_deadline_file="$runtime_dir/alarm-deadline"
 alarm_unit_file="$runtime_dir/alarm-unit"
+alarm_ringing_file="$runtime_dir/alarm-ringing"
+alarm_audio_pid_file="$runtime_dir/alarm-audio-pid"
 mkdir -p "$runtime_dir"
 rm -f "$runtime_dir/custom-target"
 
@@ -22,7 +28,7 @@ read_deadline() {
 }
 
 json_status() {
-  local alarm_deadline alarm_pending alarm_remaining deadline now pending remaining
+  local alarm_deadline alarm_pending alarm_remaining alarm_ringing deadline now pending remaining
   pending=""
   if [[ -r "$pending_file" ]]; then
     pending="$(head -n1 "$pending_file")"
@@ -41,18 +47,24 @@ json_status() {
   if [[ -r "$alarm_pending_file" ]]; then
     alarm_pending="$(head -n1 "$alarm_pending_file")"
   fi
+  alarm_ringing=false
+  if [[ -e "$alarm_ringing_file" ]]; then
+    alarm_ringing=true
+  fi
   alarm_deadline="$(read_deadline "$alarm_deadline_file")"
   alarm_remaining=0
   if [[ -n "$alarm_deadline" && "$alarm_deadline" -gt "$now" ]]; then
     alarm_remaining=$((alarm_deadline - now))
+  elif [[ "$alarm_ringing" == true ]]; then
+    alarm_pending=""
   else
-    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file"
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_audio_pid_file"
     alarm_pending=""
   fi
 
-  printf '{"custom":"","pending":"%s","deadline":%s,"remaining":%s,"alarmPending":"%s","alarmDeadline":%s,"alarmRemaining":%s,"cancel":false}\n' \
+  printf '{"custom":"","pending":"%s","deadline":%s,"remaining":%s,"alarmPending":"%s","alarmDeadline":%s,"alarmRemaining":%s,"alarmRinging":%s,"cancel":false}\n' \
     "$pending" "${deadline:-0}" "$remaining" \
-    "$alarm_pending" "${alarm_deadline:-0}" "$alarm_remaining"
+    "$alarm_pending" "${alarm_deadline:-0}" "$alarm_remaining" "$alarm_ringing"
 }
 
 stop_alarm_unit() {
@@ -66,11 +78,25 @@ stop_alarm_unit() {
   fi
 }
 
+stop_alarm_audio() {
+  local audio_pid=""
+  if [[ -r "$alarm_audio_pid_file" ]]; then
+    audio_pid="$(head -n1 "$alarm_audio_pid_file")"
+  fi
+  if [[ "$audio_pid" =~ ^[0-9]+$ ]]; then
+    kill "$audio_pid" >/dev/null 2>&1 || true
+  fi
+}
+
 play_alarm() {
-  local repeat
-  for repeat in 1 2 3; do
-    pw-play --volume=0.9 "@alarmSound@" >/dev/null 2>&1 || true
-    if (( repeat < 3 )); then
+  local audio_pid
+  while [[ -e "$alarm_ringing_file" ]]; do
+    pw-play --volume=0.9 "@alarmSound@" >/dev/null 2>&1 &
+    audio_pid=$!
+    printf '%s\n' "$audio_pid" > "$alarm_audio_pid_file"
+    wait "$audio_pid" || true
+    rm -f "$alarm_audio_pid_file"
+    if [[ -e "$alarm_ringing_file" ]]; then
       sleep 1
     fi
   done
@@ -126,23 +152,45 @@ case "$action" in
     json_status
     ;;
   cancel-alarm)
+    was_ringing=false
+    if [[ -e "$alarm_ringing_file" ]]; then
+      was_ringing=true
+    fi
     stop_alarm_unit
-    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file"
+    stop_alarm_audio
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file"
     notify-send --app-name="Alarm" --icon=alarm-symbolic -u normal \
-      "Alarm" "Alarm cancelled."
+      "Alarm" "$([[ "$was_ringing" == true ]] && printf 'Alarm silenced.' || printf 'Alarm cancelled.')"
+    json_status
+    ;;
+  acknowledge-alarm)
+    stop_alarm_unit
+    stop_alarm_audio
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file"
     json_status
     ;;
   alarm-fire)
     current_deadline="$(read_deadline "$alarm_deadline_file")"
     if [[ -n "$target" && "$current_deadline" == "$target" ]]; then
-      rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file"
-      notify-send --app-name="Alarm" --icon=alarm-symbolic -u critical -t 0 \
-        "Alarm" "The timer has finished."
-      play_alarm
+      rm -f "$alarm_pending_file" "$alarm_deadline_file"
+      touch "$alarm_ringing_file"
+      play_alarm &
+      alarm_loop_pid=$!
+      selected_action="$(
+        notify-send --app-name="Alarm" --icon=alarm-symbolic -u critical -t 0 \
+          --action=acknowledge="Silence alarm" \
+          "Alarm" "The timer has finished. Confirm to silence it." || true
+      )"
+      if [[ "$selected_action" == "acknowledge" ]]; then
+        stop_alarm_audio
+        rm -f "$alarm_ringing_file"
+      fi
+      wait "$alarm_loop_pid" || true
+      rm -f "$alarm_ringing_file" "$alarm_audio_pid_file" "$alarm_unit_file"
     fi
     ;;
   *)
-    echo "Usage: quickshell-shutdown-timer [status|schedule-in MINUTES|cancel-pending|schedule-alarm-in MINUTES|cancel-alarm]" >&2
+    echo "Usage: quickshell-shutdown-timer [status|schedule-in MINUTES|cancel-pending|schedule-alarm-in MINUTES|cancel-alarm|acknowledge-alarm]" >&2
     exit 2
     ;;
 esac
