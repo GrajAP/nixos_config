@@ -210,7 +210,7 @@ ScrollView {
 
       Text {
         anchors.fill: parent
-        text: timerScroll.alarmMode ? "Alarm shows a persistent critical notification and never powers off the computer." : "Overnight checks still run at 00:00-06:00."
+        text: timerScroll.alarmMode ? "Alarm rings for about 20 seconds, shows a persistent notification and never powers off the computer." : "Overnight checks still run at 00:00-06:00."
         color: Theme.muted
         font.family: Theme.fontSans
         font.pixelSize: 11

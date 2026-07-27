@@ -66,6 +66,16 @@ stop_alarm_unit() {
   fi
 }
 
+play_alarm() {
+  local repeat
+  for repeat in 1 2 3; do
+    pw-play --volume=0.9 "@alarmSound@" >/dev/null 2>&1 || true
+    if (( repeat < 3 )); then
+      sleep 1
+    fi
+  done
+}
+
 case "$action" in
   status)
     json_status
@@ -112,7 +122,7 @@ case "$action" in
       exit 1
     fi
     notify-send --app-name="Alarm" --icon=alarm-symbolic -u normal \
-      "Alarm set" "A notification will appear in $target minutes."
+      "Alarm set" "The alarm will ring in $target minutes."
     json_status
     ;;
   cancel-alarm)
@@ -128,6 +138,7 @@ case "$action" in
       rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file"
       notify-send --app-name="Alarm" --icon=alarm-symbolic -u critical -t 0 \
         "Alarm" "The timer has finished."
+      play_alarm
     fi
     ;;
   *)

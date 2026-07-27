@@ -88,6 +88,10 @@ ShellRoot {
   property string shutdownStatus: ""
   property var codexUsage: null
   property string codexUsageError: ""
+  property bool agentStatusKnown: false
+  property bool t3AgentWorking: false
+  property bool codexAgentWorking: false
+  readonly property bool aiAgentWorking: t3AgentWorking || codexAgentWorking
   property bool kanataActive: false
   property bool kanataKnown: false
   readonly property var workspaceEntries: WorkspaceState.entries
@@ -291,6 +295,24 @@ ShellRoot {
     }
   }
   Process {
+    id: agentStatusQuery
+    command: ["@agentStatusQuery@"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const payload = JSON.parse(text);
+          if (!payload || payload.ok === false)
+            throw new Error("Agent status unavailable");
+          root.t3AgentWorking = Boolean(payload.t3);
+          root.codexAgentWorking = Boolean(payload.codex);
+          root.agentStatusKnown = true;
+        } catch (error) {
+          root.agentStatusKnown = false;
+        }
+      }
+    }
+  }
+  Process {
     id: weatherQuery
     command: ["@weatherQuery@"]
     stdout: StdioCollector {
@@ -448,6 +470,7 @@ ShellRoot {
     weatherQuery.running = true;
     calendarQuery.running = true;
     codexUsageQuery.running = true;
+    agentStatusQuery.running = true;
   }
   Timer {
     interval: 15 * 60 * 1000
@@ -473,6 +496,12 @@ ShellRoot {
     running: true
     repeat: true
     onTriggered: if (!codexUsageQuery.running) codexUsageQuery.running = true
+  }
+  Timer {
+    interval: 2500
+    running: true
+    repeat: true
+    onTriggered: if (!agentStatusQuery.running) agentStatusQuery.running = true
   }
   Timer {
     id: hoverWidgetCloseTimer
@@ -927,6 +956,34 @@ ShellRoot {
     const value = Number(rawValue);
     return Number.isFinite(value) ? value : null;
   }
+  function codexUsagePercent(key) {
+    const value = root.codexUsageValue(key);
+    return value === null ? 0 : Math.max(0, Math.min(100, value));
+  }
+  function codexUsageBarColor(key) {
+    const value = root.codexUsageValue(key);
+    if (value === null) return Theme.muted;
+    if (value >= 90) return Theme.danger;
+    if (value >= 75) return Theme.warning;
+    return Theme.accent;
+  }
+  function codexUsageMetricText(key) {
+    if (root.codexUsageError.length > 0) return "!";
+    const value = root.codexUsageValue(key);
+    return value === null ? "--" : Math.round(value) + "%";
+  }
+  function agentStatusShortLabel() {
+    if (!root.agentStatusKnown || root.t3AgentWorking === root.codexAgentWorking) return "AI";
+    return root.t3AgentWorking ? "T3" : "CX";
+  }
+  function agentStatusTooltipText() {
+    if (!root.agentStatusKnown) return "AI agent status unavailable";
+    const activeAgents = [];
+    if (root.t3AgentWorking) activeAgents.push("T3code");
+    if (root.codexAgentWorking) activeAgents.push("Codex");
+    if (activeAgents.length > 0) return activeAgents.join(" + ") + " working";
+    return "AI ready. Send a new prompt.";
+  }
   function codexUsageRemainingPercent(value) {
     const used = Number(value);
     if (!Number.isFinite(used)) return null;
@@ -942,17 +999,6 @@ ShellRoot {
     if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
     if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
     return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
-  }
-  function codexUsageColor() {
-    const primaryUsed = root.codexUsageValue("codexPrimaryUsedPercent");
-    const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
-    const codexRisk = Number.isFinite(primaryUsed) ? primaryUsed : -1;
-    const sparkRisk = Number.isFinite(sparkUsed) ? sparkUsed : -1;
-    const risk = Math.max(codexRisk, sparkRisk);
-    if (risk < 0) return Theme.muted;
-    if (risk >= 90) return Theme.danger;
-    if (risk >= 75) return Theme.warning;
-    return Theme.text;
   }
   function codexUsageResetLabel(expiresAt) {
     const target = Number(expiresAt);
@@ -2196,10 +2242,78 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
+          id: agentStatusButton
           Layout.preferredWidth: 34
           Layout.preferredHeight: 34
           implicitWidth: 34
           implicitHeight: 34
+          ToolTip.visible: agentStatusMouse.containsMouse
+          ToolTip.delay: 350
+          ToolTip.text: root.agentStatusTooltipText()
+
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: {
+              if (!root.agentStatusKnown) return Theme.surface;
+              const tone = root.aiAgentWorking ? Theme.accent : Theme.success;
+              return Qt.rgba(tone.r, tone.g, tone.b, 0.14);
+            }
+            border.color: !root.agentStatusKnown ? Theme.border : (root.aiAgentWorking ? Theme.accent : Theme.success)
+            border.width: 1
+          }
+
+          Column {
+            anchors.centerIn: parent
+            width: 30
+            spacing: -1
+
+            Text {
+              width: parent.width
+              text: root.agentStatusShortLabel()
+              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.success)
+              font.family: Theme.fontMono
+              font.pixelSize: 11
+              font.bold: true
+              horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+              id: agentStatusStateText
+              width: parent.width
+              text: !root.agentStatusKnown ? "?" : (root.aiAgentWorking ? "RUN" : "READY")
+              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.success)
+              font.family: Theme.fontSans
+              font.pixelSize: root.aiAgentWorking ? 7 : 6
+              font.bold: true
+              horizontalAlignment: Text.AlignHCenter
+
+              SequentialAnimation on opacity {
+                running: root.agentStatusKnown && root.aiAgentWorking
+                loops: Animation.Infinite
+                NumberAnimation { from: 1; to: 0.35; duration: 650; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.35; to: 1; duration: 650; easing.type: Easing.InOutSine }
+                onRunningChanged: if (!running) agentStatusStateText.opacity = 1
+              }
+            }
+          }
+
+          MouseArea {
+            id: agentStatusMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: if (!agentStatusQuery.running) agentStatusQuery.running = true
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 46
+          implicitWidth: 34
+          implicitHeight: 46
+          id: codexButton
           Rectangle {
             anchors.fill: parent
             radius: 8
@@ -2207,11 +2321,101 @@ ShellRoot {
             border.color: root.barWidgetBorder("codex")
             border.width: 1
           }
-          IconImage {
+
+          Column {
             anchors.centerIn: parent
-            implicitSize: 22
-            source: Qt.resolvedUrl(root.barWidgetActive("codex") || codexMouse.containsMouse ? "assets/codex-accent.svg" : "assets/codex.svg")
+            width: 28
+            spacing: 1
+
+            Row {
+              width: parent.width
+              height: 9
+
+              Text {
+                width: 8
+                height: parent.height
+                text: "C"
+                color: root.codexUsageBarColor("codexPrimaryUsedPercent")
+                font.family: Theme.fontMono
+                font.pixelSize: 7
+                font.bold: true
+                verticalAlignment: Text.AlignVCenter
+              }
+
+              Text {
+                width: 20
+                height: parent.height
+                text: root.codexUsageMetricText("codexPrimaryUsedPercent")
+                color: Theme.text
+                font.family: Theme.fontMono
+                font.pixelSize: 7
+                font.bold: true
+                horizontalAlignment: Text.AlignRight
+                verticalAlignment: Text.AlignVCenter
+              }
+            }
+
+            Rectangle {
+              width: parent.width
+              height: 5
+              radius: 2.5
+              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.13)
+              clip: true
+
+              Rectangle {
+                width: parent.width * root.codexUsagePercent("codexPrimaryUsedPercent") / 100
+                height: parent.height
+                radius: parent.radius
+                color: root.codexUsageBarColor("codexPrimaryUsedPercent")
+                Behavior on width { NumberAnimation { duration: Theme.motionMedium } }
+              }
+            }
+
+            Row {
+              width: parent.width
+              height: 9
+
+              Text {
+                width: 8
+                height: parent.height
+                text: "S"
+                color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
+                font.family: Theme.fontMono
+                font.pixelSize: 7
+                font.bold: true
+                verticalAlignment: Text.AlignVCenter
+              }
+
+              Text {
+                width: 20
+                height: parent.height
+                text: root.codexUsageMetricText("sparkPrimaryUsedPercent")
+                color: Theme.text
+                font.family: Theme.fontMono
+                font.pixelSize: 7
+                font.bold: true
+                horizontalAlignment: Text.AlignRight
+                verticalAlignment: Text.AlignVCenter
+              }
+            }
+
+            Rectangle {
+              width: parent.width
+              height: 5
+              radius: 2.5
+              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.13)
+              clip: true
+
+              Rectangle {
+                width: parent.width * root.codexUsagePercent("sparkPrimaryUsedPercent") / 100
+                height: parent.height
+                radius: parent.radius
+                color: root.codexUsageBarColor("sparkPrimaryUsedPercent")
+                Behavior on width { NumberAnimation { duration: Theme.motionMedium } }
+              }
+            }
           }
+
           MouseArea {
             id: codexMouse
             anchors.fill: parent
