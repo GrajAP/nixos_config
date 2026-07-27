@@ -255,9 +255,10 @@ ScrollView {
           text: timerScroll.ringing
             ? "Confirm below to silence the sound"
             : (timerScroll.pendingTarget.length > 0 ? shell.timerRemainingLabel(timerScroll.pendingRemaining) + " left" : "Use the timer above to schedule one")
-          color: Theme.muted
+          color: timerScroll.active ? Theme.text : Theme.muted
           font.family: Theme.fontSans
-          font.pixelSize: 11
+          font.pixelSize: timerScroll.active ? 13 : 11
+          font.bold: timerScroll.active
           elide: Text.ElideRight
         }
       }
