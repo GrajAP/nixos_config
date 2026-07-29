@@ -659,7 +659,7 @@ ShellRoot {
     if (value.includes("discord") || value.includes("vesktop")) return "󰙯";
     if (value.includes("signal")) return "󰭹";
     if (value.includes("obsidian")) return "󰠮";
-    if (root.isT3CodeClient(client) || value.includes("code") || value.includes("codium")) return "󰨞";
+    if (root.isT3CodeClient(client) || value.includes("cursor") || value.includes("code") || value.includes("codium")) return "󰨞";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "";
     if (value.includes("steam")) return "";
     if (value.includes("obs")) return "󰻂";
@@ -679,6 +679,7 @@ ShellRoot {
     if (value.includes("signal")) return "signal-desktop";
     if (value.includes("obsidian")) return "obsidian";
     if (root.isT3CodeClient(client)) return "t3code";
+    if (value.includes("cursor")) return "cursor";
     if (value.includes("codium")) return "vscodium";
     if (value.includes("code")) return "visual-studio-code";
     if (value.includes("kitty")) return "kitty";
@@ -713,7 +714,7 @@ ShellRoot {
     if (value.includes("discord") || value.includes("vesktop")) return "#8b5cf6";
     if (value.includes("signal")) return "#38bdf8";
     if (value.includes("obsidian")) return "#a78bfa";
-    if (root.isT3CodeClient(client) || value.includes("code") || value.includes("codium")) return "#3b82f6";
+    if (root.isT3CodeClient(client) || value.includes("cursor") || value.includes("code") || value.includes("codium")) return "#3b82f6";
     if (value.includes("kitty") || value.includes("wezterm") || value.includes("alacritty") || value.includes("foot")) return "#64748b";
     if (value.includes("steam")) return "#1d4ed8";
     if (value.includes("obs")) return "#7c3aed";

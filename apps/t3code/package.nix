@@ -227,6 +227,7 @@
       coreutils
       gnugrep
       gnused
+      jq
       t3codeAppimageRun
       util-linux
       update
@@ -235,6 +236,31 @@
       set -euo pipefail
 
       app="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop/T3-Code.AppImage"
+      settings_dir="$HOME/.t3/userdata"
+      settings="$settings_dir/settings.json"
+
+      # Streaming every provider text fragment creates one SQLite event per
+      # fragment. Long Codex turns can then starve commands for other threads.
+      # T3 Code's buffered mode preserves the final response while dispatching
+      # substantially fewer orchestration events.
+      mkdir -p "$settings_dir"
+      if [[ ! -f "$settings" ]] \
+        || ! ${lib.getExe pkgs.jq} --exit-status '.enableAssistantStreaming == false' "$settings" >/dev/null 2>&1; then
+        settings_tmp="$(mktemp --tmpdir="$settings_dir" '.settings.json.XXXXXX')"
+        if [[ -f "$settings" ]]; then
+          if ! ${lib.getExe pkgs.jq} '.enableAssistantStreaming = false' "$settings" >"$settings_tmp"; then
+            rm -f "$settings_tmp"
+            echo "Could not enable buffered T3 Code responses; keeping the existing settings" >&2
+          else
+            chmod 600 "$settings_tmp"
+            mv -f "$settings_tmp" "$settings"
+          fi
+        else
+          printf '%s\n' '{"enableAssistantStreaming":false}' >"$settings_tmp"
+          chmod 600 "$settings_tmp"
+          mv -f "$settings_tmp" "$settings"
+        fi
+      fi
 
       if ! ${lib.getExe update}; then
         echo "Could not refresh T3 Code; using the newest installed version" >&2
