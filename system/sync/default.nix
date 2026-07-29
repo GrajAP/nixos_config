@@ -267,6 +267,7 @@ in {
         fi
 
         nextcloud-occ files_external:applicable "$mount_id" --add-user grajpap
+        nextcloud-occ files_external:option "$mount_id" filesystem_check_changes 1
         nextcloud-occ files_external:verify "$mount_id"
       '';
     };

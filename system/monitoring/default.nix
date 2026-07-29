@@ -13,7 +13,7 @@
       tmp="$(mktemp)"
       trap 'rm -f "$tmp"' EXIT
 
-      root_used="$(df -P / | awk 'NR == 2 { gsub(/%/, "", $5); print $5 }')"
+      root_used="$(df -P /nix | awk 'NR == 2 { gsub(/%/, "", $5); print $5 }')"
       kernel_errors="$(journalctl --dmesg --priority=err --since='24 hours ago' --output=json 2>/dev/null | jq -s 'length')"
       backup_state="$(systemctl show restic-backups-nextcloud.service --property=ActiveState --value 2>/dev/null || echo unknown)"
       backup_result="$(systemctl show restic-backups-nextcloud.service --property=Result --value 2>/dev/null || echo unknown)"
