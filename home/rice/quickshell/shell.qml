@@ -89,11 +89,6 @@ ShellRoot {
   property string shutdownStatus: ""
   property var codexUsage: null
   property string codexUsageError: ""
-  property bool agentStatusKnown: false
-  property bool agentStatusInitialized: false
-  property bool t3AgentWorking: false
-  property bool codexAgentWorking: false
-  readonly property bool aiAgentWorking: t3AgentWorking || codexAgentWorking
   property bool kanataActive: false
   property bool kanataKnown: false
   readonly property var workspaceEntries: WorkspaceState.entries
@@ -299,43 +294,6 @@ ShellRoot {
     }
   }
   Process {
-    id: agentStatusQuery
-    command: ["@agentStatusQuery@"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const payload = JSON.parse(text);
-          if (!payload || payload.ok === false)
-            throw new Error("Agent status unavailable");
-          const wasWorking = root.agentStatusKnown && root.aiAgentWorking;
-          const nextT3Working = Boolean(payload.t3);
-          const nextCodexWorking = Boolean(payload.codex);
-          const nextWorking = nextT3Working || nextCodexWorking;
-          root.t3AgentWorking = nextT3Working;
-          root.codexAgentWorking = nextCodexWorking;
-          root.agentStatusKnown = true;
-          if (root.agentStatusInitialized && wasWorking && !nextWorking && !agentReadyNotification.running)
-            agentReadyNotification.running = true;
-          root.agentStatusInitialized = true;
-        } catch (error) {
-          root.agentStatusKnown = false;
-        }
-      }
-    }
-  }
-  Process {
-    id: agentReadyNotification
-    command: [
-      "@agentReadyNotify@",
-      "--app-name=AI Agent",
-      "--icon=dialog-information-symbolic",
-      "--urgency=normal",
-      "--expire-time=10000",
-      "AI ready for a prompt",
-      "T3code and Codex finished working. Send the next prompt."
-    ]
-  }
-  Process {
     id: weatherQuery
     command: ["@weatherQuery@"]
     stdout: StdioCollector {
@@ -493,7 +451,6 @@ ShellRoot {
     weatherQuery.running = true;
     calendarQuery.running = true;
     codexUsageQuery.running = true;
-    agentStatusQuery.running = true;
     root.refreshShutdownStatus();
   }
   Timer {
@@ -520,12 +477,6 @@ ShellRoot {
     running: true
     repeat: true
     onTriggered: if (!codexUsageQuery.running) codexUsageQuery.running = true
-  }
-  Timer {
-    interval: 2500
-    running: true
-    repeat: true
-    onTriggered: if (!agentStatusQuery.running) agentStatusQuery.running = true
   }
   Timer {
     id: hoverWidgetCloseTimer
@@ -996,10 +947,6 @@ ShellRoot {
     if (root.codexUsageError.length > 0) return "!";
     const value = root.codexUsageValue(key);
     return value === null ? "--" : Math.round(value) + "%";
-  }
-  function agentStatusShortLabel() {
-    if (!root.agentStatusKnown || root.t3AgentWorking === root.codexAgentWorking) return "AI";
-    return root.t3AgentWorking ? "T3" : "CX";
   }
   function codexUsageRemainingPercent(value) {
     const used = Number(value);
@@ -2260,62 +2207,6 @@ ShellRoot {
             onEntered: root.showHoverWidget("weather")
             onExited: root.leaveHoverWidgetButton("weather")
             onClicked: root.showHoverWidget("weather", false)
-          }
-        }
-
-        Item {
-          Layout.alignment: Qt.AlignHCenter
-          id: agentStatusButton
-          Layout.preferredWidth: 34
-          Layout.preferredHeight: 34
-          implicitWidth: 34
-          implicitHeight: 34
-
-          Rectangle {
-            anchors.fill: parent
-            radius: 8
-            color: {
-              if (!root.agentStatusKnown) return Theme.surface;
-              if (!root.aiAgentWorking) return Theme.warning;
-              return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14);
-            }
-            border.color: !root.agentStatusKnown ? Theme.border : (root.aiAgentWorking ? Theme.accent : Theme.warning)
-            border.width: 1
-          }
-
-          Column {
-            anchors.centerIn: parent
-            width: 30
-            spacing: -1
-
-            Text {
-              width: parent.width
-              text: root.agentStatusShortLabel()
-              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.background)
-              font.family: Theme.fontMono
-              font.pixelSize: 11
-              font.bold: true
-              horizontalAlignment: Text.AlignHCenter
-            }
-
-            Text {
-              id: agentStatusStateText
-              width: parent.width
-              text: !root.agentStatusKnown ? "?" : (root.aiAgentWorking ? "RUN" : "PROMPT")
-              color: !root.agentStatusKnown ? Theme.muted : (root.aiAgentWorking ? Theme.accent : Theme.background)
-              font.family: Theme.fontSans
-              font.pixelSize: 6
-              font.bold: true
-              horizontalAlignment: Text.AlignHCenter
-
-              SequentialAnimation on opacity {
-                running: root.agentStatusKnown && root.aiAgentWorking
-                loops: Animation.Infinite
-                NumberAnimation { from: 1; to: 0.35; duration: 650; easing.type: Easing.InOutSine }
-                NumberAnimation { from: 0.35; to: 1; duration: 650; easing.type: Easing.InOutSine }
-                onRunningChanged: if (!running) agentStatusStateText.opacity = 1
-              }
-            }
           }
         }
 

@@ -72,6 +72,8 @@
       (binding "bindr" "Quickshell" ", PAUSE" "exec, ${ipc} tools voiceStop" "Stop voice dictation")
       (binding "bind" "Quickshell" "${mod}, Q" "exec, katana-switch" "Toggle Kanata layout")
 
+      (binding "bind" "Workspaces" "${mod}, TAB" "exec, hyprctl dispatch overview:toggle" "Toggle workspace overview")
+
       (binding "bindr" "Writing" "${mod}, G" "exec, spark-corrector selection" "Correct selected Polish or English text")
 
       (binding "bind" "Hardware" ", XF86Bluetooth" "exec, bcn" "Toggle Bluetooth")
@@ -95,8 +97,8 @@
     inherit (entry) category description;
     combo =
       lib.replaceStrings
-      ["SUPER" "SHIFT" "Control_L" "RETURN" "SPACE" "PERIOD" "SEMICOLON" "SLASH" "PRINT" "PAUSE" "mouse:272" "mouse:273" "mouse_down" "mouse_up"]
-      ["Mod" "Shift" "Ctrl" "Enter" "Space" "." ";" "/" "Print" "Pause" "Mouse Left" "Mouse Right" "Wheel Down" "Wheel Up"]
+      ["SUPER" "SHIFT" "Control_L" "RETURN" "SPACE" "TAB" "PERIOD" "SEMICOLON" "SLASH" "PRINT" "PAUSE" "mouse:272" "mouse:273" "mouse_down" "mouse_up"]
+      ["Mod" "Shift" "Ctrl" "Enter" "Space" "Tab" "." ";" "/" "Print" "Pause" "Mouse Left" "Mouse Right" "Wheel Down" "Wheel Up"]
       entry.combo;
   };
 in {

@@ -26,32 +26,6 @@
     ];
     text = builtins.readFile ./scripts/codex-usage-query.sh;
   };
-  agentStatusQuery = pkgs.writeShellApplication {
-    name = "quickshell-agent-status";
-    runtimeInputs = with pkgs; [
-      coreutils
-      jq
-      ripgrep
-      sqlite
-    ];
-    text = ''
-      ${builtins.readFile ./scripts/agent-status-functions.sh}
-
-      t3=false
-      codex=false
-      if t3_agent_working; then
-        t3=true
-      fi
-      if codex_agent_working; then
-        codex=true
-      fi
-
-      printf '{"ok":true,"working":%s,"t3":%s,"codex":%s}\n' \
-        "$([[ "$t3" == true || "$codex" == true ]] && printf true || printf false)" \
-        "$t3" \
-        "$codex"
-    '';
-  };
   workspaceStateQuery = pkgs.writeShellApplication {
     name = "quickshell-workspace-state";
     runtimeInputs = with pkgs; [
@@ -230,8 +204,6 @@
   shellConfig = pkgs.replaceVars ./shell.qml {
     weatherQuery = "${weatherQuery}/bin/quickshell-weather-query";
     codexUsageQuery = "${codexUsageQuery}/bin/quickshell-codex-usage";
-    agentStatusQuery = "${agentStatusQuery}/bin/quickshell-agent-status";
-    agentReadyNotify = lib.getExe' pkgs.libnotify "notify-send";
     calendarQuery = "${calendarTool}/bin/quickshell-calendar";
     calendarTask = "${calendarTool}/bin/quickshell-calendar";
     clipboardTool = "${clipboardTool}/bin/quickshell-clipboard";

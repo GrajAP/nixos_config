@@ -60,6 +60,21 @@
         }
       ];
 
+      # Hyprspace provides a draggable workspace overview. Keep it pinned to
+      # the top-left edge, matching Niri's overview placement.
+      "plugin:overview" = {
+        panelHeight = 250;
+        centerAligned = false;
+        onBottom = false;
+        workspaceMargin = 12;
+        workspaceBorderSize = 2;
+        showNewWorkspace = true;
+        showEmptyWorkspace = true;
+        autoDrag = true;
+        exitOnClick = true;
+        exitOnSwitch = true;
+      };
+
       cursor = {
         zoom_rigid = false;
       };

@@ -495,6 +495,7 @@ in {
     enable = true;
     # Keep the compositor package in one place: the NixOS Hyprland module.
     package = pkgs.hyprland;
+    plugins = [pkgs.hyprlandPlugins.hyprspace];
     systemd = {
       enable = false;
     };
