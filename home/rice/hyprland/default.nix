@@ -5,6 +5,29 @@
   inputs,
   ...
 }: let
+  scrollOverview = pkgs.hyprlandPlugins.mkHyprlandPlugin {
+    pluginName = "scrolloverview";
+    version = "unstable-2026-07-30";
+    src = pkgs.fetchFromGitHub {
+      owner = "yayuuu";
+      repo = "hyprland-scroll-overview";
+      # Last upstream revision explicitly fixed for Hyprland 0.55.4.
+      rev = "2efa6168e072194005152106ded1d7acd3a5170c";
+      hash = "sha256-l+47qR3CWO/3xdTLuC23Nktmys7ibRjhVU4gW19NtYg=";
+    };
+    nativeBuildInputs = [pkgs.lua5_4];
+    buildPhase = "make all";
+    installPhase = ''
+      mkdir -p "$out/lib"
+      cp scrolloverview.so "$out/lib/libscrolloverview.so"
+    '';
+    meta = {
+      description = "Niri-style zoomed-out workspace overview for Hyprland";
+      homepage = "https://github.com/yayuuu/hyprland-scroll-overview";
+      license = lib.licenses.bsd3;
+      platforms = lib.platforms.linux;
+    };
+  };
   autoShutdown = pkgs.writeShellApplication {
     name = "auto-shutdown";
     runtimeInputs = with pkgs; [
@@ -495,7 +518,7 @@ in {
     enable = true;
     # Keep the compositor package in one place: the NixOS Hyprland module.
     package = pkgs.hyprland;
-    plugins = [pkgs.hyprlandPlugins.hyprspace];
+    plugins = [scrollOverview];
     systemd = {
       enable = false;
     };
