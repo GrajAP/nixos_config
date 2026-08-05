@@ -46,6 +46,7 @@ in {
     acpi
     powertop
     libnotify
+    teamviewer
   ];
 
   systemd.services.kanata-cs2-guard = {
@@ -116,6 +117,7 @@ in {
     };
     fprintd.enable = true;
     xserver.videoDrivers = ["amdgpu"];
+    teamviewer.enable = true;
   };
 
   boot = {
