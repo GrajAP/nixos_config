@@ -72,7 +72,7 @@
       (binding "bindr" "Quickshell" ", PAUSE" "exec, ${ipc} tools voiceStop" "Stop voice dictation")
       (binding "bind" "Quickshell" "${mod}, Q" "exec, katana-switch" "Toggle Kanata layout")
 
-      (binding "bind" "Workspaces" "${mod}, TAB" "exec, hyprctl dispatch scrolloverview:overview toggle" "Toggle workspace overview")
+      (binding "bind" "Workspaces" "${mod}, TAB" "scrolloverview:overview, toggle" "Toggle workspace overview")
 
       (binding "bindr" "Writing" "${mod}, G" "exec, spark-corrector selection" "Correct selected Polish or English text")
 
