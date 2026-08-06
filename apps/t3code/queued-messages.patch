@@ -1,18 +1,54 @@
-diff --git a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
-index f5ea5bb1e..67d6b3a1f 100644
---- a/apps/web/src/components/ChatView.tsx
-+++ b/apps/web/src/components/ChatView.tsx
-@@ -137,7 +137,7 @@ import { BranchToolbar } from "./BranchToolbar";
- import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
- import PlanSidebar from "./PlanSidebar";
- import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
--import { ChevronDownIcon, TriangleAlertIcon, WifiOffIcon } from "lucide-react";
-+import { ChevronDownIcon, TriangleAlertIcon, WifiOffIcon, XIcon } from "lucide-react";
+diff -ruN '--exclude=*.rej' '--exclude=.git' '--exclude=threadCompletion*' '--exclude=ThreadCompletion*' '--exclude=__root.tsx' a/apps/web/src/components/chat/ComposerPrimaryActions.tsx b/apps/web/src/components/chat/ComposerPrimaryActions.tsx
+--- a/apps/web/src/components/chat/ComposerPrimaryActions.tsx	2026-08-06 22:19:29.963151302 +0200
++++ b/apps/web/src/components/chat/ComposerPrimaryActions.tsx	2026-08-06 22:19:38.543376504 +0200
+@@ -133,7 +133,7 @@
+   }
+ 
+   if (isRunning) {
+-    return (
++    const stopButton = (
+       <button
+         type="button"
+         className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-[0_1px_--theme(--color-white/16%)] transition-all duration-150 hover:bg-destructive hover:scale-105 active:inset-shadow-[0_1px_--theme(--color-black/8%)] active:shadow-none sm:h-8 sm:w-8"
+@@ -146,6 +146,25 @@
+         </svg>
+       </button>
+     );
++
++    if (hasSendableContent) {
++      return (
++        <div className={cn("flex items-center justify-end", compact ? "gap-1.5" : "gap-2")}>
++          {stopButton}
++          <Button
++            type="submit"
++            size="sm"
++            className={cn("rounded-full", compact ? "h-9 px-3 sm:h-8" : "h-9 px-4 sm:h-8")}
++            {...pointerFocusProps}
++            disabled={isSendBusy || isConnecting || isEnvironmentUnavailable}
++          >
++            Queue
++          </Button>
++        </div>
++      );
++    }
++
++    return stopButton;
+   }
+ 
+   if (showPlanFollowUpPrompt) {
+diff -ruN '--exclude=*.rej' '--exclude=.git' '--exclude=threadCompletion*' '--exclude=ThreadCompletion*' '--exclude=__root.tsx' a/apps/web/src/components/ChatView.tsx b/apps/web/src/components/ChatView.tsx
+--- a/apps/web/src/components/ChatView.tsx	2026-08-06 22:19:29.969892243 +0200
++++ b/apps/web/src/components/ChatView.tsx	2026-08-06 22:19:38.540483287 +0200
+@@ -151,6 +151,7 @@
+   GitBranchIcon,
+   TriangleAlertIcon,
+   WifiOffIcon,
++  XIcon,
+ } from "lucide-react";
  import { cn, randomHex } from "~/lib/utils";
  import { COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS } from "~/workspaceTitlebar";
- import { stackedThreadToast, toastManager } from "./ui/toast";
-@@ -249,6 +249,14 @@ import {
-   resolveServerConfigVersionMismatch,
+@@ -306,6 +307,14 @@
+   serverUpdateGuidance,
  } from "../versionSkew";
  import { useAssetUrls } from "../assets/assetUrls";
 +import {
@@ -23,10 +59,10 @@ index f5ea5bb1e..67d6b3a1f 100644
 +  queuedMessagesForThread,
 +  removeQueuedThreadMessage,
 +} from "../threadMessageQueue";
-
+ 
  const IMAGE_ONLY_BOOTSTRAP_PROMPT =
    "[User attached one or more images without additional text. Respond using the conversation context and the attached image(s).]";
-@@ -1110,6 +1118,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1277,6 +1286,7 @@
    >({});
    const [isConnecting, _setIsConnecting] = useState(false);
    const [isRevertingCheckpoint, setIsRevertingCheckpoint] = useState(false);
@@ -34,7 +70,7 @@ index f5ea5bb1e..67d6b3a1f 100644
    const [maximizedRightPanelThreadKey, setMaximizedRightPanelThreadKey] = useState<string | null>(
      null,
    );
-@@ -1148,6 +1157,11 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1315,6 +1325,11 @@
      {},
      LastInvokedScriptByProjectSchema,
    );
@@ -46,15 +82,15 @@ index f5ea5bb1e..67d6b3a1f 100644
    const legendListRef = useRef<LegendListRef | null>(null);
    const [composerOverlayElement, setComposerOverlayElement] = useState<HTMLDivElement | null>(null);
    const [composerOverlayHeight, setComposerOverlayHeight] = useState(0);
-@@ -1155,6 +1169,7 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1322,6 +1337,7 @@
    const attachmentPreviewHandoffByMessageIdRef = useRef<Record<string, string[]>>({});
    const attachmentPreviewPromotionInFlightByMessageIdRef = useRef<Record<string, true>>({});
    const sendInFlightRef = useRef(false);
 +  const queuedDispatchInFlightRef = useRef<MessageId | null>(null);
    const terminalUiOpenByThreadRef = useRef<Record<string, boolean>>({});
-
+ 
    useLayoutEffect(() => {
-@@ -1725,6 +1740,13 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -1973,6 +1989,13 @@
    );
    const selectedProvider: ProviderDriverKind = lockedProvider ?? unlockedSelectedProvider;
    const phase = derivePhase(activeThread?.session ?? null);
@@ -68,17 +104,23 @@ index f5ea5bb1e..67d6b3a1f 100644
    const threadActivities = activeThread?.activities ?? EMPTY_ACTIVITIES;
    const workLogEntries = useMemo(() => deriveWorkLogEntries(threadActivities), [threadActivities]);
    const pendingApprovals = useMemo(
-@@ -3980,9 +4002,6 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -4598,7 +4621,6 @@
        return;
      }
-
+ 
 -    sendInFlightRef.current = true;
+     if (isDraftHeroState && activeThreadKey) {
+       let resolveDockStarted: (() => void) | undefined;
+       const dockStarted = new Promise<void>((resolve) => {
+@@ -4614,7 +4636,6 @@
+       void dockTransition.catch(() => resolveDockStarted?.());
+       await dockStarted;
+     }
 -    beginLocalDispatch({ preparingWorktree: Boolean(baseBranchForWorktree) });
--
+ 
      const composerImagesSnapshot = [...composerImages];
      const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
-     const composerElementContextsSnapshot = [...composerElementContexts];
-@@ -4018,6 +4037,51 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -4651,6 +4672,51 @@
          dataUrl: await readFileAsDataUrl(image.file),
        })),
      );
@@ -130,10 +172,10 @@ index f5ea5bb1e..67d6b3a1f 100644
      const optimisticAttachments = composerImagesSnapshot.map((image) => ({
        type: "image" as const,
        id: image.id,
-@@ -4238,6 +4302,105 @@ function ChatViewContent(props: ChatViewProps) {
+@@ -4877,6 +4943,105 @@
      }
    };
-
+ 
 +  useEffect(() => {
 +    const nextQueuedMessage = activeQueuedMessages[0];
 +    if (
@@ -236,10 +278,10 @@ index f5ea5bb1e..67d6b3a1f 100644
    const onInterrupt = async () => {
      if (!activeThread) return;
      const result = await interruptThreadTurn({
-@@ -5140,6 +5303,66 @@ function ChatViewContent(props: ChatViewProps) {
-               <div className="chat-composer-horizontal-inset">
-                 <div className="pointer-events-auto relative z-10 isolate">
-                   <ComposerBannerStack className="relative z-0" items={composerBannerItems} />
+@@ -5820,6 +5985,66 @@
+                   {threadSyncPhase && !activeEnvironmentUnavailable ? (
+                     <ThreadSyncStatusPill phase={threadSyncPhase} />
+                   ) : null}
 +                  {activeQueuedMessages.length > 0 ? (
 +                    <div
 +                      data-chat-message-queue="true"
@@ -300,53 +342,12 @@ index f5ea5bb1e..67d6b3a1f 100644
 +                      </div>
 +                    </div>
 +                  ) : null}
-                   <div className="relative z-10">
-                     <ChatComposer
-                       composerRef={composerRef}
-diff --git a/apps/web/src/components/chat/ComposerPrimaryActions.tsx b/apps/web/src/components/chat/ComposerPrimaryActions.tsx
-index 8999e4308..1884bc103 100644
---- a/apps/web/src/components/chat/ComposerPrimaryActions.tsx
-+++ b/apps/web/src/components/chat/ComposerPrimaryActions.tsx
-@@ -124,7 +124,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
-   }
-
-   if (isRunning) {
--    return (
-+    const stopButton = (
-       <button
-         type="button"
-         className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-[0_1px_--theme(--color-white/16%)] transition-all duration-150 hover:bg-destructive hover:scale-105 active:inset-shadow-[0_1px_--theme(--color-black/8%)] active:shadow-none sm:h-8 sm:w-8"
-@@ -137,6 +137,25 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
-         </svg>
-       </button>
-     );
-+
-+    if (hasSendableContent) {
-+      return (
-+        <div className={cn("flex items-center justify-end", compact ? "gap-1.5" : "gap-2")}>
-+          {stopButton}
-+          <Button
-+            type="submit"
-+            size="sm"
-+            className={cn("rounded-full", compact ? "h-9 px-3 sm:h-8" : "h-9 px-4 sm:h-8")}
-+            {...pointerFocusProps}
-+            disabled={isSendBusy || isConnecting || isEnvironmentUnavailable}
-+          >
-+            Queue
-+          </Button>
-+        </div>
-+      );
-+    }
-+
-+    return stopButton;
-   }
-
-   if (showPlanFollowUpPrompt) {
-diff --git a/apps/web/src/threadMessageQueue.test.ts b/apps/web/src/threadMessageQueue.test.ts
-new file mode 100644
-index 000000000..f960778f6
---- /dev/null
-+++ b/apps/web/src/threadMessageQueue.test.ts
+                   <div
+                     className="relative"
+                     style={
+diff -ruN '--exclude=*.rej' '--exclude=.git' '--exclude=threadCompletion*' '--exclude=ThreadCompletion*' '--exclude=__root.tsx' a/apps/web/src/threadMessageQueue.test.ts b/apps/web/src/threadMessageQueue.test.ts
+--- a/apps/web/src/threadMessageQueue.test.ts	1970-01-01 01:00:00.000000000 +0100
++++ b/apps/web/src/threadMessageQueue.test.ts	2026-08-06 22:19:38.546070843 +0200
 @@ -0,0 +1,87 @@
 +import { describe, expect, it } from "@effect/vitest";
 +import { EnvironmentId, MessageId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
@@ -435,11 +436,9 @@ index 000000000..f960778f6
 +    expect(removeQueuedThreadMessage([first, second], first.messageId)).toEqual([second]);
 +  });
 +});
-diff --git a/apps/web/src/threadMessageQueue.ts b/apps/web/src/threadMessageQueue.ts
-new file mode 100644
-index 000000000..f4807fd3c
---- /dev/null
-+++ b/apps/web/src/threadMessageQueue.ts
+diff -ruN '--exclude=*.rej' '--exclude=.git' '--exclude=threadCompletion*' '--exclude=ThreadCompletion*' '--exclude=__root.tsx' a/apps/web/src/threadMessageQueue.ts b/apps/web/src/threadMessageQueue.ts
+--- a/apps/web/src/threadMessageQueue.ts	1970-01-01 01:00:00.000000000 +0100
++++ b/apps/web/src/threadMessageQueue.ts	2026-08-06 22:19:38.548620744 +0200
 @@ -0,0 +1,77 @@
 +import {
 +  EnvironmentId,
