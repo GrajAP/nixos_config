@@ -133,6 +133,7 @@
         "workspace special:tools,match:class Obsidian"
         "fullscreen 1,match:class guitarix"
         "fullscreen 1,match:class Guitarix"
+        "no_blur 1,match:title ^deadlocked_overlay$"
       ];
       # Monitor config for dual displays
       monitor = [
