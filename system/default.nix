@@ -9,5 +9,6 @@
     ./sync
     ./backup
     ./monitoring
+    ./ai
   ];
 }

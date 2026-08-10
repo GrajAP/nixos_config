@@ -10,5 +10,8 @@
     # Voice and gaming workflows
     ./voice.nix
     ./gaming.nix
+
+    # JARVIS AI Assistant
+    ./jarvis.nix
   ];
 }
