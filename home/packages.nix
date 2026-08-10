@@ -12,6 +12,7 @@
     gemini-cli
     cc-switch
     antigravity-cli
+    zed-editor
 
     # Hyprland's Home Manager package places its portal descriptor in the
     # user profile, which takes precedence over the system portal directory.

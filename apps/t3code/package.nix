@@ -67,8 +67,6 @@
     cp -a ${t3codeQueued}/. "$out/"
     chmod -R u+w "$out"
 
-    # Keep pnpm's symlink layout intact, and materialize only files that need
-    # local edits or whose runtime path must remain inside this themed copy.
     materialize() {
       local target="$1"
       local source
