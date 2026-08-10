@@ -72,13 +72,14 @@ in {
     };
 
     systemd.tmpfiles.rules = [
-      "d /mnt/HDD/jarvis 0755 grajpap users -"
-      "d /mnt/HDD/jarvis/models 0755 grajpap users -"
-      "d /mnt/HDD/jarvis/chromadb 0755 grajpap users -"
-      "d /mnt/HDD/jarvis/vms 0755 grajpap users -"
+      "d /var/lib/jarvis 0755 grajpap users -"
+      "d /var/lib/jarvis/chromadb 0755 grajpap users -"
+      "d /var/lib/jarvis/vms 0755 grajpap users -"
       "d /tmp/jarvis 0755 grajpap users -"
       "d /tmp/jarvis/tts 0755 grajpap users -"
       "d /tmp/jarvis/frames 0755 grajpap users -"
+      "d /tmp/jarvis/screenshots 0755 grajpap users -"
+      "d /tmp/jarvis/browser 0755 grajpap users -"
     ];
   };
 }
