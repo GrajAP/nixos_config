@@ -13,6 +13,8 @@
     ps.aiohttp
     ps.websockets
     ps.silero-vad
+    ps.beautifulsoup4
+    ps.lxml
   ]);
 in {
   environment.systemPackages = with pkgs; [
@@ -21,6 +23,7 @@ in {
     jq
     curl
     wget
+    xh
     libnotify
     inotify-tools
     alsa-utils
@@ -29,6 +32,13 @@ in {
     piper-tts
     v4l-utils
     ollama
+    grim
+    slurp
+    ydotool
+    wtype
+    wl-clipboard
+    chromium
+    playwright
   ];
 
   users.users.grajpap.extraGroups = [
