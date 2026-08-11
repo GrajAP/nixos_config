@@ -18,7 +18,30 @@
     ps.aiohttp
     ps.websockets
     ps.silero-vad
+    ps.beautifulsoup4
+    ps.lxml
   ]);
+
+  jarvisWrapper = pkgs.writeShellApplication {
+    name = "jarvis";
+    runtimeInputs = [
+      jarvisPython
+      pkgs.coreutils
+      pkgs.pipewire
+      pkgs.pulseaudio
+      pkgs.alsa-utils
+      pkgs.piper-tts
+      pkgs.grim
+      pkgs.ydotool
+      pkgs.wtype
+      pkgs.wl-clipboard
+    ];
+    text = ''
+      export PYTHONPATH="/home/grajpap/dev/JARVIS:$PYTHONPATH"
+      export PATH="${pkgs.pipewire}/bin:${pkgs.pulseaudio}/bin:$PATH"
+      exec python3 /home/grajpap/dev/JARVIS/main.py "$@"
+    '';
+  };
 in {
   options.services.jarvis = {
     enable = lib.mkEnableOption "JARVIS AI Assistant";
@@ -27,12 +50,6 @@ in {
       type = lib.types.str;
       default = "grajpap";
       description = "User to run JARVIS as";
-    };
-
-    projectDir = lib.mkOption {
-      type = lib.types.path;
-      default = /home/grajpap/dev/JARVIS;
-      description = "Path to JARVIS project directory";
     };
   };
 
@@ -46,8 +63,8 @@ in {
         Type = "simple";
         User = config.services.jarvis.user;
         Group = "users";
-        WorkingDirectory = toString config.services.jarvis.projectDir;
-        ExecStart = "${jarvisPython}/bin/python3 ${config.services.jarvis.projectDir}/main.py";
+        WorkingDirectory = "/home/grajpap/dev/JARVIS";
+        ExecStart = "${jarvisWrapper}/bin/jarvis";
         Restart = "always";
         RestartSec = 10;
 
@@ -61,10 +78,13 @@ in {
         LimitNPROC = 4096;
 
         Environment = [
-          "PYTHONPATH=${config.services.jarvis.projectDir}"
-          "JARVIS_CONFIG=${config.services.jarvis.projectDir}/config/jarvis.yaml"
-          "HOME=/home/${config.services.jarvis.user}"
-          "USER=${config.services.jarvis.user}"
+          "PYTHONPATH=/home/grajpap/dev/JARVIS"
+          "JARVIS_CONFIG=/home/grajpap/dev/JARVIS/config/jarvis.yaml"
+          "HOME=/home/grajpap"
+          "USER=grajpap"
+          "XDG_RUNTIME_DIR=/run/user/1000"
+          "PIPEWIRE_RUNTIME_DIR=/run/user/1000"
+          "PYTHONUNBUFFERED=1"
         ];
       };
 
