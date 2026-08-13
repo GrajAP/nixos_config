@@ -2,8 +2,6 @@
   lib,
   pkgs,
 }: let
-  catppuccinCss = ./catppuccin-mocha-blue.css;
-  catppuccinVersion = builtins.hashFile "sha256" catppuccinCss;
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
     runtimeInputs = [pkgs.nodejs];
@@ -50,64 +48,14 @@
         });
   };
 
-  t3codeUnwrappedQueued = pkgs.t3code.unwrapped.overrideAttrs (old: {
-    patches =
-      (old.patches or [])
-      ++ [
-        ./queued-messages.patch
-        ./thread-completion-notifications.patch
-      ];
-  });
-  t3codeQueued = pkgs.t3code.override {
-    t3code-unwrapped = t3codeUnwrappedQueued;
-  };
-
-  t3codeCatppuccin = pkgs.runCommand "${t3codeQueued.pname or "t3code"}-${t3codeQueued.version or "wrapped"}-catppuccin-mocha-blue" {} ''
-    mkdir -p "$out"
-    cp -a ${t3codeQueued}/. "$out/"
-    chmod -R u+w "$out"
-
-    materialize() {
-      local target="$1"
-      local source
-      source=$(readlink -f "$target")
-      rm "$target"
-      cp "$source" "$target"
-      chmod u+w "$target"
-    }
-
-    materialize "$out/libexec/t3code/apps/desktop/dist-electron/main.cjs"
-    materialize "$out/libexec/t3code/apps/server/dist/bin.mjs"
-
-    client="$out/libexec/t3code/apps/server/dist/client"
-    materialize "$client/index.html"
-    substituteInPlace "$client/index.html" \
-      --replace-fail '#161616' '#1e1e2e'
-
-    main_js=("$client"/assets/index-*.js)
-    materialize "''${main_js[0]}"
-    substituteInPlace "''${main_js[0]}" \
-      --replace-fail 'light:`pierre-light`,dark:`pierre-dark`' \
-      'light:`catppuccin-latte`,dark:`catppuccin-mocha`'
-
-    main_css=("$client"/assets/index-*.css)
-    materialize "''${main_css[0]}"
-    sed -i -e "\$r ${catppuccinCss}" "''${main_css[0]}"
-  '';
-
   t3codeFallback = pkgs.symlinkJoin {
-    name = "${t3codeQueued.pname or "t3code"}-${t3codeQueued.version or "wrapped"}-no-sandbox";
-    paths = [t3codeCatppuccin];
+    name = "${pkgs.t3code.pname or "t3code"}-${pkgs.t3code.version or "wrapped"}-providers";
+    paths = [pkgs.t3code];
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
-      rm -f "$out/bin/t3" "$out/bin/t3code-desktop"
-      makeWrapper ${lib.getExe pkgs.nodejs} "$out/bin/t3" \
-        --add-flags "${t3codeCatppuccin}/libexec/t3code/apps/server/dist/bin.mjs" \
-        --prefix PATH : "${providerPath}"
-      makeWrapper ${lib.getExe pkgs.electron} "$out/bin/t3code-desktop" \
-        --add-flags "--no-sandbox" \
-        --add-flags "${t3codeCatppuccin}/libexec/t3code/apps/desktop/dist-electron/main.cjs" \
-        --prefix PATH : "${providerPath}"
+      for program in "$out"/bin/*; do
+        wrapProgram "$program" --prefix PATH : "${providerPath}"
+      done
     '';
   };
 
@@ -144,17 +92,30 @@
         --header 'Accept: application/vnd.github+json' \
         --header 'X-GitHub-Api-Version: 2022-11-28' \
         --user-agent 't3code-update-nixos' \
-        'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=10')"
+        'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=20')"
 
+      # Prefer the newest nightly/prerelease AppImage. Fall back to the newest
+      # non-draft release only when no nightly asset is published yet.
       release="$(${lib.getExe pkgs.jq} --raw-output '
-        first(
-          .[]
-          | select(.draft | not)
-          | . as $release
+        def appimage:
+          . as $release
           | $release.assets[]
           | select(.name | endswith("-x86_64.AppImage"))
           | [$release.tag_name, .browser_download_url, .digest]
-          | @tsv
+          | @tsv;
+        (
+          first(
+            .[]
+            | select(.draft | not)
+            | select(.prerelease or (.tag_name | test("nightly"; "i")))
+            | appimage
+          )
+        ) // (
+          first(
+            .[]
+            | select(.draft | not)
+            | appimage
+          )
         ) // empty
       ' <<<"$metadata")"
 
@@ -223,42 +184,13 @@
     name = "t3code-desktop-latest";
     runtimeInputs = with pkgs; [
       coreutils
-      gnugrep
-      gnused
-      jq
       t3codeAppimageRun
-      util-linux
       update
     ];
     text = ''
       set -euo pipefail
 
       app="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop/T3-Code.AppImage"
-      settings_dir="$HOME/.t3/userdata"
-      settings="$settings_dir/settings.json"
-
-      # Streaming every provider text fragment creates one SQLite event per
-      # fragment. Long Codex turns can then starve commands for other threads.
-      # T3 Code's buffered mode preserves the final response while dispatching
-      # substantially fewer orchestration events.
-      mkdir -p "$settings_dir"
-      if [[ ! -f "$settings" ]] \
-        || ! ${lib.getExe pkgs.jq} --exit-status '.enableAssistantStreaming == false' "$settings" >/dev/null 2>&1; then
-        settings_tmp="$(mktemp --tmpdir="$settings_dir" '.settings.json.XXXXXX')"
-        if [[ -f "$settings" ]]; then
-          if ! ${lib.getExe pkgs.jq} '.enableAssistantStreaming = false' "$settings" >"$settings_tmp"; then
-            rm -f "$settings_tmp"
-            echo "Could not enable buffered T3 Code responses; keeping the existing settings" >&2
-          else
-            chmod 600 "$settings_tmp"
-            mv -f "$settings_tmp" "$settings"
-          fi
-        else
-          printf '%s\n' '{"enableAssistantStreaming":false}' >"$settings_tmp"
-          chmod 600 "$settings_tmp"
-          mv -f "$settings_tmp" "$settings"
-        fi
-      fi
 
       if ! ${lib.getExe update}; then
         echo "Could not refresh T3 Code; using the newest installed version" >&2
@@ -266,56 +198,8 @@
 
       export PATH="${providerPath}:$PATH"
       if [[ -x "$app" ]]; then
-        app_hash="$(sha256sum "$app" | cut -d ' ' -f 1)"
-        cache_root="''${XDG_CACHE_HOME:-$HOME/.cache}/appimage-run"
-        app_dir="$cache_root/$app_hash"
-        marker="$app_dir/.catppuccin-mocha-blue-v2-${catppuccinVersion}"
-
-        mkdir -p "$cache_root"
-        exec 8>"$cache_root/t3code-catppuccin.lock"
-        flock 8
-
-        if [[ ! -x "$app_dir/AppRun" ]]; then
-          staging="$(mktemp -d --tmpdir="$cache_root" ".t3code-$app_hash.XXXXXX")"
-          cleanup() {
-            rm -rf "$staging"
-          }
-          trap cleanup EXIT
-          appimage-run -x "$staging" "$app"
-          rm -rf "$app_dir"
-          mv "$staging" "$app_dir"
-          trap - EXIT
-        fi
-
-        client="$app_dir/resources/app.asar.unpacked/apps/server/dist/client"
-        index="$client/index.html"
-        main_js=("$client"/assets/index-*.js)
-        main_css=("$client"/assets/index-*.css)
-
-        if [[ ! -f "$marker" ]]; then
-          if [[ ! -f "$index" || ! -f "''${main_js[0]}" || ! -f "''${main_css[0]}" ]]; then
-            echo "The downloaded T3 Code layout is unsupported; using the Nix fallback" >&2
-            exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
-          fi
-
-          sed -i -e 's/#161616/#1e1e2e/g' "$index"
-          sed -i \
-            "s/light:\`pierre-light\`,dark:\`pierre-dark\`/light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`/" \
-            "''${main_js[0]}"
-          sed -i -e "\$r ${catppuccinCss}" "''${main_css[0]}"
-
-          if ! grep -Fq 'Catppuccin Mocha, blue accent' "''${main_css[0]}" \
-            || ! grep -Fq "light:\`catppuccin-latte\`,dark:\`catppuccin-mocha\`" "''${main_js[0]}"; then
-            echo "Could not apply Catppuccin to the downloaded T3 Code release" >&2
-            exec ${lib.getExe' t3codeFallback "t3code-desktop"} "$@"
-          fi
-
-          touch "$marker"
-        fi
-
-        flock -u 8
         export APPIMAGE="$app"
-        exec ${lib.getExe t3codeAppimageRun} -w "$app_dir" -- --no-sandbox "$@"
+        exec ${lib.getExe t3codeAppimageRun} "$app" --no-sandbox "$@"
       fi
 
       echo "No downloaded T3 Code release is available; using the Nix fallback" >&2
@@ -325,10 +209,6 @@
 
   desktop = pkgs.symlinkJoin {
     name = "t3code-latest-with-fallback";
-    # The provider protocol evolves together with Codex. Run the current
-    # upstream desktop release by default so its thread index remains
-    # compatible with the installed provider. Keep the source-patched build
-    # for the CLI and as an offline fallback.
     paths = [
       t3codeFallback
       t3codeDesktopLatest
@@ -337,7 +217,6 @@
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
       rm -f "$out/bin/t3code-desktop"
-      ln -s ${lib.getExe' t3codeFallback "t3code-desktop"} "$out/bin/t3code-desktop-patched"
       makeWrapper ${lib.getExe t3codeDesktopLatest} "$out/bin/t3code-desktop"
     '';
   };
