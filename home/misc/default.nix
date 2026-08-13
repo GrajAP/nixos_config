@@ -12,6 +12,7 @@ in {
     ./cursor.nix
     ./obsidian.nix
     ./stylus.nix
+    ./chatgpt.nix
   ];
 
   # Desktop entry for Codex (keeps one place for Codex UX instead of generic package list)
