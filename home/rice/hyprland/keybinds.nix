@@ -26,7 +26,7 @@
 
   entries =
     [
-      (binding "bind" "Launchers" "${mod}, RETURN" ''exec, foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'exec tmux' '' "Open terminal")
+      (binding "bind" "Launchers" "${mod}, RETURN" ''exec, foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'exec herdr' '' "Open terminal")
       (binding "bind" "Launchers" "${mod}, SPACE" "global, quickshell:launcher" "Toggle application launcher")
       (binding "bind" "Launchers" "${mod}, F" ''exec, helium --profile-path="${config.home.homeDirectory}/.config/net.imput.helium/Default"'' "Open Helium browser")
       (binding "bind" "Launchers" "${mod}, D" "exec, vesktop" "Open Vesktop")

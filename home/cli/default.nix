@@ -2,7 +2,6 @@
   imports = [
     ./zsh
     ./herdr.nix
-    ./tmux.nix
     ./starship.nix
     ./bottom.nix
     ./git.nix
