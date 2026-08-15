@@ -21,6 +21,10 @@
     after = ["ollama.service"];
     wants = ["ollama.service"];
     wantedBy = ["multi-user.target"];
+    environment = {
+      OLLAMA_HOST = "127.0.0.1:11434";
+      OLLAMA_MODELS = "/var/lib/ollama/models";
+    };
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
