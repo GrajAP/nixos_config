@@ -17,7 +17,7 @@
   ];
 
   systemd.services.ollama-pull-qwen3 = {
-    description = "Pull Qwen 3 8B model into Ollama";
+    description = "Pull Qwen3.8-27B model into Ollama";
     after = ["ollama.service"];
     wants = ["ollama.service"];
     wantedBy = ["multi-user.target"];
@@ -28,7 +28,7 @@
         until ${pkgs.curl}/bin/curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; do
           sleep 2
         done
-        ${pkgs.ollama}/bin/ollama pull qwen3:8b
+        ${pkgs.ollama}/bin/ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
       '';
     };
   };
