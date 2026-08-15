@@ -158,8 +158,8 @@ in {
       })
       # 2026-08-15: bump ollama to 0.32.13 for Qwen3.8 support.
       # Remove after nixos-unstable ships ollama >= 0.32.13.
-      (_: prev: {
-        ollama = prev.ollama.overrideAttrs (_old: {
+      (_: prev: let
+        ollamaOverride = _: {
           version = "0.32.13";
           src = prev.fetchFromGitHub {
             owner = "ollama";
@@ -167,7 +167,10 @@ in {
             rev = "v0.32.13";
             hash = "sha256-KSvw7LsvpUVeSm9BKJ4wIp/fWGHjMp8bOTMUpFJCDmw=";
           };
-        });
+        };
+      in {
+        ollama = prev.ollama.overrideAttrs ollamaOverride;
+        ollama-rocm = prev.ollama-rocm.overrideAttrs ollamaOverride;
       })
     ];
   };
