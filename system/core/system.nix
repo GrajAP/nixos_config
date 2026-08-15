@@ -184,6 +184,7 @@ in {
       };
       t3code-os-switch = {
         description = "Validate and apply /etc/nixos for the local coding agent";
+        restartIfChanged = false;
         path = with pkgs; [git nix nix-output-monitor util-linux];
         serviceConfig = {
           Type = "oneshot";
@@ -208,7 +209,7 @@ in {
           esac
 
           nix-env --profile /nix/var/nix/profiles/system --set "$candidate"
-          exec "$candidate/bin/switch-to-configuration" switch
+          exec "$candidate/bin/switch-to-configuration" boot
         '';
       };
       "getty@tty1".enable = false;

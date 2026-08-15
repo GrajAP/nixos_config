@@ -58,15 +58,6 @@
             scroll_speed = 0.1;
           };
         }
-        {
-          scrolloverview = {
-            scale = 0.5;
-            workspace_gap = 80;
-            layout = "vertical";
-            wallpaper = 0;
-            blur = false;
-          };
-        }
       ];
 
       cursor = {

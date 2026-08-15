@@ -5,7 +5,7 @@
 }: let
   upstreamUserstyles = pkgs.fetchurl {
     url = "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
-    hash = "sha256-p8sAd6BfPUtLictiBgTMdiUOdrVhmnho4G2rZcxArIs=";
+    hash = "sha256-+eqOt92dkNcnFK7L1jMrsMyOocxZXdbz1UdAOjZGsvw=";
   };
 
   stylusArchive = pkgs.fetchurl {
