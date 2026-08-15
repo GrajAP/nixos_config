@@ -171,6 +171,7 @@ in {
       in {
         ollama = prev.ollama.overrideAttrs ollamaOverride;
         ollama-rocm = prev.ollama-rocm.overrideAttrs ollamaOverride;
+        ollama-vulkan = prev.ollama-vulkan.overrideAttrs ollamaOverride;
       })
     ];
   };

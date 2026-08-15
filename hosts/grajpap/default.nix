@@ -73,7 +73,7 @@ in {
   networking.hostName = "grajpap";
   # Keep the desktop responsive while avoiding unnecessarily aggressive boost
   # clocks during light and background workloads.
-  powerManagement.cpuFreqGovernor = "powersave";
+  powerManagement.cpuFreqGovernor = "performance";
   services = {
     jarvis.enable = false;
     kanata = {

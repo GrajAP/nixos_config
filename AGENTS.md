@@ -1,25 +1,16 @@
 This is a NixOS machine.
 
-Edit files under /etc/nixos, then run:
+Edit files under /etc/nos, then run:
 
 ```bash
-nix flake check
-nix build .#nixosConfigurations.grajpap.config.system.build.toplevel
-systemctl start t3code-os-switch.service
+./rebuild.sh
 ```
 
-This is the passwordless agent path. The root-owned service runs the checks,
-builds the candidate generation as `grajpap`, validates its store path, and
-then activates it. Do not use `sudo`, embed a password, or call
-`switch-to-configuration` directly.
+This validates the flake, switches the system, stages all changes, commits them
+and queues a background GitHub push for the current branch. Use
+`./rebuild.sh --check` to only validate the flake without switching.
 
-`./rebuild.sh` is the user-facing helper. Without arguments it validates,
-switches, stages all changes, commits them and queues a background GitHub push
-for the current branch. `./rebuild.sh --check` only validates the flake.
-If the tree changes during a full rebuild, it skips the commit and push.
-Agents doing scoped work should use the explicit validation and switch commands
-above so they do not commit unrelated user changes. The helper never formats,
-updates flake inputs or cleans generations.
+Do not use `sudo`, embed a password, or call `switch-to-configuration` directly.
 
 ## Git workflow
 
@@ -30,11 +21,8 @@ updates flake inputs or cleans generations.
 
 ## Validation before switching
 
-Run checks before starting `t3code-os-switch.service` so broken config never becomes the active system:
-
-1. `nix flake check`
-2. `nix build .#nixosConfigurations.grajpap.config.system.build.toplevel`
-3. `systemctl start t3code-os-switch.service`
+Run `./rebuild.sh` to validate the flake, switch, commit, and push.
+Use `./rebuild.sh --check` to only validate without switching.
 
 If a check fails, fix the config first. Do not switch a known broken generation.
 
