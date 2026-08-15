@@ -35,7 +35,7 @@ in {
       fi
     }
 
-    set_codex_option model '"gpt-5.6-sol"'
+    set_codex_option model '"hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M"'
     set_codex_option model_reasoning_effort '"high"'
     set_codex_option approval_policy '"never"'
     set_codex_option sandbox_mode '"danger-full-access"'
