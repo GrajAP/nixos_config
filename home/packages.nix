@@ -9,9 +9,7 @@
 
     # AI coding harnesses
     aider-chat
-    gemini-cli
     cc-switch
-    antigravity-cli
     zed-editor
 
     # Hyprland's Home Manager package places its portal descriptor in the
