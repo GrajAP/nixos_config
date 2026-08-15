@@ -15,25 +15,4 @@
     "d /var/lib/ollama 0755 ollama ollama -"
     "d /var/lib/ollama/models 0755 ollama ollama -"
   ];
-
-  systemd.services.ollama-pull-qwen3 = {
-    description = "Pull Qwen3.8-27B model into Ollama";
-    after = ["ollama.service"];
-    wants = ["ollama.service"];
-    wantedBy = ["multi-user.target"];
-    environment = {
-      OLLAMA_HOST = "127.0.0.1:11434";
-      OLLAMA_MODELS = "/var/lib/ollama/models";
-    };
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = pkgs.writeShellScript "pull-qwen3" ''
-        until ${pkgs.curl}/bin/curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; do
-          sleep 2
-        done
-        ${pkgs.ollama}/bin/ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
-      '';
-    };
-  };
 }
