@@ -9,6 +9,7 @@
     settings = {
       proc_tree = true;
       proc_sorting = "cpu lazy";
+      show_gpu_info = "verbose";
     };
   };
 }

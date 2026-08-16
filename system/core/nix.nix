@@ -23,8 +23,9 @@
 
       case "$command:$action" in
         /nix/store/*-nixos-system-grajpap-*/bin/switch-to-configuration:test)
-          echo "Test switch not implemented" >&2
-          exit 1
+          # Trigger the root-owned switch service; it validates the flake,
+          # installs the candidate profile and updates the bootloader.
+          exec systemctl start t3code-os-switch.service
           ;;
         nix:build)
           # The switch service already installed the validated candidate as the

@@ -35,7 +35,9 @@ done < <(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort
           else null
           end
         ),
-        primaryWindowMinutes: (.primary.window_minutes // null),
+        primaryWindowMinutes: (
+          (.primary.window_duration_mins // .primary.window_minutes // null)
+        ),
         primaryResetsAt: (.primary.resets_at // null),
         secondaryUsedPercent: (
           if (.secondary.used_percent | type) == "number" then .secondary.used_percent
@@ -49,7 +51,9 @@ done < <(find "$sessions_root" -type f -name "*.jsonl" -printf '%T@ %p\n' | sort
           else null
           end
         ),
-        secondaryWindowMinutes: (.secondary.window_minutes // null),
+        secondaryWindowMinutes: (
+          (.secondary.window_duration_mins // .secondary.window_minutes // null)
+        ),
         secondaryResetsAt: (.secondary.resets_at // null),
         planType: (.plan_type // null)
       };
