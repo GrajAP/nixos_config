@@ -2210,67 +2210,67 @@ ShellRoot {
           }
         }
 
-        Item {
-          Layout.alignment: Qt.AlignHCenter
-          Layout.preferredWidth: 24
-          Layout.preferredHeight: 42
-          implicitWidth: 24
-          implicitHeight: 42
-          id: codexButton
-          Rectangle {
-            anchors.fill: parent
-            radius: 7
-            color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : "transparent"
-          }
-
-          Column {
-            anchors.centerIn: parent
-            width: 14
-            spacing: 4
-
-            Image {
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: 13
-              height: 13
-              source: root.barWidgetActive("codex") || codexMouse.containsMouse
-                ? "assets/codex-accent.svg"
-                : "assets/codex.svg"
-              fillMode: Image.PreserveAspectFit
-              smooth: true
-            }
-
-            Rectangle {
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: 6
-              height: 19
-              radius: 3
-              color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
-              clip: true
-
-              Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: {
-                  const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
-                  return percent <= 0 ? 0 : Math.max(2, parent.height * percent / 100);
-                }
-                radius: parent.radius
-                color: root.codexUsageBarColor("codexPrimaryUsedPercent")
-                Behavior on height { NumberAnimation { duration: Theme.motionMedium } }
-              }
-            }
-          }
-
-          MouseArea {
-            id: codexMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onEntered: root.showHoverWidget("codex")
-            onExited: root.leaveHoverWidgetButton("codex")
-            onClicked: root.showHoverWidget("codex", false)
-          }
-        }
+        // Item {
+        //   Layout.alignment: Qt.AlignHCenter
+        //   Layout.preferredWidth: 24
+        //   Layout.preferredHeight: 42
+        //   implicitWidth: 24
+        //   implicitHeight: 42
+        //   id: codexButton
+        //   Rectangle {
+        //     anchors.fill: parent
+        //     radius: 7
+        //     color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : "transparent"
+        //   }
+        //
+        //   Column {
+        //     anchors.centerIn: parent
+        //     width: 14
+        //     spacing: 4
+        //
+        //     Image {
+        //       anchors.horizontalCenter: parent.horizontalCenter
+        //       width: 13
+        //       height: 13
+        //       source: root.barWidgetActive("codex") || codexMouse.containsMouse
+        //         ? "assets/codex-accent.svg"
+        //         : "assets/codex.svg"
+        //       fillMode: Image.PreserveAspectFit
+        //       smooth: true
+        //     }
+        //
+        //     Rectangle {
+        //       anchors.horizontalCenter: parent.horizontalCenter
+        //       width: 6
+        //       height: 19
+        //       radius: 3
+        //       color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
+        //       clip: true
+        //
+        //       Rectangle {
+        //         anchors.bottom: parent.bottom
+        //         width: parent.width
+        //         height: {
+        //           const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
+        //           return percent <= 0 ? 0 : Math.max(2, parent.height * percent / 100);
+        //         }
+        //         radius: parent.radius
+        //         color: root.codexUsageBarColor("codexPrimaryUsedPercent")
+        //         Behavior on height { NumberAnimation { duration: Theme.motionMedium } }
+        //       }
+        //     }
+        //   }
+        //
+        //   MouseArea {
+        //     id: codexMouse
+        //     anchors.fill: parent
+        //     hoverEnabled: true
+        //     cursorShape: Qt.PointingHandCursor
+        //     onEntered: root.showHoverWidget("codex")
+        //     onExited: root.leaveHoverWidgetButton("codex")
+        //     onClicked: root.showHoverWidget("codex", false)
+        //   }
+        // }
 
         Item {
           Layout.alignment: Qt.AlignHCenter
