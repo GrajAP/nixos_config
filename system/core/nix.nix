@@ -83,6 +83,7 @@ in {
     config = {
       # Desktop applications and proprietary firmware require unfree packages.
       allowUnfree = true;
+      rocmSupport = true;
     };
 
     overlays = [
