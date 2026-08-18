@@ -31,7 +31,7 @@ in {
     pipewire
     piper-tts
     v4l-utils
-    ollama
+    ollama-vulkan
     grim
     slurp
     ydotool
