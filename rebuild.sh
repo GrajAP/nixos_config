@@ -74,6 +74,15 @@ git add -A
 nix flake check --log-format internal-json -v 2>&1 | nom --json
 nh os switch --diff never
 
+profile_system="$(readlink /nix/var/nix/profiles/system)"
+live_system="$(readlink /run/current-system)"
+if [[ "$profile_system" != "$live_system" ]]; then
+  printf '⚠ Built generation %s was not activated live (still running %s).\n' \
+    "$(basename "$profile_system")" "$(basename "$live_system")" >&2
+  printf '  Approve the nh/polkit prompt when switching, or run:\n' >&2
+  printf '  sudo %s/bin/switch-to-configuration switch\n' "$profile_system" >&2
+fi
+
 if ! git diff --quiet \
   || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
   printf 'System switched, but the repository changed during rebuild; run rebuild again\n' >&2
