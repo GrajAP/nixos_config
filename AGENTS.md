@@ -12,6 +12,17 @@ and queues a background GitHub push for the current branch. Use
 
 Do not use `sudo`, embed a password, or call `switch-to-configuration` directly.
 
+## CRITICAL: DO NOT OVERTHINK
+
+- Do NOT explain what you are about to do. Just do it.
+- Do NOT list steps, create plans, or describe your approach.
+- Do NOT think about edge cases before acting.
+- Do NOT ask clarifying questions if the request is clear.
+- Do NOT spend more than 2 tool calls planning.
+- Start writing code or editing files IMMEDIATELY after reading the request.
+- If a task is simple (create a file, edit a line, run a command), do it in ONE tool call.
+- Stop talking. Start working.
+
 ## Git workflow
 
 - Keep `main` clean and deployable. Do feature work on a new branch, then merge back to `main` only after validation.
