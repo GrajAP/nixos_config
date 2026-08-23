@@ -190,8 +190,8 @@ in {
   nix = {
     gc = {
       automatic = true;
-      dates = "weekly";
-      options = "--delete-older-than 14d";
+      dates = "daily";
+      options = "--delete-older-than 7d";
       randomizedDelaySec = "45min";
     };
     package = pkgs.lix;

@@ -21,10 +21,47 @@
       "x-gvfs-name=${label}"
     ];
   };
+
+  ssd2Disk = "/dev/disk/by-id/ata-SSDPR-CX400-512_GT9010423";
 in {
   environment.systemPackages = with pkgs; [
     ntfs3g
+    xfsprogs
   ];
+
+  # LVM-VDO (dedup + LZ4 compression) backing the SSD2 XFS volume.
+  services.lvm.boot.vdo.enable = true;
+  boot.kernelModules = ["dm-vdo"];
+
+  systemd.services.ssd2-vdo-provision = {
+    description = "One-time LVM-VDO + XFS provisioning of the SSD2 drive";
+    wantedBy = ["multi-user.target"];
+    after = ["systemd-modules-load.service"];
+    unitConfig.ConditionVirtualization = "!container";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [lvm2_vdo xfsprogs util-linux kmod];
+    script = ''
+      modprobe dm_vdo 2>/dev/null || true
+
+      # Idempotent: only touch the disk while the VG is absent.  The VG name
+      # doubles as the guard against ever re-wiping a provisioned volume.
+      if ! vgs ssd2 >/dev/null 2>&1; then
+        wipefs -a "${ssd2Disk}-part1" 2>/dev/null || true
+        wipefs -a "${ssd2Disk}"
+        pvcreate -f "${ssd2Disk}"
+        vgcreate ssd2 "${ssd2Disk}"
+        lvcreate --type vdo --name vdo0 --virtualsize 700G --yes ssd2
+        mkfs.xfs -L SSD2 -K /dev/ssd2/vdo0
+        mkdir -p /mnt/SSD2
+        mount /dev/ssd2/vdo0 /mnt/SSD2
+        chown grajpap:users /mnt/SSD2
+        umount /mnt/SSD2
+      fi
+    '';
+  };
 
   assertions = [
     {
@@ -46,5 +83,16 @@ in {
     "/mnt/HDD" = windowsVolume "181ACB431ACB1C9E" "HDD" "100" "0022";
     "/mnt/Windows" = windowsVolume "FC0084040083C3DC" "Windows" "100" "0022";
     "/mnt/NVME128" = windowsVolume "F852327652323A28" "NVME128" "100" "0022";
+    "/mnt/SSD2" = {
+      device = "/dev/mapper/ssd2--vdo0";
+      fsType = "xfs";
+      options = [
+        "discard"
+        "nofail"
+        "x-systemd.requires=ssd2-vdo-provision.service"
+        "x-gvfs-show"
+        "x-gvfs-name=SSD2"
+      ];
+    };
   };
 }

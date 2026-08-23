@@ -53,7 +53,9 @@ in {
         "restic-backups-nextcloud.service",
         "restic-backups-nextcloud-storage.service",
         "restic-nextcloud-restore-test.service",
-        "t3code-os-switch.service"
+        "t3code-os-switch.service",
+        "nix-gc.service",
+        "ai-state-cleanup.service"
       ];
 
       if (
@@ -201,6 +203,17 @@ in {
 
           nix-env --profile /nix/var/nix/profiles/system --set "$candidate"
           exec "$candidate/bin/switch-to-configuration" boot
+        '';
+      };
+      ai-state-cleanup = {
+        description = "Remove leftover JARVIS/Ollama state directories";
+        restartIfChanged = false;
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          rm -rf --one-file-system /var/lib/jarvis /var/lib/ollama /tmp/jarvis
         '';
       };
       "getty@tty1".enable = false;

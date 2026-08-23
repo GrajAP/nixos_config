@@ -75,7 +75,6 @@ in {
   # clocks during light and background workloads.
   powerManagement.cpuFreqGovernor = "performance";
   services = {
-    jarvis.enable = false;
     kanata = {
       enable = true;
       keyboards = {
