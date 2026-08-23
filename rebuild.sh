@@ -74,8 +74,8 @@ git add -A
 nix flake check --log-format internal-json -v 2>&1 | nom --json
 nh os switch --diff never
 
-profile_system="$(readlink /nix/var/nix/profiles/system)"
-live_system="$(readlink /run/current-system)"
+profile_system="$(readlink -f /nix/var/nix/profiles/system)"
+live_system="$(readlink -f /run/current-system)"
 if [[ "$profile_system" != "$live_system" ]]; then
   printf '⚠ Built generation %s was not activated live (still running %s).\n' \
     "$(basename "$profile_system")" "$(basename "$live_system")" >&2
