@@ -55,7 +55,8 @@ in {
         "restic-nextcloud-restore-test.service",
         "t3code-os-switch.service",
         "nix-gc.service",
-        "ai-state-cleanup.service"
+        "ai-state-cleanup.service",
+        "ssd2-vdo-provision.service"
       ];
 
       if (

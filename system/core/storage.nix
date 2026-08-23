@@ -49,8 +49,27 @@ in {
       # Idempotent: only touch the disk while the VG is absent.  The VG name
       # doubles as the guard against ever re-wiping a provisioned volume.
       if ! vgs ssd2 >/dev/null 2>&1; then
+        disk="$(readlink -f "${ssd2Disk}")"
+
+        # Release stale automounts (GVfs/udisks) holding the disk busy.
+        for attempt in 1 2 3 4 5; do
+          busy=0
+          while read -r src tgt; do
+            case "$src" in
+              "$disk" | "$disk"[0-9]* | "${ssd2Disk}" | "${ssd2Disk}"-part[0-9]*)
+                umount "$tgt" 2>/dev/null || umount -l "$tgt" 2>/dev/null || true
+                busy=1
+                ;;
+            esac
+          done < <(findmnt -rno SOURCE,TARGET)
+          [[ "$busy" == 0 ]] && break
+          sleep 1
+        done
+
         wipefs -a "${ssd2Disk}-part1" 2>/dev/null || true
         wipefs -a "${ssd2Disk}"
+        partprobe "${ssd2Disk}" 2>/dev/null || true
+
         pvcreate -f "${ssd2Disk}"
         vgcreate ssd2 "${ssd2Disk}"
         lvcreate --type vdo --name vdo0 --virtualsize 700G --yes ssd2
