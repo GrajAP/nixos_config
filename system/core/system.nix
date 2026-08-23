@@ -53,9 +53,7 @@ in {
         "restic-backups-nextcloud.service",
         "restic-backups-nextcloud-storage.service",
         "restic-nextcloud-restore-test.service",
-        "t3code-os-switch.service",
         "nix-gc.service",
-        "ai-state-cleanup.service",
         "ssd2-vdo-provision.service"
       ];
 
@@ -176,47 +174,6 @@ in {
 
   systemd = {
     services = {
-      t3code-os-switch = {
-        description = "Validate and apply /etc/nixos for the local coding agent";
-        restartIfChanged = false;
-        path = with pkgs; [git nix nix-output-monitor util-linux];
-        serviceConfig = {
-          Type = "oneshot";
-          WorkingDirectory = "/etc/nixos";
-        };
-        script = ''
-          set -euo pipefail
-
-          as_user=(runuser -u grajpap -- env HOME=/home/grajpap USER=grajpap LOGNAME=grajpap)
-          "''${as_user[@]}" nix flake check
-          candidate="$("''${as_user[@]}" nix build \
-            .#nixosConfigurations.grajpap.config.system.build.toplevel \
-            --no-link \
-            --print-out-paths)"
-
-          case "$candidate" in
-            /nix/store/*-nixos-system-grajpap-*) ;;
-            *)
-              echo "Refusing unexpected system path: $candidate" >&2
-              exit 1
-              ;;
-          esac
-
-          nix-env --profile /nix/var/nix/profiles/system --set "$candidate"
-          exec "$candidate/bin/switch-to-configuration" boot
-        '';
-      };
-      ai-state-cleanup = {
-        description = "Remove leftover JARVIS/Ollama state directories";
-        restartIfChanged = false;
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
-        script = ''
-          rm -rf --one-file-system /var/lib/jarvis /var/lib/ollama /tmp/jarvis
-        '';
-      };
       "getty@tty1".enable = false;
       "autovt@tty1".enable = false;
       "getty@tty7".enable = false;

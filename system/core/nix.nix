@@ -3,59 +3,7 @@
   lib,
   inputs,
   ...
-}: let
-  nhAgentElevation = pkgs.writeShellApplication {
-    name = "nh-agent-elevation";
-    runtimeInputs = [pkgs.systemd];
-    text = ''
-      if [[ ''${1-} != "env" ]]; then
-        echo "Refusing unexpected elevation request" >&2
-        exit 2
-      fi
-      shift
-
-      while [[ ''${1-} == *=* ]]; do
-        shift
-      done
-
-      command="''${1-}"
-      action="''${2-}"
-
-      case "$command:$action" in
-        /nix/store/*-nixos-system-grajpap-*/bin/switch-to-configuration:test)
-          # Trigger the root-owned switch service; it validates the flake,
-          # installs the candidate profile and updates the bootloader.
-          exec systemctl start t3code-os-switch.service
-          ;;
-        nix:build)
-          # The switch service already installed the validated candidate as the
-          # system profile.
-          exit 0
-          ;;
-        /nix/store/*-nixos-system-grajpap-*/bin/switch-to-configuration:boot)
-          # The switch service already activated the candidate and updated the
-          # bootloader.
-          exit 0
-          ;;
-        *)
-          echo "Refusing unexpected elevation command: $command $action" >&2
-          exit 2
-          ;;
-      esac
-    '';
-  };
-  nhUnprivilegedSwitch = pkgs.writeShellApplication {
-    name = "nh";
-    text = ''
-      if [[ $# -ge 2 && $1 == "os" && $2 == "switch" ]]; then
-        exec ${lib.getExe pkgs.nh} \
-          --elevation-strategy ${lib.getExe nhAgentElevation} "$@"
-      fi
-
-      exec ${lib.getExe pkgs.nh} "$@"
-    '';
-  };
-in {
+}: {
   environment = {
     # set channels (backwards compatibility)
     sessionVariables.FLAKE = "/etc/nixos";
@@ -66,7 +14,7 @@ in {
     };
 
     systemPackages = with pkgs; [
-      nhUnprivilegedSwitch
+      nh
       nixd
       deadnix
       alejandra
@@ -158,23 +106,6 @@ in {
               changelog = "https://github.com/openai/codex/releases/tag/rust-v${version}";
             };
         };
-      })
-      # 2026-08-15: bump ollama to 0.32.13 for Qwen3.8 support.
-      # Remove after nixos-unstable ships ollama >= 0.32.13.
-      (_: prev: let
-        ollamaOverride = _: {
-          version = "0.32.13";
-          src = prev.fetchFromGitHub {
-            owner = "ollama";
-            repo = "ollama";
-            rev = "v0.32.13";
-            hash = "sha256-KSvw7LsvpUVeSm9BKJ4wIp/fWGHjMp8bOTMUpFJCDmw=";
-          };
-        };
-      in {
-        ollama = prev.ollama.overrideAttrs ollamaOverride;
-        ollama-rocm = prev.ollama-rocm.overrideAttrs ollamaOverride;
-        ollama-vulkan = prev.ollama-vulkan.overrideAttrs ollamaOverride;
       })
     ];
   };

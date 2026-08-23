@@ -1,8 +1,0 @@
-FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
-
-# Codex ships a large system prompt + tool schema (~50k tokens). Keep ctx high
-# enough to boot, but below the model's 262k max for faster KV cache use.
-PARAMETER num_ctx 65536
-PARAMETER num_batch 512
-PARAMETER num_gpu 999
-PARAMETER temperature 0.6

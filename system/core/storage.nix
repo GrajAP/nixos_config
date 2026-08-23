@@ -46,33 +46,37 @@ in {
     script = ''
       modprobe dm_vdo 2>/dev/null || true
 
-      # Idempotent: only touch the disk while the VG is absent.  The VG name
-      # doubles as the guard against ever re-wiping a provisioned volume.
-      if ! vgs ssd2 >/dev/null 2>&1; then
-        disk="$(readlink -f "${ssd2Disk}")"
+      # Idempotent across partial runs: the VG guard protects the disk from
+      # ever being re-wiped, while a present-but-incomplete VG (e.g. created
+      # before a failed lvcreate) still gets its VDO volume finished here.
+      if ! lvs ssd2/vdo0 >/dev/null 2>&1; then
+        if ! vgs ssd2 >/dev/null 2>&1; then
+          disk="$(readlink -f "${ssd2Disk}")"
 
-        # Release stale automounts (GVfs/udisks) holding the disk busy.
-        for attempt in 1 2 3 4 5; do
-          busy=0
-          while read -r src tgt; do
-            case "$src" in
-              "$disk" | "$disk"[0-9]* | "${ssd2Disk}" | "${ssd2Disk}"-part[0-9]*)
-                umount "$tgt" 2>/dev/null || umount -l "$tgt" 2>/dev/null || true
-                busy=1
-                ;;
-            esac
-          done < <(findmnt -rno SOURCE,TARGET)
-          [[ "$busy" == 0 ]] && break
-          sleep 1
-        done
+          # Release stale automounts (GVfs/udisks) holding the disk busy.
+          for attempt in 1 2 3 4 5; do
+            busy=0
+            while read -r src tgt; do
+              case "$src" in
+                "$disk" | "$disk"[0-9]* | "${ssd2Disk}" | "${ssd2Disk}"-part[0-9]*)
+                  umount "$tgt" 2>/dev/null || umount -l "$tgt" 2>/dev/null || true
+                  busy=1
+                  ;;
+              esac
+            done < <(findmnt -rno SOURCE,TARGET)
+            [[ "$busy" == 0 ]] && break
+            sleep 1
+          done
 
-        wipefs -a "${ssd2Disk}-part1" 2>/dev/null || true
-        wipefs -a "${ssd2Disk}"
-        partprobe "${ssd2Disk}" 2>/dev/null || true
+          wipefs -a "${ssd2Disk}-part1" 2>/dev/null || true
+          wipefs -a "${ssd2Disk}"
+          partprobe "${ssd2Disk}" 2>/dev/null || true
 
-        pvcreate -f "${ssd2Disk}"
-        vgcreate ssd2 "${ssd2Disk}"
-        lvcreate --type vdo --name vdo0 --virtualsize 700G --yes ssd2
+          pvcreate -f "${ssd2Disk}"
+          vgcreate ssd2 "${ssd2Disk}"
+        fi
+
+        lvcreate --type vdo --name vdo0 --virtualsize 700G -L 470G --yes ssd2
         mkfs.xfs -L SSD2 -K /dev/ssd2/vdo0
         mkdir -p /mnt/SSD2
         mount /dev/ssd2/vdo0 /mnt/SSD2
