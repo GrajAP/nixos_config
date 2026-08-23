@@ -41,6 +41,7 @@ in {
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      RuntimeDirectory = "dmeventd";
     };
     path = with pkgs; [lvm2_vdo xfsprogs util-linux kmod];
     script = ''
@@ -107,7 +108,7 @@ in {
     "/mnt/Windows" = windowsVolume "FC0084040083C3DC" "Windows" "100" "0022";
     "/mnt/NVME128" = windowsVolume "F852327652323A28" "NVME128" "100" "0022";
     "/mnt/SSD2" = {
-      device = "/dev/mapper/ssd2--vdo0";
+      device = "/dev/ssd2/vdo0";
       fsType = "xfs";
       options = [
         "discard"
