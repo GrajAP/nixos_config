@@ -53,5 +53,7 @@ in {
     # Helper scripts and rice config
     ./scripts
     ./rice
+    # Fleet-wide AI agent instructions and skills
+    ./agents
   ];
 }
