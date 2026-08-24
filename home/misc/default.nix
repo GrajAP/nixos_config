@@ -21,92 +21,51 @@ in {
   # Codex keeps mutable state alongside its configuration in ~/.codex. Update
   # only our defaults so project trust and notice state remain intact.
   home.activation.codexDefaults = lib.hm.dag.entryAfter ["writeBoundary"] ''
-        config="$HOME/.codex/config.toml"
-        mkdir -p "$(dirname "$config")"
-        touch "$config"
+    config="$HOME/.codex/config.toml"
+    mkdir -p "$(dirname "$config")"
+    touch "$config"
 
-        set_codex_option() {
-          key="$1"
-          value="$2"
-          if grep -q "^$key[[:space:]]*=" "$config"; then
-            sed -i "s|^$key[[:space:]]*=.*$|$key = $value|" "$config"
-          else
-            sed -i "1i$key = $value" "$config"
-          fi
-        }
-
-        set_codex_option model '"qwen3.8:latest"'
-        set_codex_option model_provider '"ollama"'
-        set_codex_option oss_provider '"ollama"'
-        set_codex_option model_reasoning_effort '"low"'
-        set_codex_option approval_policy '"never"'
-        set_codex_option sandbox_mode '"danger-full-access"'
-
-        # Codex ships a built-in ollama provider; custom [model_providers.ollama]
-        # blocks are rejected. Strip legacy overrides from older home-manager gens.
-        if grep -q '^\[model_providers\.ollama\]' "$config"; then
-          tmp="$(mktemp)"
-          awk '
-            /^\[model_providers\.ollama\]/ { skip=1; next }
-            /^\[/ { skip=0 }
-            !skip { print }
-          ' "$config" > "$tmp"
-          mv "$tmp" "$config"
-        fi
-        if grep -q '^\[model_providers\.ollama-custom\]' "$config"; then
-          tmp="$(mktemp)"
-          awk '
-            /^\[model_providers\.ollama-custom\]/ { skip=1; next }
-            /^\[/ { skip=0 }
-            !skip { print }
-          ' "$config" > "$tmp"
-          mv "$tmp" "$config"
-        fi
-
-        # codex --oss uses ~/.codex/ollama-launch.config.toml; keep it on the local alias.
-        oss_profile="$HOME/.codex/ollama-launch.config.toml"
-        mkdir -p "$(dirname "$oss_profile")"
-        cat > "$oss_profile" <<'OSS'
-    model = "qwen3.8:latest"
-    model_provider = "ollama-launch"
-    model_catalog_json = "/home/grajpap/.codex/model.json"
-
-    [model_providers.ollama-launch]
-    name = "Ollama"
-    base_url = "http://127.0.0.1:11434/v1"
-    wire_api = "responses"
-    OSS
-
-        cat > "$HOME/.codex/model.json" <<'MODELS'
-    {
-      "models": [
-        {
-          "base_instructions": "",
-          "context_window": 65536,
-          "default_verbosity": "low",
-          "display_name": "qwen3.8:latest",
-          "experimental_supported_tools": [],
-          "input_modalities": [
-            "text",
-            "image"
-          ],
-          "priority": 0,
-          "shell_type": "default",
-          "slug": "qwen3.8:latest",
-          "support_verbosity": true,
-          "supported_in_api": true,
-          "supported_reasoning_levels": [],
-          "supports_parallel_tool_calls": false,
-          "supports_reasoning_summaries": false,
-          "truncation_policy": {
-            "limit": 10000,
-            "mode": "bytes"
-          },
-          "visibility": "list"
-        }
-      ]
+    set_codex_option() {
+      key="$1"
+      value="$2"
+      if grep -q "^$key[[:space:]]*=" "$config"; then
+        sed -i "s|^$key[[:space:]]*=.*$|$key = $value|" "$config"
+      else
+        sed -i "1i$key = $value" "$config"
+      fi
     }
-    MODELS
+
+    set_codex_option model '"gpt-5.3-codex-spark"'
+    set_codex_option model_reasoning_effort '"low"'
+    set_codex_option approval_policy '"never"'
+    set_codex_option sandbox_mode '"danger-full-access"'
+
+    # Drop legacy local-provider keys so Codex uses its default OpenAI provider.
+    sed -i '/^model_provider[[:space:]]*=/d; /^oss_provider[[:space:]]*=/d' "$config"
+
+    # Codex defaults to the built-in OpenAI provider; strip legacy local
+    # ollama overrides from older home-manager gens.
+    if grep -q '^\[model_providers\.ollama\]' "$config"; then
+      tmp="$(mktemp)"
+      awk '
+        /^\[model_providers\.ollama\]/ { skip=1; next }
+        /^\[/ { skip=0 }
+        !skip { print }
+      ' "$config" > "$tmp"
+      mv "$tmp" "$config"
+    fi
+    if grep -q '^\[model_providers\.ollama-custom\]' "$config"; then
+      tmp="$(mktemp)"
+      awk '
+        /^\[model_providers\.ollama-custom\]/ { skip=1; next }
+        /^\[/ { skip=0 }
+        !skip { print }
+      ' "$config" > "$tmp"
+      mv "$tmp" "$config"
+    fi
+
+    # Remove stale local-ai artifacts from older generations.
+    rm -f "$HOME/.codex/ollama-launch.config.toml" "$HOME/.codex/model.json"
   '';
 
   xdg.desktopEntries.codex = {
