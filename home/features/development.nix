@@ -15,6 +15,7 @@ in {
       rnote
       pnpm
       bun
+      antigravity
       t3code.desktop
       t3code.notify
       (pkgs.writeShellApplication {
