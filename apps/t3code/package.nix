@@ -25,12 +25,26 @@
     '';
   };
 
-  # Present Codex as an npm-managed provider to T3 Code while keeping the
-  # mutable npm installation isolated from the declarative system profile.
+  t3codeOpencode = pkgs.writeShellApplication {
+    name = "opencode";
+    text = ''
+      user_opencode="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/npm/bin/opencode"
+      if [[ -x "$user_opencode" ]]; then
+        exec "$user_opencode" "$@"
+      fi
+
+      exec ${lib.getExe pkgs.opencode} "$@"
+    '';
+  };
+
+  # Present Codex and OpenCode as npm-managed providers to T3 Code while
+  # keeping the mutable npm installation isolated from the declarative system
+  # profile.
   t3codeProviderTools = pkgs.runCommand "t3code-provider-tools" {} ''
     mkdir -p "$out/bin" "$out/lib/node_modules/.bin"
     ln -s ${lib.getExe t3codeNpm} "$out/bin/npm"
     ln -s ${lib.getExe t3codeCodex} "$out/lib/node_modules/.bin/codex"
+    ln -s ${lib.getExe t3codeOpencode} "$out/lib/node_modules/.bin/opencode"
   '';
 
   providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";

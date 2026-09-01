@@ -29,6 +29,21 @@
       '';
   });
 in {
+  security.sudo = {
+    enable = true;
+    extraRules = [
+      {
+        users = ["grajpap"];
+        commands = [
+          {
+            command = "/run/current-system/sw/bin/nixos-rebuild";
+            options = ["NOPASSWD" "SETENV"];
+          }
+        ];
+      }
+    ];
+  };
+
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       var allowedActions = [

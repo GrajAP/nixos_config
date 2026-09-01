@@ -41,7 +41,6 @@ in {
     nmap
     nodejs
     onefetch
-    opencode
     poppler-utils
     python3
     qrencode
