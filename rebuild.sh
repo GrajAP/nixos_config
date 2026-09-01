@@ -72,7 +72,7 @@ esac
 
 git add -A
 nix flake check --log-format internal-json -v 2>&1 | nom --json
-nh os switch --diff never
+sudo nixos-rebuild switch --flake "$repo"
 
 profile_system="$(readlink -f /nix/var/nix/profiles/system)"
 live_system="$(readlink -f /run/current-system)"
