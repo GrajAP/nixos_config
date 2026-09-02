@@ -18,6 +18,7 @@ in {
       antigravity
       t3code.desktop
       t3code.notify
+      opencode
       (pkgs.writeShellApplication {
         name = "install-js-clis";
         runtimeInputs = [pkgs.bun];
