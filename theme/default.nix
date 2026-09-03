@@ -15,6 +15,11 @@ in {
     image = wall;
 
     targets.kmscon.enable = false;
+    # We use tuigreet via greetd, not regreet. Disabling also avoids
+    # stylix setting the obsolete programs.regreet options (nixpkgs
+    # renamed them to services.displayManager.regreet), which prints
+    # a trace on every flake check.
+    targets.regreet.enable = false;
 
     opacity = {
       applications = 1.0;

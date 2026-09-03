@@ -49,6 +49,15 @@ if [[ "$check_only" == true ]]; then
   exit 0
 fi
 
+# nixos-rebuild switch needs root. setuid escalation (sudo) cannot work
+# when the NoNewPrivs flag is set (agent sandboxes, containers), so fail
+# fast here instead of running checks and then dying at the sudo prompt.
+if ((EUID != 0)) && grep -q '^NoNewPrivs:[[:space:]]*1[[:space:]]*$' /proc/self/status 2>/dev/null; then
+  printf 'Cannot escalate privileges from this shell (NoNewPrivs is set); sudo will not work here.\n' >&2
+  printf 'Run ./rebuild.sh --check here if needed, then run ./rebuild.sh from a login terminal to switch.\n' >&2
+  exit 1
+fi
+
 branch="$(git symbolic-ref --quiet --short HEAD)" || {
   printf 'Git commit skipped: detached HEAD\n' >&2
   exit 1
@@ -72,7 +81,11 @@ esac
 
 git add -A
 nix flake check --log-format internal-json -v 2>&1 | nom --json
-sudo nixos-rebuild switch --flake "$repo"
+if ((EUID == 0)); then
+  nixos-rebuild switch --flake "$repo"
+else
+  sudo nixos-rebuild switch --flake "$repo"
+fi
 
 profile_system="$(readlink -f /nix/var/nix/profiles/system)"
 live_system="$(readlink -f /run/current-system)"

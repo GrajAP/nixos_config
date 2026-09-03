@@ -5,132 +5,346 @@
 }: {
   wayland.windowManager.hyprland = {
     enable = true;
-    configType = "hyprlang";
+    configType = "lua";
     settings = {
-      exec-once =
-        [
-          "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-          "systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
-          "brightnessctl set 100%"
-        ]
-        ++ lib.optional config.programs.foot.server.enable "foot --server";
+      on = {
+        _args = [
+          "hyprland.start"
+          (lib.generators.mkLuaInline (
+            ''
+              function()
+            ''
+            + lib.optionalString config.programs.foot.server.enable ''
+              hl.exec_cmd("foot --server")
+            ''
+            + ''
+                hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+                hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+                hl.exec_cmd("brightnessctl set 100%")
+              end
+            ''
+          ))
+        ];
+      };
       env = [
-        "XCURSOR_THEME,catppuccin-mocha-blue-cursors"
-        "XCURSOR_SIZE,24"
-        "HYPRCURSOR_THEME,catppuccin-mocha-blue-cursors"
-        "HYPRCURSOR_SIZE,24"
-      ];
-      gestures.workspace_swipe_forever = true;
-
-      xwayland.force_zero_scaling = true;
-
-      general = {
-        gaps_in = 3;
-        gaps_out = 3;
-        border_size = 2;
-        layout = "scrolling";
-      };
-
-      decoration = {
-        rounding = 12;
-        blur = {
-          enabled = true;
-          size = 3;
-          passes = 3;
-          ignore_opacity = false;
-          new_optimizations = true;
-          xray = true;
-          contrast = 0.78;
-          brightness = 0.86;
-        };
-      };
-      input = {
-        kb_layout = "pl";
-      };
-
-      plugin = [
         {
-          settings = {
-            mode_modifier = "row";
-            scroll_amount = 1;
-            scroll_wrap = true;
-            focus_follows_scroll = true;
-            scroll_speed = 0.1;
-          };
+          _args = [
+            "XCURSOR_THEME"
+            "catppuccin-mocha-blue-cursors"
+          ];
+        }
+        {
+          _args = [
+            "XCURSOR_SIZE"
+            "24"
+          ];
+        }
+        {
+          _args = [
+            "HYPRCURSOR_THEME"
+            "catppuccin-mocha-blue-cursors"
+          ];
+        }
+        {
+          _args = [
+            "HYPRCURSOR_SIZE"
+            "24"
+          ];
         }
       ];
 
-      cursor = {
-        zoom_rigid = false;
+      config = {
+        gestures.workspace_swipe_forever = true;
+
+        xwayland.force_zero_scaling = true;
+
+        general = {
+          gaps_in = 3;
+          gaps_out = 3;
+          border_size = 2;
+          layout = "scrolling";
+        };
+
+        decoration = {
+          rounding = 12;
+          blur = {
+            enabled = true;
+            size = 3;
+            passes = 3;
+            ignore_opacity = false;
+            new_optimizations = true;
+            xray = true;
+            contrast = 0.78;
+            brightness = 0.86;
+          };
+        };
+        input = {
+          kb_layout = "pl";
+        };
+
+        cursor = {
+          zoom_rigid = false;
+        };
+
+        misc = {
+          disable_splash_rendering = true;
+          force_default_wallpaper = 0;
+          disable_hyprland_logo = true;
+          mouse_move_enables_dpms = true;
+          key_press_enables_dpms = true;
+          disable_autoreload = true;
+        };
+
+        animations.enabled = true;
       };
 
-      misc = {
-        disable_splash_rendering = true;
-        force_default_wallpaper = 0;
-        disable_hyprland_logo = true;
-        mouse_move_enables_dpms = true;
-        key_press_enables_dpms = true;
-        disable_autoreload = true;
-      };
-
-      animations = {
-        enabled = true;
-        bezier = [
-          "nativeOut,0.16,1,0.3,1"
-          "nativeIn,0.32,0,0.67,0"
-          "nativePanel,0.22,1,0.36,1"
-          "softOvershoot,0.34,1.18,0.64,1"
-        ];
-        animation = [
-          "windows,1,4,nativePanel,popin 88%"
-          "windowsOut,1,3,nativeIn,popin 92%"
-          "border,1,8,nativeOut"
-          "fade,1,7,nativeOut"
-          "fadeDim,1,7,nativeOut"
-          "workspaces,1,4,nativePanel,slidevert"
-          "specialWorkspace,1,4,softOvershoot,slidevert"
-        ];
-      };
-
-      workspace = [
-        "1, monitor:DP-1, default:true"
-        "2, monitor:DP-1"
-        "3, monitor:DP-1"
-        "4, monitor:DP-1"
-        "5, monitor:DP-1"
-        "m[DP-2], layoutopt:direction:down"
-        "m[HDMI-A-1], layoutopt:direction:down"
-        "m[DP-1], layoutopt:direction:right"
+      curve = [
+        {
+          _args = [
+            "nativeOut"
+            {
+              type = "bezier";
+              points = [
+                [
+                  0.16
+                  1
+                ]
+                [
+                  0.3
+                  1
+                ]
+              ];
+            }
+          ];
+        }
+        {
+          _args = [
+            "nativeIn"
+            {
+              type = "bezier";
+              points = [
+                [
+                  0.32
+                  0
+                ]
+                [
+                  0.67
+                  0
+                ]
+              ];
+            }
+          ];
+        }
+        {
+          _args = [
+            "nativePanel"
+            {
+              type = "bezier";
+              points = [
+                [
+                  0.22
+                  1
+                ]
+                [
+                  0.36
+                  1
+                ]
+              ];
+            }
+          ];
+        }
+        {
+          _args = [
+            "softOvershoot"
+            {
+              type = "bezier";
+              points = [
+                [
+                  0.34
+                  1.18
+                ]
+                [
+                  0.64
+                  1
+                ]
+              ];
+            }
+          ];
+        }
       ];
-      windowgroup = [
-        "social,class:signal"
-        "social,class:Ferdium"
-        "tools,class:Spotify"
-        "tools,class:spotify"
-        "tools,class:obsidian"
-        "tools,class:Obsidian"
+
+      animation = [
+        {
+          leaf = "windows";
+          enabled = true;
+          speed = 4;
+          bezier = "nativePanel";
+          style = "popin 88%";
+        }
+        {
+          leaf = "windowsOut";
+          enabled = true;
+          speed = 3;
+          bezier = "nativeIn";
+          style = "popin 92%";
+        }
+        {
+          leaf = "border";
+          enabled = true;
+          speed = 8;
+          bezier = "nativeOut";
+        }
+        {
+          leaf = "fade";
+          enabled = true;
+          speed = 7;
+          bezier = "nativeOut";
+        }
+        {
+          leaf = "fadeDim";
+          enabled = true;
+          speed = 7;
+          bezier = "nativeOut";
+        }
+        {
+          leaf = "workspaces";
+          enabled = true;
+          speed = 4;
+          bezier = "nativePanel";
+          style = "slidevert";
+        }
+        {
+          leaf = "specialWorkspace";
+          enabled = true;
+          speed = 4;
+          bezier = "softOvershoot";
+          style = "slidevert";
+        }
       ];
-      windowrule = [
-        "workspace special:social,match:class signal"
-        "workspace special:social,match:class Ferdium"
-        "workspace 1,match:class t3code"
-        "workspace 2,match:class helium"
-        "workspace special:obs,match:class obs"
-        "workspace special:obs,match:class OBS"
-        "workspace special:obs,match:class com.obsproject.Studio"
-        "workspace special:tools,match:class Spotify"
-        "workspace special:tools,match:class spotify"
-        "workspace special:tools,match:class obsidian"
-        "workspace special:tools,match:class Obsidian"
-        "fullscreen 1,match:class guitarix"
-        "fullscreen 1,match:class Guitarix"
-        "no_blur 1,match:title ^deadlocked_overlay$"
+
+      workspace_rule = [
+        {
+          workspace = "1";
+          monitor = "DP-1";
+          default = true;
+        }
+        {
+          workspace = "2";
+          monitor = "DP-1";
+        }
+        {
+          workspace = "3";
+          monitor = "DP-1";
+        }
+        {
+          workspace = "4";
+          monitor = "DP-1";
+        }
+        {
+          workspace = "5";
+          monitor = "DP-1";
+        }
+        {
+          workspace = "m[DP-2]";
+          layout_opts = {
+            direction = "down";
+          };
+        }
+        {
+          workspace = "m[HDMI-A-1]";
+          layout_opts = {
+            direction = "down";
+          };
+        }
+        {
+          workspace = "m[DP-1]";
+          layout_opts = {
+            direction = "right";
+          };
+        }
+      ];
+      window_rule = [
+        {
+          match.class = "signal";
+          workspace = "special:social";
+        }
+        {
+          match.class = "Ferdium";
+          workspace = "special:social";
+        }
+        {
+          match.class = "t3code";
+          workspace = "1";
+        }
+        {
+          match.class = "helium";
+          workspace = "2";
+        }
+        {
+          match.class = "obs";
+          workspace = "special:obs";
+        }
+        {
+          match.class = "OBS";
+          workspace = "special:obs";
+        }
+        {
+          match.class = "com.obsproject.Studio";
+          workspace = "special:obs";
+        }
+        {
+          match.class = "Spotify";
+          workspace = "special:tools";
+        }
+        {
+          match.class = "spotify";
+          workspace = "special:tools";
+        }
+        {
+          match.class = "obsidian";
+          workspace = "special:tools";
+        }
+        {
+          match.class = "Obsidian";
+          workspace = "special:tools";
+        }
+        {
+          match.class = "guitarix";
+          fullscreen = true;
+        }
+        {
+          match.class = "Guitarix";
+          fullscreen = true;
+        }
+        {
+          match.title = "^deadlocked_overlay$";
+          no_blur = true;
+        }
       ];
       # Monitor config for dual displays
       monitor = [
-        "DP-1,2560x1440@144,0x0,1"
-        "DP-2,2560x1440@144,-1440x0,1,transform,1"
-        "DP-2,addreserved,0,955,0,0"
+        {
+          output = "DP-1";
+          mode = "2560x1440@144";
+          position = "0x0";
+          scale = 1;
+        }
+        {
+          output = "DP-2";
+          mode = "2560x1440@144";
+          position = "-1440x0";
+          scale = 1;
+          transform = 1;
+        }
+        {
+          output = "DP-2";
+          reserved = {
+            top = 0;
+            bottom = 955;
+            left = 0;
+            right = 0;
+          };
+        }
       ];
     };
   };
