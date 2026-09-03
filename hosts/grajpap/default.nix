@@ -46,15 +46,7 @@ in {
     acpi
     powertop
     libnotify
-    (teamviewer.overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [makeWrapper];
-      postFixup =
-        (old.postFixup or "")
-        + ''
-          wrapProgram $out/bin/teamviewer --set QT_QPA_PLATFORM xcb
-          wrapProgram $out/share/teamviewer/tv_bin/script/teamviewer --set QT_QPA_PLATFORM xcb
-        '';
-    }))
+    teamviewer
   ];
 
   systemd.services.kanata-cs2-guard = {
