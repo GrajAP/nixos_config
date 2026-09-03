@@ -85,8 +85,8 @@
       (binding "bindl" "Media" ", XF86AudioPrev" "exec, playerctl previous" "Previous track")
       (binding "bindl" "Media" ", XF86AudioNext" "exec, playerctl next" "Next track")
 
-      (binding "bind" "Zoom" "${modshift}, mouse_down" "exec, hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.5')" "Zoom in")
-      (binding "bind" "Zoom" "${modshift}, mouse_up" "exec, hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.5) | if . < 1 then 1 else . end')" "Zoom out")
+      (binding "bind" "Zoom" "${modshift}, mouse_down" "exec, hyprctl eval \"hl.config({ cursor = { zoom_factor = $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.5') } })\"" "Zoom in")
+      (binding "bind" "Zoom" "${modshift}, mouse_up" "exec, hyprctl eval \"hl.config({ cursor = { zoom_factor = $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.5) | if . < 1 then 1 else . end') } })\"" "Zoom out")
     ]
     ++ workspaces;
 

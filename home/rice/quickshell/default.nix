@@ -181,10 +181,10 @@
       if [[ -z "$visible_monitor" ]]; then
         toggle-special-workspace tools
       else
-        hyprctl dispatch focusmonitor "$visible_monitor" >/dev/null
+        hyprctl dispatch "hl.dsp.focus({ monitor = '$visible_monitor' })" >/dev/null
       fi
 
-      hyprctl dispatch focuswindow 'class:^(Spotify|spotify)$' >/dev/null
+      hyprctl dispatch "hl.dsp.focus({ window = 'class:^(Spotify|spotify)$' })" >/dev/null
     '';
   };
   quickshellIpc = pkgs.writeShellApplication {

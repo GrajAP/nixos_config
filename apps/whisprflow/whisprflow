@@ -215,7 +215,7 @@ PY
 refocus_window() {
   local address="$1"
   [[ -z "$address" ]] && return 0
-  hyprctl dispatch focuswindow "address:${address}" >/dev/null 2>&1 || true
+  hyprctl dispatch "hl.dsp.focus({ window = 'address:${address}' })" >/dev/null 2>&1 || true
 }
 
 review_text_popup() {

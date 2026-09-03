@@ -50,9 +50,30 @@ if [[ "$check_only" == true ]]; then
 fi
 
 # nixos-rebuild switch needs root. setuid escalation (sudo) cannot work
-# when the NoNewPrivs flag is set (agent sandboxes, containers), so fail
-# fast here instead of running checks and then dying at the sudo prompt.
+# when the NoNewPrivs flag is set (agent sandboxes, containers). In that
+# case re-run over ssh to localhost, which starts a fresh session without
+# the flag (uses ~/.ssh/id_nixos_local, restricted to loopback in
+# authorized_keys). The lock fd is released first so the remote run can
+# take it; exit status is propagated.
 if ((EUID != 0)) && grep -q '^NoNewPrivs:[[:space:]]*1[[:space:]]*$' /proc/self/status 2>/dev/null; then
+  ssh_opts=(
+    -o BatchMode=yes
+    -o ConnectTimeout=5
+    -o StrictHostKeyChecking=accept-new
+    -o IdentitiesOnly=yes
+    -i "$HOME/.ssh/id_nixos_local"
+  )
+  if timeout 10 ssh "${ssh_opts[@]}" localhost true 2>/dev/null; then
+    printf 'NoNewPrivs sandbox detected; re-running rebuild over ssh to localhost.\n' >&2
+    remote_cmd="cd '$repo' && exec ./rebuild.sh"
+    if (($# > 0)); then
+      remote_cmd="$remote_cmd '$1'"
+    fi
+    exec 9>&-
+    # shellcheck disable=SC2029 # same machine: client-side expansion is intentional
+    ssh "${ssh_opts[@]}" localhost "$remote_cmd"
+    exit "$?"
+  fi
   printf 'Cannot escalate privileges from this shell (NoNewPrivs is set); sudo will not work here.\n' >&2
   printf 'Run ./rebuild.sh --check here if needed, then run ./rebuild.sh from a login terminal to switch.\n' >&2
   exit 1

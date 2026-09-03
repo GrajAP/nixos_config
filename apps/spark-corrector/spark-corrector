@@ -123,14 +123,14 @@ capture_active_window() {
 refocus_window() {
   local address="$1"
   [[ -z "$address" ]] && return 0
-  hyprctl dispatch focuswindow "address:$address" >/dev/null 2>&1 || true
+  hyprctl dispatch "hl.dsp.focus({ window = 'address:$address' })" >/dev/null 2>&1 || true
 }
 
 send_copy_shortcut() {
   local window_address="$1"
 
   if [[ -n "$window_address" ]] \
-    && hyprctl dispatch sendshortcut "CTRL, C, address:$window_address" >/dev/null 2>&1; then
+    && hyprctl dispatch "hl.dsp.send_shortcut({ mods = 'CTRL', key = 'C', window = 'address:$window_address' })" >/dev/null 2>&1; then
     return 0
   fi
 
@@ -151,7 +151,7 @@ send_paste_shortcut() {
   local window_address="$1"
 
   if [[ -n "$window_address" ]] \
-    && hyprctl dispatch sendshortcut "CTRL, V, address:$window_address" >/dev/null 2>&1; then
+    && hyprctl dispatch "hl.dsp.send_shortcut({ mods = 'CTRL', key = 'V', window = 'address:$window_address' })" >/dev/null 2>&1; then
     return 0
   fi
 
