@@ -68,7 +68,9 @@
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
       for program in "$out"/bin/*; do
-        wrapProgram "$program" --prefix PATH : "${providerPath}"
+        wrapProgram "$program" --prefix PATH : "${providerPath}" \
+          --set SSL_CERT_FILE "/etc/ssl/certs/ca-certificates.crt" \
+          --set SSL_CERT_DIR "/etc/ssl/certs"
       done
     '';
   };
@@ -210,6 +212,8 @@
         echo "Could not refresh T3 Code; using the newest installed version" >&2
       fi
 
+      export SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+      export SSL_CERT_DIR="/etc/ssl/certs"
       export PATH="${providerPath}:$PATH"
       if [[ -x "$app" ]]; then
         export APPIMAGE="$app"
