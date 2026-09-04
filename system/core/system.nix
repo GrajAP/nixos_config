@@ -34,12 +34,18 @@ in {
     extraRules = [
       {
         users = ["grajpap"];
-        commands = [
-          {
-            command = "ALL";
+        commands =
+          map (cmd: {
+            command = cmd;
             options = ["NOPASSWD" "SETENV"];
-          }
-        ];
+          }) [
+            "/run/current-system/sw/bin/nixos-rebuild"
+            "/run/current-system/sw/bin/nix"
+            "/run/current-system/sw/bin/systemctl"
+            "/run/current-system/sw/bin/shutdown"
+            "/run/current-system/sw/bin/nh"
+            "/nix/var/nix/profiles/system/bin/switch-to-configuration"
+          ];
       }
     ];
   };
@@ -67,6 +73,7 @@ in {
         "collect-system-health.service",
         "restic-backups-nextcloud.service",
         "restic-backups-nextcloud-storage.service",
+        "restic-backups-nextcloud-ssd2-core.service",
         "restic-nextcloud-restore-test.service",
         "nix-gc.service",
         "ssd2-vdo-provision.service"

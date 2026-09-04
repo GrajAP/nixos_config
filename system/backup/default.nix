@@ -11,6 +11,7 @@
   storageBackupStamp = "${backupState}/storage-backup.last-success";
   restoreStamp = "${backupState}/restore-test.last-success";
   coreRepository = "/mnt/HDD/Backups/restic/grajpap-nextcloud-core";
+  ssd2CoreRepository = "/mnt/SSD2/Backups/restic/grajpap-nextcloud-core";
   storageRepository = "/mnt/HDD/Backups/restic/grajpap-nextcloud";
   retention = [
     "--keep-daily 7"
@@ -66,6 +67,7 @@ in {
         requiredBy = [
           "restic-backups-nextcloud.service"
           "restic-backups-nextcloud-storage.service"
+          "restic-backups-nextcloud-ssd2-core.service"
         ];
         serviceConfig = {
           Type = "oneshot";
@@ -102,6 +104,11 @@ in {
         serviceConfig.ExecStopPost = lib.mkAfter [
           "+${lib.getExe recordStorageBackupSuccess}"
         ];
+      };
+      restic-backups-nextcloud-ssd2-core = {
+        restartIfChanged = lib.mkForce true;
+        after = ["mnt-SSD2.mount" "ssd2-vdo-provision.service"];
+        requires = ["mnt-SSD2.mount"];
       };
       restic-nextcloud-restore-test = {
         description = "Quarterly restore test for the Nextcloud backup";
@@ -211,6 +218,29 @@ in {
       inhibitsSleep = true;
       paths = ["/mnt/Storage"];
       timerConfig = {
+        OnCalendar = "*-*-* 04:15:00";
+        Persistent = true;
+        RandomizedDelaySec = "20min";
+      };
+      pruneOpts = retention;
+      checkOpts = ["--read-data-subset=1%"];
+    };
+    nextcloud-ssd2-core = {
+      repository = ssd2CoreRepository;
+      inherit passwordFile;
+      initialize = true;
+      inhibitsSleep = true;
+      paths = [
+        "/var/lib/nextcloud"
+        stagingDir
+        "/home/grajpap/.config/quickshell/nextcloud-app-password"
+      ];
+      exclude = [
+        "/var/lib/nextcloud/data/*/cache"
+        "/var/lib/nextcloud/data/appdata_*/preview"
+      ];
+      timerConfig = {
+        # Run 1 hour after the primary HDD backup to avoid I/O contention.
         OnCalendar = "*-*-* 04:15:00";
         Persistent = true;
         RandomizedDelaySec = "20min";

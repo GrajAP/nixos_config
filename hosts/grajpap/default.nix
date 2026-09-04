@@ -46,6 +46,9 @@ in {
     acpi
     powertop
     libnotify
+    corectrl
+    gamemode
+    mangohud
     (teamviewer.overrideAttrs (old: {
       nativeBuildInputs = (old.nativeBuildInputs or []) ++ [makeWrapper];
       postFixup =
@@ -158,13 +161,9 @@ in {
         libvdpau-va-gl
         mesa.opencl
         ocl-icd
-        corectrl
-        gamemode
-        mangohud
       ];
       extraPackages32 = with pkgs.pkgsi686Linux; [
         libvdpau-va-gl
-        mangohud
       ];
     };
   };
