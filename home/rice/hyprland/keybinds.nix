@@ -90,7 +90,87 @@
     ]
     ++ workspaces;
 
-  toHyprland = entry: "${entry.combo}, ${entry.dispatcher}";
+  luaCombo = combo: let
+    parts = lib.splitString ", " combo;
+    key = lib.last parts;
+    modList = lib.filter (m: m != "") (
+      lib.splitString " " (lib.concatStringsSep " " (lib.init parts))
+    );
+    luaMods = map (m:
+      if m == "Control_L"
+      then "CTRL"
+      else m)
+    modList;
+    prefix = lib.concatStringsSep " + " luaMods;
+  in
+    if prefix == ""
+    then key
+    else "${prefix} + ${key}";
+  luaEscape = lib.replaceStrings ["\\" "\""] ["\\\\" "\\\""];
+  toLuaDispatcher = dispatcher: let
+    parts = lib.splitString ", " dispatcher;
+    name = lib.head parts;
+    arg = lib.concatStringsSep ", " (lib.tail parts);
+    dirMap = {
+      l = "left";
+      d = "down";
+      u = "up";
+      r = "right";
+    };
+  in
+    if name == "exec"
+    then ''hl.dsp.exec_cmd("${luaEscape arg}")''
+    else if name == "global"
+    then ''hl.dsp.global("${arg}")''
+    else if name == "killactive"
+    then "hl.dsp.window.close()"
+    else if name == "togglefloating"
+    then ''hl.dsp.window.float({ action = "toggle" })''
+    else if name == "fullscreen"
+    then ''hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" })''
+    else if name == "movewindow"
+    then
+      if arg == ""
+      then "hl.dsp.window.drag()"
+      else ''hl.dsp.window.move({ direction = "${arg}" })''
+    else if name == "resizewindow"
+    then "hl.dsp.window.resize()"
+    else if name == "movetoworkspace"
+    then ''hl.dsp.window.move({ workspace = ${
+        if lib.hasPrefix "+" arg
+        then ''"${arg}"''
+        else arg
+      } })''
+    else if name == "movefocus"
+    then ''hl.dsp.focus({ direction = "${dirMap.${arg}}" })''
+    else if name == "resizeactive"
+    then let
+      xy = lib.splitString " " arg;
+    in ''hl.dsp.window.resize({ x = ${lib.head xy}, y = ${lib.elemAt xy 1}, relative = true })''
+    else if name == "workspace"
+    then ''hl.dsp.focus({ workspace = ${arg} })''
+    else throw "keybinds.nix: unknown Hyprland dispatcher '${name}'";
+  toLuaBind = entry: let
+    opts =
+      if entry.mode == "bindm"
+      then {mouse = true;}
+      else if entry.mode == "bindr"
+      then {release = true;}
+      else if entry.mode == "binde"
+      then {repeating = true;}
+      else if entry.mode == "bindl"
+      then {locked = true;}
+      else if entry.mode == "bind"
+      then {}
+      else throw "keybinds.nix: unknown bind mode '${entry.mode}'";
+  in {
+    _args =
+      [
+        (luaCombo entry.combo)
+        (lib.generators.mkLuaInline (toLuaDispatcher entry.dispatcher))
+      ]
+      ++ lib.optional (opts != {}) opts;
+  };
   helpEntry = entry: {
     inherit (entry) category description;
     combo =
@@ -101,10 +181,8 @@
   };
 in {
   inherit entries;
-  bind = map toHyprland (builtins.filter (entry: entry.mode == "bind") entries);
-  bindm = map toHyprland (builtins.filter (entry: entry.mode == "bindm") entries);
-  bindr = map toHyprland (builtins.filter (entry: entry.mode == "bindr") entries);
-  binde = map toHyprland (builtins.filter (entry: entry.mode == "binde") entries);
-  bindl = map toHyprland (builtins.filter (entry: entry.mode == "bindl") entries);
+  # Lua binds for wayland.windowManager.hyprland.settings (configType = "lua").
+  # Every mode lands in `bind`; the mode is encoded in bind opts.
+  bind = map toLuaBind entries;
   help = map helpEntry entries;
 }

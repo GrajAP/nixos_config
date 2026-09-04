@@ -701,6 +701,12 @@ ShellRoot {
     const workspace = root.workspaceEntryById(workspaceId);
     return workspace && workspace.name ? String(workspace.name) : String(workspaceId);
   }
+  // In lua mode `hyprctl dispatch` evaluates its argument as a Lua
+  // expression, so legacy "workspace N" syntax fails. Emit a typed call.
+  function luaWorkspaceRef(name) {
+    const text = String(name);
+    return (/^-?\d+$/.test(text) ? text : "\"" + text + "\"");
+  }
   function workspaceIsSpecial(workspaceId) {
     return root.workspaceDispatchName(workspaceId).indexOf("special:") === 0;
   }
@@ -714,7 +720,7 @@ ShellRoot {
     if (root.workspaceIsSpecial(workspaceId))
       Quickshell.execDetached(["toggle-special-workspace", root.specialWorkspaceName(workspaceId)]);
     else
-      Hyprland.dispatch("workspace " + root.workspaceDispatchName(workspaceId));
+      Hyprland.dispatch("hl.dsp.focus({ workspace = " + root.luaWorkspaceRef(root.workspaceDispatchName(workspaceId)) + " })");
   }
   function workspaceDisplayName(workspaceId) {
     const name = root.workspaceDispatchName(workspaceId);
@@ -746,7 +752,7 @@ ShellRoot {
       root.clearWorkspaceInteraction();
       return;
     }
-    Quickshell.execDetached(["hyprctl", "dispatch", "movetoworkspacesilent", root.workspaceDispatchName(workspaceId) + ",address:" + client.address]);
+    Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.window.move({ workspace = " + root.luaWorkspaceRef(root.workspaceDispatchName(workspaceId)) + ", follow = false, window = \"address:" + client.address + "\" })"]);
     if (root.workspaceIsSpecial(workspaceId))
       Quickshell.execDetached(["sync-special-workspaces-monitor"]);
     root.clearWorkspaceInteraction();

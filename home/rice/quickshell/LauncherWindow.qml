@@ -97,7 +97,7 @@ PanelWindow {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                appList.currentIndex = index;
+                appList.currentIndex = appList.model.values.indexOf(appRow.modelData);
                 appRow.launch();
               }
             }

@@ -223,7 +223,7 @@
         if active_monitor DP-2; then
           break
         fi
-        hyprctl dispatch dpms on || true
+        hyprctl dispatch 'hl.dsp.dpms("on")' || true
         sleep 1
       done
 
@@ -280,11 +280,11 @@
       monitor="$(special-workspace-monitor)"
 
       for workspace in 6 7 8 9 10; do
-        hyprctl dispatch moveworkspacetomonitor "$workspace" "$monitor" >/dev/null 2>&1 || true
+        hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"$workspace\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
       done
 
       for workspace in social obs tools scratchpad; do
-        hyprctl dispatch moveworkspacetomonitor "special:$workspace" "$monitor" >/dev/null 2>&1 || true
+        hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:$workspace\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
       done
     '';
   };
@@ -394,8 +394,11 @@ in {
         for _ in $(seq 1 30); do
           if hyprctl clients -j | jq -e 'any(.[]; (.class | ascii_downcase) == "obsidian")' >/dev/null; then
             monitor="$(special-workspace-monitor)"
-            hyprctl dispatch movetoworkspacesilent 'special:tools,class:^(obsidian|Obsidian)$' >/dev/null 2>&1 || true
-            hyprctl dispatch moveworkspacetomonitor 'special:tools' "$monitor" >/dev/null 2>&1 || true
+            hyprctl clients -j | jq -r '.[] | select((.class | ascii_downcase) == "obsidian") | .address' | while read -r addr; do
+              [ -n "$addr" ] || continue
+              hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:tools\", follow = false, window = \"address:$addr\" })" >/dev/null 2>&1 || true
+            done
+            hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:tools\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
             exit 0
           fi
           sleep 1
@@ -435,11 +438,11 @@ in {
           current_monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')"
 
           if [ "''${current_monitor:-}" != "$monitor" ]; then
-            hyprctl dispatch focusmonitor "$monitor"
+            hyprctl dispatch "hl.dsp.focus({ monitor = \"$monitor\" })"
           fi
-          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
-          hyprctl dispatch togglespecialworkspace "$ws"
-          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
+          hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:$ws\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
+          hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$ws\")"
+          hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:$ws\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
         '';
       }
     )
@@ -456,8 +459,8 @@ in {
 
           ws="$1"
           monitor="$(special-workspace-monitor)"
-          hyprctl dispatch movetoworkspacesilent "special:$ws"
-          hyprctl dispatch moveworkspacetomonitor "special:$ws" "$monitor" >/dev/null 2>&1 || true
+          hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:$ws\", follow = false })"
+          hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:$ws\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
         '';
       }
     )
@@ -471,19 +474,22 @@ in {
           monitor="$(special-workspace-monitor)"
           current_monitor="$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name')"
           if [ "''${current_monitor:-}" != "$monitor" ]; then
-            hyprctl dispatch focusmonitor "$monitor"
+            hyprctl dispatch "hl.dsp.focus({ monitor = \"$monitor\" })"
           fi
 
           if hyprctl clients -j | jq -e 'any(.[]; (.class | ascii_downcase) == "obs" or .class == "com.obsproject.Studio")' >/dev/null; then
-            hyprctl dispatch movetoworkspacesilent "special:obs,class:^(obs|OBS|com\\.obsproject\\.Studio)$"
-            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-            hyprctl dispatch togglespecialworkspace obs
-            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
+            hyprctl clients -j | jq -r '.[] | select((.class | ascii_downcase) == "obs" or .class == "com.obsproject.Studio") | .address' | while read -r addr; do
+              [ -n "$addr" ] || continue
+              hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:obs\", follow = false, window = \"address:$addr\" })" >/dev/null 2>&1 || true
+            done
+            hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:obs\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
+            hyprctl dispatch "hl.dsp.workspace.toggle_special(\"obs\")"
+            hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:obs\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
           else
-            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-            hyprctl dispatch togglespecialworkspace obs
-            hyprctl dispatch moveworkspacetomonitor "special:obs" "$monitor" >/dev/null 2>&1 || true
-            hyprctl dispatch exec "obs"
+            hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:obs\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
+            hyprctl dispatch "hl.dsp.workspace.toggle_special(\"obs\")"
+            hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:obs\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
+            hyprctl dispatch 'hl.dsp.exec_cmd("obs")'
           fi
 
         '';
@@ -511,7 +517,7 @@ in {
         general = {
           lock_cmd = lib.getExe secureSessionLock;
           before_sleep_cmd = lib.getExe secureSessionLock;
-          after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
+          after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"on\")'";
           ignore_dbus_inhibit = false;
           ignore_systemd_inhibit = false;
         };
@@ -527,8 +533,8 @@ in {
           }
           {
             timeout = 330;
-            on-timeout = "${pkgs.hyprland}/bin/hyprctl dispatch dpms off";
-            on-resume = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on";
+            on-timeout = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"off\")'";
+            on-resume = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"on\")'";
           }
           {
             timeout = 1800;

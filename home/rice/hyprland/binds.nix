@@ -32,9 +32,5 @@
 in {
   wayland.windowManager.hyprland.settings = {
     inherit (keybinds) bind;
-    inherit (keybinds) bindm;
-    inherit (keybinds) bindr;
-    inherit (keybinds) binde;
-    inherit (keybinds) bindl;
   };
 }

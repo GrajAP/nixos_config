@@ -181,10 +181,13 @@
       if [[ -z "$visible_monitor" ]]; then
         toggle-special-workspace tools
       else
-        hyprctl dispatch focusmonitor "$visible_monitor" >/dev/null
+        hyprctl dispatch "hl.dsp.focus({ monitor = \"$visible_monitor\" })" >/dev/null
       fi
 
-      hyprctl dispatch focuswindow 'class:^(Spotify|spotify)$' >/dev/null
+      spotify_addr="$(hyprctl clients -j | jq -r '[.[] | select(.class == "Spotify" or .class == "spotify")][0].address // empty')"
+      if [[ -n "$spotify_addr" ]]; then
+        hyprctl dispatch "hl.dsp.focus({ window = \"address:$spotify_addr\" })" >/dev/null
+      fi
     '';
   };
   quickshellIpc = pkgs.writeShellApplication {
