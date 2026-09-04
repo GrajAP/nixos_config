@@ -501,10 +501,6 @@ in {
     };
   };
   xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
-  # Hyprland 0.56+ ships a lua config provider that looks for hyprland.lua on
-  # startup. We use the .conf format via home-manager, so place an empty file
-  # to silence the "cannot open" error.
-  xdg.configFile."hypr/hyprland.lua".text = "";
   services = {
     hypridle = {
       # Keep the idle policy available, but do not auto-lock or suspend while
