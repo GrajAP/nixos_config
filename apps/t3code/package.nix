@@ -68,7 +68,9 @@
             ++ [
               "--bind /etc/nixos /etc/nixos"
               "--ro-bind /etc/ssl /etc/ssl"
-              "--ro-bind /etc/static/ssl /etc/static/ssl"
+            ]
+            ++ pkgs.lib.optionals (builtins.pathExists /etc/static/ssl) [
+              "--ro-bind /etc/static /etc/static"
             ];
         });
   };
@@ -271,7 +273,7 @@
       set +e
 
       start_epoch="$(date +%s)"
-      t3code "$@"
+      t3 "$@"
       status="$?"
       end_epoch="$(date +%s)"
       elapsed="$((end_epoch - start_epoch))"
