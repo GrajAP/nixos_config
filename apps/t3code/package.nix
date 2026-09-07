@@ -49,6 +49,13 @@
 
   providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
 
+  # Antigravity ACP (Gemini backend) runs Python inside the AppImage FHS env.
+  # Without a CA bundle it fails with:
+  #   SSL: CERTIFICATE_VERIFY_FAILED / 502 Failed to connect to backend API.
+  # /nix is always visible inside the FHS container, so point Python/Node/curl
+  # at the Nix store bundle instead of relying on /etc/ssl being mounted.
+  certBundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
   # appimage-run normally hides host paths below /etc. T3 Code needs the
   # configured workspace to remain visible so provider processes can start in
   # the same directory selected by the desktop application.
@@ -58,7 +65,11 @@
         // {
           extraBwrapArgs =
             (args.extraBwrapArgs or [])
-            ++ ["--bind /etc/nixos /etc/nixos"];
+            ++ [
+              "--bind /etc/nixos /etc/nixos"
+              "--ro-bind /etc/ssl /etc/ssl"
+              "--ro-bind /etc/static/ssl /etc/static/ssl"
+            ];
         });
   };
 
@@ -68,7 +79,13 @@
     nativeBuildInputs = [pkgs.makeWrapper];
     postBuild = ''
       for program in "$out"/bin/*; do
-        wrapProgram "$program" --prefix PATH : "${providerPath}"
+        wrapProgram "$program" \
+          --prefix PATH : "${providerPath}" \
+          --set SSL_CERT_FILE "${certBundle}" \
+          --set NIX_SSL_CERT_FILE "${certBundle}" \
+          --set NODE_EXTRA_CA_CERTS "${certBundle}" \
+          --set REQUESTS_CA_BUNDLE "${certBundle}" \
+          --set CURL_CA_BUNDLE "${certBundle}"
       done
     '';
   };
@@ -197,12 +214,19 @@
   t3codeDesktopLatest = pkgs.writeShellApplication {
     name = "t3code-desktop-latest";
     runtimeInputs = with pkgs; [
+      cacert
       coreutils
       t3codeAppimageRun
       update
     ];
     text = ''
       set -euo pipefail
+
+      : "''${SSL_CERT_FILE:=${certBundle}}"
+      export SSL_CERT_FILE NIX_SSL_CERT_FILE="$SSL_CERT_FILE"
+      export NODE_EXTRA_CA_CERTS="$SSL_CERT_FILE"
+      export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
+      export CURL_CA_BUNDLE="$SSL_CERT_FILE"
 
       app="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop/T3-Code.AppImage"
 
