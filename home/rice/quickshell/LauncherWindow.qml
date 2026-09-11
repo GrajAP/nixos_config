@@ -23,6 +23,11 @@ PanelWindow {
     { prefix: "w", name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Special:Search?search=" },
     { prefix: "r", name: "Reddit", url: "https://www.reddit.com/search/?q=" }
   ]
+  readonly property var aiEngines: [
+    { prefix: "ai", name: "T3 Chat", url: "https://t3.chat/new?q=" },
+    { prefix: "gpt", name: "ChatGPT", url: "https://chatgpt.com/?q=" },
+    { prefix: "gem", name: "Gemini", url: "https://gemini.google.com/app?q=" }
+  ]
   readonly property var sysCommands: [
     { id: "lock", title: "Lock screen", subtitle: "Lock the session", glyph: "󰌾", danger: false, match: ["lock", "screen"] },
     { id: "suspend", title: "Suspend", subtitle: "Lock and sleep", glyph: "󰤄", danger: false, match: ["suspend", "sleep"] },
@@ -54,6 +59,14 @@ PanelWindow {
     return { engine: engine, query: m[2].trim() };
   }
 
+  function detectAiEngine(q) {
+    const m = q.match(/^([a-z]{2,3})\s+(.+)$/i);
+    if (!m) return null;
+    const engine = aiEngines.find(e => e.prefix === m[1].toLowerCase());
+    if (!engine || !m[2].trim()) return null;
+    return { engine: engine, query: m[2].trim() };
+  }
+
   function looksLikeUrl(q) {
     if (!q || /\s/.test(q)) return false;
     return /^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?(\/\S*)?$/i.test(q);
@@ -64,7 +77,7 @@ PanelWindow {
   }
 
   function matchingCommands(q) {
-    if (!q || isClipboardMode(q) || detectWebEngine(q)) return [];
+    if (!q || isClipboardMode(q) || detectWebEngine(q) || detectAiEngine(q)) return [];
     const l = q.toLowerCase();
     return sysCommands.filter(c =>
       c.match.some(k => k.startsWith(l) || (l.length > 1 && (l.startsWith(k) || k.includes(l) || l.includes(k))))
@@ -268,6 +281,11 @@ PanelWindow {
     const calc = tryCalculate(q);
     if (calc !== "") out.push({ kind: "calc", title: calc, subtitle: q, value: calc });
     matchingCommands(q).forEach(c => out.push({ kind: "cmd", title: c.title, subtitle: c.subtitle, cmd: c }));
+    const ai = detectAiEngine(q);
+    if (ai) {
+      out.push({ kind: "ai", title: ai.query, subtitle: "Ask " + ai.engine.name, url: ai.engine.url + encodeURIComponent(ai.query) });
+      return out;
+    }
     const web = detectWebEngine(q);
     if (web) {
       out.push({ kind: "web", title: web.query, subtitle: "Search " + web.engine.name, url: web.engine.url + encodeURIComponent(web.query) });
@@ -313,7 +331,7 @@ PanelWindow {
   function perform(item) {
     if (!item) return;
     if (item.kind === "calc") Quickshell.execDetached(["wl-copy", item.value]);
-    else if (item.kind === "web") Quickshell.execDetached(["xdg-open", item.url]);
+    else if (item.kind === "web" || item.kind === "ai") Quickshell.execDetached(["xdg-open", item.url]);
     else if (item.kind === "clip") shell.runClipboardAction("copy", item.entry);
     else if (item.kind === "cmd") runSysCommand(item.cmd.id);
     else if (item.kind === "app") launchApp(item.app);
@@ -337,6 +355,7 @@ PanelWindow {
   function badgeGlyph(item) {
     if (!item) return "";
     if (item.kind === "calc") return "=";
+    if (item.kind === "ai") return "AI";
     if (item.kind === "web") return "󰍉";
     if (item.kind === "clip") return "󰅇";
     if (item.kind === "cmd" && item.cmd) return item.cmd.glyph;
@@ -346,6 +365,7 @@ PanelWindow {
   function kindTag(item) {
     if (!item) return "";
     if (item.kind === "calc") return "calc";
+    if (item.kind === "ai") return "AI";
     if (item.kind === "web") return "web";
     if (item.kind === "cmd") return "cmd";
     if (item.kind === "clip") return "clip";
@@ -453,9 +473,9 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: launcher.badgeGlyph(appRow.modelData)
                 color: launcher.badgeFg(appRow.modelData)
-                font.family: appRow.modelData.kind === "calc" ? Theme.fontSans : Theme.font
-                font.pixelSize: appRow.modelData.kind === "calc" ? 17 : 15
-                font.bold: appRow.modelData.kind === "calc"
+                font.family: (appRow.modelData.kind === "calc" || appRow.modelData.kind === "ai") ? Theme.fontSans : Theme.font
+                font.pixelSize: appRow.modelData.kind === "calc" ? 17 : (appRow.modelData.kind === "ai" ? 11 : 15)
+                font.bold: appRow.modelData.kind === "calc" || appRow.modelData.kind === "ai"
               }
             }
             ColumnLayout {
@@ -483,7 +503,7 @@ PanelWindow {
         Layout.fillWidth: true
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: "= calculator   •   g / gh / yt / w search   •   cb clipboard   •   lock, reboot…"
+        text: "= calculator   •   g / gh / yt / w search   •   ai / gpt / gem ask AI   •   cb clipboard   •   lock, reboot…"
         color: Theme.muted; font.family: Theme.fontSans; font.pixelSize: 10
       }
     }
