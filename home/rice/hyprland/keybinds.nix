@@ -85,8 +85,8 @@
       (binding "bindl" "Media" ", XF86AudioPrev" "exec, playerctl previous" "Previous track")
       (binding "bindl" "Media" ", XF86AudioNext" "exec, playerctl next" "Next track")
 
-      (binding "bind" "Zoom" "${modshift}, mouse_down" "exec, hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.5')" "Zoom in")
-      (binding "bind" "Zoom" "${modshift}, mouse_up" "exec, hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float / 1.5) | if . < 1 then 1 else . end')" "Zoom out")
+      (binding "bind" "Zoom" "${modshift}, mouse_down" "zoom-in" "Zoom in")
+      (binding "bind" "Zoom" "${modshift}, mouse_up" "zoom-out" "Zoom out")
     ]
     ++ workspaces;
 
@@ -149,6 +149,10 @@
     in ''hl.dsp.window.resize({ x = ${lib.head xy}, y = ${lib.elemAt xy 1}, relative = true })''
     else if name == "workspace"
     then ''hl.dsp.focus({ workspace = ${arg} })''
+    else if name == "zoom-in"
+    then ''function() local f = tonumber(hl.get_config("cursor.zoom_factor")) or 1 if f < 1 then f = 1 end hl.config({ cursor = { zoom_factor = f * 1.5 } }) end''
+    else if name == "zoom-out"
+    then ''function() local f = tonumber(hl.get_config("cursor.zoom_factor")) or 1 f = f / 1.5 if f < 1 then f = 1 end hl.config({ cursor = { zoom_factor = f } }) end''
     else throw "keybinds.nix: unknown Hyprland dispatcher '${name}'";
   toLuaBind = entry: let
     opts =
