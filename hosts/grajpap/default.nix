@@ -53,9 +53,20 @@ in {
   ];
 
   systemd = {
-    # Heroic hardcodes /usr/bin/umu-run when launching Proton games
-    tmpfiles.rules = [
-      "L+ /usr/bin/umu-run - - - - ${pkgs.umu-launcher}/bin/umu-run"
+    # Heroic hardcodes SteamAppId=0 for non-Steam games, but EAC needs the
+    # real ID.  This wrapper extracts it from GAMEID=umu-<appid> before
+    # delegating to the real umu-run.
+    tmpfiles.rules = let
+      umuRunFix = pkgs.writeShellScript "umu-run" ''
+        if [[ "''${GAMEID:-}" =~ umu-([0-9]+) ]]; then
+          export SteamAppId="''${BASH_REMATCH[1]}"
+          export SteamGameId="''${BASH_REMATCH[1]}"
+          export STEAM_COMPAT_APP_ID="''${BASH_REMATCH[1]}"
+        fi
+        exec ${pkgs.umu-launcher}/bin/umu-run "$@"
+      '';
+    in [
+      "L+ /usr/bin/umu-run - - - - ${umuRunFix}"
     ];
 
     services.kanata-cs2-guard = {

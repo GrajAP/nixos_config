@@ -80,16 +80,21 @@ PanelWindow {
             color: ListView.isCurrentItem ? Theme.surfaceAlt : "transparent"
             scale: 1
             function launch() {
-              Quickshell.execDetached([
-                "@uwsm@",
-                "app",
-                "-t",
-                "service",
-                "-S",
-                "both",
-                "--",
-                modelData.id + ".desktop"
-              ]);
+              const id = (modelData.id || "").trim();
+              const isValidId = id.length > 0 && /^[a-zA-Z0-9_\-\.]+$/.test(id);
+              if (isValidId) {
+                const target = id.endsWith(".desktop") ? id : (id + ".desktop");
+                Quickshell.execDetached([
+                  "@uwsm@",
+                  "app",
+                  "-t",
+                  "scope",
+                  "--",
+                  target
+                ]);
+              } else {
+                modelData.execute();
+              }
               shell.launcherVisible = false;
               search.text = "";
             }
