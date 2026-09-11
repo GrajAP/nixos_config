@@ -85,8 +85,10 @@
     "net.ipv4.conf.all.send_redirects" = false;
     "net.ipv4.conf.default.send_redirects" = false;
 
-    # Restrict abritrary use of ptrace to the CAP_SYS_PTRACE capability.
-    "kernel.yama.ptrace_scope" = 2;
+    # Restrict arbitrary use of ptrace to descendants/children.
+    # Level 1 is standard and required for Wine/Proton, Easy Anti-Cheat (EAC),
+    # BattlEye, debuggers, and game launchers. Level 2 breaks EAC Wine module mapping.
+    "kernel.yama.ptrace_scope" = 1;
     "net.core.bpf_jit_enable" = false;
     "kernel.ftrace_enabled" = false;
   };

@@ -53,27 +53,6 @@ in {
   ];
 
   systemd = {
-    # Heroic hardcodes SteamAppId=0 for non-Steam games, but EAC needs the
-    # real ID.  This wrapper extracts it from GAMEID=umu-<appid> before
-    # delegating to the real umu-run.
-    tmpfiles.rules = let
-      umuRunFix = pkgs.writeShellScript "umu-run" ''
-        if [[ "''${GAMEID:-}" =~ umu-([0-9]+) ]]; then
-          export SteamAppId="''${BASH_REMATCH[1]}"
-          export SteamGameId="''${BASH_REMATCH[1]}"
-          export STEAM_COMPAT_APP_ID="''${BASH_REMATCH[1]}"
-        fi
-        # Point to the real Steam EAC runtime instead of the broken Heroic one
-        if [[ "''${PROTON_EAC_RUNTIME:-}" == *heroic* ]]; then
-          export PROTON_EAC_RUNTIME="/home/grajpap/.local/share/Steam/steamapps/common/Proton EasyAntiCheat Runtime"
-        fi
-        echo "$(date) - STEAMAPPID: $SteamAppId - EAC: $PROTON_EAC_RUNTIME" >> /tmp/umu-wrapper.log
-        exec ${pkgs.umu-launcher}/bin/umu-run "$@"
-      '';
-    in [
-      "C+ /usr/bin/umu-run - - - - ${umuRunFix}"
-    ];
-
     services.kanata-cs2-guard = {
       description = "Disable Kanata home-row mods while Counter-Strike 2 or Rocket League is running";
       wantedBy = ["multi-user.target"];

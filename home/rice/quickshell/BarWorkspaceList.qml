@@ -108,8 +108,16 @@ ColumnLayout {
               id: clientMouse
               anchors.fill: parent
               hoverEnabled: true
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
               cursorShape: pressed || clientBubble.draggingWorkspaceClient ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+              onClicked: mouse => {
+                if (mouse.button === Qt.RightButton) {
+                  Quickshell.execDetached(["hyprctl", "dispatch", "closewindow", "address:" + clientBubble.modelData.address]);
+                  return;
+                }
+              }
               onPressed: mouse => {
+                if (mouse.button !== Qt.LeftButton) return;
                 clientBubble.pressStackY = mapToItem(workspaceStack, mouse.x, mouse.y).y;
                 clientBubble.draggingWorkspaceClient = false;
                 shell.clearWorkspaceInteraction();
