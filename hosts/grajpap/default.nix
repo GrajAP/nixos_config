@@ -71,7 +71,7 @@ in {
         exec ${pkgs.umu-launcher}/bin/umu-run "$@"
       '';
     in [
-      "L+ /usr/bin/umu-run - - - - ${umuRunFix}"
+      "C+ /usr/bin/umu-run - - - - ${umuRunFix}"
     ];
 
     services.kanata-cs2-guard = {
