@@ -114,7 +114,8 @@ ColumnLayout {
               cursorShape: pressed || clientBubble.draggingWorkspaceClient ? Qt.ClosedHandCursor : Qt.PointingHandCursor
               onClicked: mouse => {
                 if (mouse.button === Qt.RightButton) {
-                  Quickshell.execDetached(["hyprctl", "dispatch", "closewindow", "address:" + clientBubble.modelData.address]);
+                  Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.window.close({ window = \"address:" + clientBubble.modelData.address + "\" })"]);
+                  mouse.accepted = true;
                   return;
                 }
               }
@@ -133,6 +134,7 @@ ColumnLayout {
                 shell.workspaceDragTarget = shell.workspaceIdAtY(point.y);
               }
               onReleased: mouse => {
+                if (mouse.button !== Qt.LeftButton) return;
                 const point = mapToItem(workspaceStack, mouse.x, mouse.y);
                 const target = shell.workspaceIdAtY(point.y);
                 if (clientBubble.draggingWorkspaceClient) {
