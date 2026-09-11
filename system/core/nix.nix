@@ -125,6 +125,10 @@
       options = "--delete-older-than 7d";
       randomizedDelaySec = "45min";
     };
+    optimise = {
+      automatic = true;
+      dates = ["weekly"];
+    };
     package = pkgs.lix;
 
     # pin the registry to avoid downloading and evaling a new nixpkgs version every time
@@ -143,18 +147,22 @@
     '';
     settings = {
       flake-registry = "/etc/nix/registry.json";
-      auto-optimise-store = true;
+      auto-optimise-store = false;
       # use binary cache, its not gentoo
       builders-use-substitutes = true;
       allowed-users = ["@wheel"];
       trusted-users = ["root"];
       sandbox = true;
       max-jobs = "auto";
+      cores = 6;
       # continue building derivations if one fails
       keep-going = true;
       # A temporary outage of an optional binary cache must not block rebuilds.
       fallback = true;
       log-lines = 40;
+      connect-timeout = 5;
+      http-connections = 50;
+      narinfo-cache-negative-ttl = 300;
       experimental-features = ["flakes" "nix-command"];
       # use binary cache, its not gentoo
       substituters = [
