@@ -67,6 +67,7 @@ in {
         if [[ "''${PROTON_EAC_RUNTIME:-}" == *heroic* ]]; then
           export PROTON_EAC_RUNTIME="/home/grajpap/.local/share/Steam/steamapps/common/Proton EasyAntiCheat Runtime"
         fi
+        echo "$(date) - STEAMAPPID: $SteamAppId - EAC: $PROTON_EAC_RUNTIME" >> /tmp/umu-wrapper.log
         exec ${pkgs.umu-launcher}/bin/umu-run "$@"
       '';
     in [
