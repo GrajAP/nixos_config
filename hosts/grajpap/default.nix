@@ -63,6 +63,10 @@ in {
           export SteamGameId="''${BASH_REMATCH[1]}"
           export STEAM_COMPAT_APP_ID="''${BASH_REMATCH[1]}"
         fi
+        # Unset the broken 2022 Heroic EAC runtime so umu-launcher uses Steam's
+        if [[ "''${PROTON_EAC_RUNTIME:-}" == *heroic* ]]; then
+          unset PROTON_EAC_RUNTIME
+        fi
         exec ${pkgs.umu-launcher}/bin/umu-run "$@"
       '';
     in [
