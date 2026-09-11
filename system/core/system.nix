@@ -136,7 +136,7 @@ in {
     uutils-coreutils-noprefix
     appimage-run
     starship
-    wine
+    wineWow64Packages.stable
     winetricks
     innoextract
   ];

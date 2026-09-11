@@ -49,29 +49,42 @@ in {
     corectrl
     gamemode
     mangohud
-    (teamviewer.overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [makeWrapper];
-      postFixup =
-        (old.postFixup or "")
-        + ''
-          wrapProgram $out/bin/teamviewer --set QT_QPA_PLATFORM xcb
-          wrapProgram $out/share/teamviewer/tv_bin/script/teamviewer --set QT_QPA_PLATFORM xcb
-        '';
-    }))
+    umu-launcher
   ];
 
-  systemd.services.kanata-cs2-guard = {
-    description = "Disable Kanata home-row mods while Counter-Strike 2 or Rocket League is running";
-    wantedBy = ["multi-user.target"];
-    after = ["kanata-internalKeyboard.service"];
-    serviceConfig = {
-      ExecStart = lib.getExe kanataCs2Guard;
-      Restart = "always";
-      RestartSec = 1;
-      RuntimeDirectory = "kanata-cs2-guard";
-      RuntimeDirectoryPreserve = "yes";
+  systemd = {
+    # Heroic hardcodes /usr/bin/umu-run when launching Proton games
+    tmpfiles.rules = [
+      "L+ /usr/bin/umu-run - - - - ${pkgs.umu-launcher}/bin/umu-run"
+    ];
+
+    services.kanata-cs2-guard = {
+      description = "Disable Kanata home-row mods while Counter-Strike 2 or Rocket League is running";
+      wantedBy = ["multi-user.target"];
+      after = ["kanata-internalKeyboard.service"];
+      serviceConfig = {
+        ExecStart = lib.getExe kanataCs2Guard;
+        Restart = "always";
+        RestartSec = 1;
+        RuntimeDirectory = "kanata-cs2-guard";
+        RuntimeDirectoryPreserve = "yes";
+      };
+    };
+
+    services.teamviewerd = {
+      serviceConfig = {
+        Restart = lib.mkForce "always";
+        RestartSec = 2;
+        ExecStartPost = "${pkgs.writeShellScript "fix-teamviewer-perms" ''
+          ${pkgs.coreutils}/bin/chmod 644 /var/lib/teamviewer/global.conf || true
+        ''}";
+      };
     };
   };
+
+  powerManagement.resumeCommands = ''
+    ${pkgs.systemd}/bin/systemctl try-restart teamviewerd.service
+  '';
 
   networking.hostName = "grajpap";
   # Keep the desktop responsive while avoiding unnecessarily aggressive boost
@@ -128,7 +141,18 @@ in {
     };
     fprintd.enable = true;
     xserver.videoDrivers = ["amdgpu"];
-    teamviewer.enable = true;
+    teamviewer = {
+      enable = true;
+      package = pkgs.teamviewer.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or []) ++ [pkgs.makeWrapper];
+        postFixup =
+          (old.postFixup or "")
+          + ''
+            wrapProgram $out/bin/teamviewer --set QT_QPA_PLATFORM xcb
+            wrapProgram $out/share/teamviewer/tv_bin/script/teamviewer --set QT_QPA_PLATFORM xcb
+          '';
+      });
+    };
   };
 
   boot = {

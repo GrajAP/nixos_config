@@ -1,14 +1,4 @@
-{pkgs, ...}: let
-  texlive = pkgs.texliveSmall.withPackages (ps: [
-    ps.scheme-small
-    ps.noto
-    ps.mweights
-    ps.cm-super
-    ps.cmbright
-    ps.fontaxes
-    ps.beamer
-  ]);
-in {
+{pkgs, ...}: {
   home.packages = with pkgs; [
     audacity
     bun
@@ -31,14 +21,11 @@ in {
     gprof2dot
     gping
     grex
-    hashcat
-    hcxdumptool
     hyperfine
     jq
     killall
     lsix
     neovim
-    nmap
     nodejs
     onefetch
     poppler-utils
@@ -48,7 +35,6 @@ in {
     rsync
     rustup
     tealdeer
-    texlive
     todo
     unzip
     valgrind

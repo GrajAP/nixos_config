@@ -9,7 +9,6 @@ in {
     packages = with pkgs; [
       electron
       postman
-      github-desktop
       libreoffice-fresh
       nextcloud-client
       rnote

@@ -288,18 +288,6 @@
       done
     '';
   };
-  suspendAtNight = pkgs.writeShellApplication {
-    name = "suspend-at-night";
-    runtimeInputs = with pkgs; [coreutils systemd];
-    text = ''
-      set -euo pipefail
-
-      hour="$(date +%H)"
-      if (( 10#$hour < 7 || 10#$hour >= 22 )); then
-        systemctl suspend
-      fi
-    '';
-  };
   secureSessionLock = pkgs.writeShellApplication {
     name = "secure-session-lock";
     runtimeInputs = with pkgs; [cliphist hyprlock procps wl-clipboard];
@@ -368,7 +356,6 @@ in {
     pngquant
     cliphist
     uair
-    hypridle
     autoShutdown
     clipboardHistoryStore
     secureSessionLock
@@ -508,41 +495,6 @@ in {
   };
   xdg.configFile."uwsm/env".source = "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh";
   services = {
-    hypridle = {
-      # Keep the idle policy available, but do not auto-lock or suspend while
-      # long-running AI agents may still be working unattended.
-      enable = false;
-      systemdTarget = "graphical-session.target";
-      settings = {
-        general = {
-          lock_cmd = lib.getExe secureSessionLock;
-          before_sleep_cmd = lib.getExe secureSessionLock;
-          after_sleep_cmd = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"on\")'";
-          ignore_dbus_inhibit = false;
-          ignore_systemd_inhibit = false;
-        };
-        listener = [
-          {
-            timeout = 150;
-            on-timeout = "${pkgs.brightnessctl}/bin/brightnessctl -s set 10";
-            on-resume = "${pkgs.brightnessctl}/bin/brightnessctl -r";
-          }
-          {
-            timeout = 300;
-            on-timeout = "${pkgs.systemd}/bin/loginctl lock-session";
-          }
-          {
-            timeout = 330;
-            on-timeout = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"off\")'";
-            on-resume = "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms(\"on\")'";
-          }
-          {
-            timeout = 1800;
-            on-timeout = lib.getExe suspendAtNight;
-          }
-        ];
-      };
-    };
     wlsunset = {
       enable = true;
       latitude = "52";

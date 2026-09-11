@@ -8,7 +8,6 @@
 in {
   imports = [
     ./media.nix
-    ./vscode.nix
     ./cursor.nix
     ./obsidian.nix
     ./stylus.nix
