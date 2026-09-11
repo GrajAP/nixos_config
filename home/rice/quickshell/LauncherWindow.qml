@@ -26,7 +26,7 @@ PanelWindow {
   readonly property var aiEngines: [
     { prefix: "ai", name: "T3 Chat", url: "https://t3.chat/new?q=" },
     { prefix: "gpt", name: "ChatGPT", url: "https://chatgpt.com/?q=" },
-    { prefix: "gem", name: "Gemini", url: "https://gemini.google.com/app?q=" }
+    { prefix: "gem", name: "Gemini", url: "https://www.google.com/search?udm=50&q=" }
   ]
   readonly property var sysCommands: [
     { id: "lock", title: "Lock screen", subtitle: "Lock the session", glyph: "󰌾", danger: false, match: ["lock", "screen"] },
