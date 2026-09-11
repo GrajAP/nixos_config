@@ -36,6 +36,18 @@
       if command -v t3code-notify >/dev/null 2>&1; then
         alias t3code=t3code-notify
       fi
+
+      sudo() {
+        if [[ -r /proc/self/status ]] && grep -q 'NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
+          if [[ -t 0 && -t 1 ]]; then
+            systemd-run --user --quiet --pty --same-dir --collect /run/wrappers/bin/sudo "$@"
+          else
+            systemd-run --user --quiet --pipe --same-dir --collect /run/wrappers/bin/sudo "$@"
+          fi
+        else
+          command sudo "$@"
+        fi
+      }
     '';
     plugins = [
       {

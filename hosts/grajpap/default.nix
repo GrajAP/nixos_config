@@ -12,7 +12,7 @@
       restart_marker="/run/kanata-cs2-guard/restart-kanata"
 
       game_running() {
-        pgrep -x 'cs2|cs2_linux64|cs2\.exe' >/dev/null
+        pgrep -x -i 'cs2|cs2_linux64|cs2\.exe|rocketleague(\.exe?)?' >/dev/null
       }
 
       restore_keyboard() {
@@ -61,7 +61,7 @@ in {
   ];
 
   systemd.services.kanata-cs2-guard = {
-    description = "Disable Kanata home-row mods while Counter-Strike 2 is running";
+    description = "Disable Kanata home-row mods while Counter-Strike 2 or Rocket League is running";
     wantedBy = ["multi-user.target"];
     after = ["kanata-internalKeyboard.service"];
     serviceConfig = {

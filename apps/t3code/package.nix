@@ -37,12 +37,59 @@
     '';
   };
 
+  # In environments with PR_SET_NO_NEW_PRIVS (like the bubblewrap FHS sandbox
+  # used by appimage-run), setuid binaries like sudo cannot elevate privileges.
+  # When detected, escape the sandbox by running sudo on the host via systemd-run.
+  t3codeSudo = pkgs.writeShellApplication {
+    name = "sudo";
+    text = ''
+      if grep -q 'NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
+        if [[ -t 0 && -t 1 ]]; then
+          exec ${lib.getExe' pkgs.systemd "systemd-run"} --user --quiet --pty --same-dir --collect /run/wrappers/bin/sudo "$@"
+        else
+          exec ${lib.getExe' pkgs.systemd "systemd-run"} --user --quiet --pipe --same-dir --collect /run/wrappers/bin/sudo "$@"
+        fi
+      else
+        exec /run/wrappers/bin/sudo "$@"
+      fi
+    '';
+  };
+
+  # When Cursor is opened from within T3 Code, launch it on the host via
+  # systemd-run so Cursor does not inherit T3 Code's bubblewrap container
+  # or PR_SET_NO_NEW_PRIVS.
+  t3codeCursor = pkgs.writeShellApplication {
+    name = "cursor";
+    text = ''
+      if grep -q 'NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
+        args=()
+        for arg in "$@"; do
+          if [[ "$arg" == "--wait" || "$arg" == "-w" ]]; then
+            args+=("--wait" "--pipe")
+            break
+          fi
+        done
+        exec ${lib.getExe' pkgs.systemd "systemd-run"} --user --quiet --collect \
+          --same-dir \
+          --slice=app.slice \
+          --description="Cursor" \
+          "''${args[@]}" \
+          ${lib.getExe pkgs.code-cursor} "$@"
+      else
+        exec ${lib.getExe pkgs.code-cursor} "$@"
+      fi
+    '';
+  };
+
   # Present Codex and OpenCode as npm-managed providers to T3 Code while
   # keeping the mutable npm installation isolated from the declarative system
   # profile.
   t3codeProviderTools = pkgs.runCommand "t3code-provider-tools" {} ''
     mkdir -p "$out/bin" "$out/lib/node_modules/.bin"
     ln -s ${lib.getExe t3codeNpm} "$out/bin/npm"
+    ln -s ${lib.getExe t3codeSudo} "$out/bin/sudo"
+    ln -s ${lib.getExe t3codeCursor} "$out/bin/cursor"
+    ln -s ${lib.getExe t3codeCursor} "$out/bin/code"
     ln -s ${lib.getExe t3codeCodex} "$out/lib/node_modules/.bin/codex"
     ln -s ${lib.getExe t3codeOpencode} "$out/lib/node_modules/.bin/opencode"
   '';
