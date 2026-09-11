@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Widgets
 import qs
@@ -34,6 +35,7 @@ ColumnLayout {
 
       MouseArea {
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
         cursorShape: Qt.PointingHandCursor
         onClicked: shell.openWorkspace(workspaceCell.modelData.id)
       }
