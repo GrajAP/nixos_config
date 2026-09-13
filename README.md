@@ -34,6 +34,13 @@ To validate without switching or touching Git:
 rebuild --check
 ```
 
+To validate and build the system without switching (rootless, works inside
+the T3 Code sandbox where `sudo` fails with `no new privileges`):
+
+```bash
+rebuild --build
+```
+
 The full mode stages the current tree before validation so newly added files
 are part of the flake. If the working tree changes while a rebuild is running,
 the switch may finish but the commit and push are skipped until the next run.

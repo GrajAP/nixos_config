@@ -8,7 +8,12 @@ Edit files under /etc/nos, then run:
 
 This validates the flake, switches the system, stages all changes, commits them
 and queues a background GitHub push for the current branch. Use
-`./rebuild.sh --check` to only validate the flake without switching.
+`./rebuild.sh --check` to only validate the flake without switching, or
+`./rebuild.sh --build` to validate and build the system without switching.
+
+Inside the T3 Code sandbox `sudo` fails with `no new privileges`. Agents
+running there must use the rootless modes (`--check` or `--build`) and never
+run plain `./rebuild.sh` (it needs root to switch).
 
 Do not use `sudo`, embed a password, or call `switch-to-configuration` directly.
 
@@ -33,7 +38,9 @@ Do not use `sudo`, embed a password, or call `switch-to-configuration` directly.
 ## Validation before switching
 
 Run `./rebuild.sh` to validate the flake, switch, commit, and push.
-Use `./rebuild.sh --check` to only validate without switching.
+Use `./rebuild.sh --check` to only validate without switching, or
+`./rebuild.sh --build` to validate and build without switching (rootless,
+safe inside the T3 Code sandbox).
 
 If a check fails, fix the config first. Do not switch a known broken generation.
 

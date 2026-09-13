@@ -5,17 +5,22 @@ readonly repo=/etc/nixos
 cd "$repo"
 
 usage() {
-  printf 'Usage: rebuild [--check]\n'
-  printf '  no argument  check, switch, commit and queue a GitHub push\n'
-  printf '  --check      check the flake without switching or touching Git\n'
+  printf 'Usage: rebuild [--check|--build]\n'
+  printf '  no argument  check, switch, commit and queue a GitHub push (needs root via sudo)\n'
+  printf '  --check      check the flake without switching or touching Git (rootless)\n'
+  printf '  --build      check and build the system without switching or touching Git (rootless,\n'
+  printf '               for sandboxes like T3 Code where sudo fails with "no new privileges")\n'
 }
 
-check_only=false
+mode="switch"
 case "${1:-}" in
   "")
     ;;
   --check)
-    check_only=true
+    mode="check"
+    ;;
+  --build)
+    mode="build"
     ;;
   -h|--help)
     usage
@@ -43,9 +48,16 @@ if [[ -t 1 || -t 2 ]]; then
   unset NO_COLOR
 fi
 
-if [[ "$check_only" == true ]]; then
+if [[ "$mode" == "check" ]]; then
   nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
   printf '✓ Checks passed\n'
+  exit 0
+fi
+
+if [[ "$mode" == "build" ]]; then
+  nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
+  nixos-rebuild build --flake "$repo"
+  printf '✓ Build succeeded (no switch, Git untouched)\n'
   exit 0
 fi
 
