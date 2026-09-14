@@ -4,12 +4,25 @@ set -euo pipefail
 readonly repo=/etc/nixos
 cd "$repo"
 
+sudo() {
+  if grep -q 'NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
+    local flags=(--user --quiet --same-dir --collect)
+    if [[ -t 0 && -t 1 ]]; then
+      flags+=(--pty)
+    else
+      flags+=(--pipe)
+    fi
+    systemd-run "${flags[@]}" /run/wrappers/bin/sudo "$@"
+  else
+    command sudo "$@"
+  fi
+}
+
 usage() {
   printf 'Usage: rebuild [--check|--build]\n'
   printf '  no argument  check, switch, commit and queue a GitHub push (needs root via sudo)\n'
   printf '  --check      check the flake without switching or touching Git (rootless)\n'
-  printf '  --build      check and build the system without switching or touching Git (rootless,\n'
-  printf '               for sandboxes like T3 Code where sudo fails with "no new privileges")\n'
+  printf '  --build      check and build the system without switching or touching Git (rootless)\n'
 }
 
 mode="switch"

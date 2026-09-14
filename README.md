@@ -26,7 +26,9 @@ rebuild
 
 It checks the flake with `nom` progress, builds and switches through `nh`,
 commits all repository changes, then queues the current branch push to GitHub
-as a background user service.
+as a background user service. When executed from sandboxed environments like
+T3 Code where `NoNewPrivs` is active, `rebuild` transparently delegates `sudo`
+to the host session via `systemd-run`.
 
 To validate without switching or touching Git:
 
@@ -34,8 +36,7 @@ To validate without switching or touching Git:
 rebuild --check
 ```
 
-To validate and build the system without switching (rootless, works inside
-the T3 Code sandbox where `sudo` fails with `no new privileges`):
+To validate and build the system without switching (rootless):
 
 ```bash
 rebuild --build
@@ -88,22 +89,6 @@ fails, fix the config before activating or merging.
 ├── hosts/grajpap/
 ├── system/
 ├── home/
-│   ├── cli/
-│   ├── features/
-│   ├── misc/
-│   ├── rice/
-│   │   ├── hyprland/
-│   │   └── quickshell/
-│   └── scripts/
+├── apps/
 └── theme/
 ```
-
-## Hyprland and Quickshell binds
-
-Keybinds are defined once in `home/rice/hyprland/keybinds.nix`.
-
-`home/rice/hyprland/binds.nix` turns that model into Hyprland `bind`, `binde`, `bindm`, `bindr` and `bindl` settings.
-
-`home/rice/quickshell/default.nix` exports the same model into `home/rice/quickshell/shell.qml`, where `Mod + /` opens the fullscreen keybind helper.
-
-When adding a bind, update `keybinds.nix` so Hyprland and the helper stay in sync.
