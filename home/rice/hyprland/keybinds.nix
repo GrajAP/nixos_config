@@ -3,7 +3,7 @@
   lib,
   ipc,
 }: let
-  mod = "SUPER";
+  mod = "ALT";
   modshift = "${mod} SHIFT";
 
   binding = mode: category: combo: dispatcher: description: {
@@ -179,8 +179,8 @@
     inherit (entry) category description;
     combo =
       lib.replaceStrings
-      ["SUPER" "SHIFT" "Control_L" "RETURN" "SPACE" "TAB" "PERIOD" "SEMICOLON" "SLASH" "PRINT" "PAUSE" "mouse:272" "mouse:273" "mouse_down" "mouse_up"]
-      ["Mod" "Shift" "Ctrl" "Enter" "Space" "Tab" "." ";" "/" "Print" "Pause" "Mouse Left" "Mouse Right" "Wheel Down" "Wheel Up"]
+      ["SUPER" "ALT" "SHIFT" "Control_L" "RETURN" "SPACE" "TAB" "PERIOD" "SEMICOLON" "SLASH" "PRINT" "PAUSE" "mouse:272" "mouse:273" "mouse_down" "mouse_up"]
+      ["Super" "Mod" "Shift" "Ctrl" "Enter" "Space" "Tab" "." ";" "/" "Print" "Pause" "Mouse Left" "Mouse Right" "Wheel Down" "Wheel Up"]
       entry.combo;
   };
 in {

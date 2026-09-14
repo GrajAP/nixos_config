@@ -785,7 +785,7 @@ ShellRoot {
     const label = String(key).toUpperCase();
     if (label === "MOD") return combo.includes("MOD");
     if (label === "CTRL") return combo.includes("CTRL");
-    if (label === "ALT") return combo.includes("ALT");
+    if (label === "ALT") return combo.includes("ALT") || combo.includes("MOD");
     if (label === "SHIFT") return combo.includes("SHIFT");
     if (label === "SPACE") return combo.includes("SPACE");
     if (label === "ENTER") return combo.includes("ENTER");

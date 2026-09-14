@@ -21,10 +21,11 @@
     }
 
     const [header, ...styles] = await response.json();
-    globalThis.API.setPrefs({
+    await globalThis.API.setPrefs({
       updateInterval: header.settings.updateInterval,
       updateOnlyEnabled: header.settings.updateOnlyEnabled,
       patchCsp: header.settings.patchCsp,
+      styleViaASS: false,
     });
 
     const existing = await globalThis.API.styles.getAll();

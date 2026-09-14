@@ -6,7 +6,7 @@ different model.
 
 ## Desktop use
 
-Select text in any application and press `Super+G`. Review the corrected text
+Select text in any application and press `Alt+G`. Review the corrected text
 and its change list, then replace the selection or copy the result.
 
 Commands:

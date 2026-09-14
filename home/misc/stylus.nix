@@ -38,7 +38,7 @@
     '';
 
   stylusSeed = pkgs.replaceVars ./stylus-seed.js {
-    seedVersion = "catppuccin-all-userstyles-p8sAd6BfPUtLicti";
+    seedVersion = "catppuccin-all-userstyles-2026-v2-worker-fix";
   };
 
   stylusExtension =
@@ -49,7 +49,8 @@
       unzip -q ${stylusArchive} -d "$out"
       install -m 0444 ${catppuccinMochaBlue} "$out/catppuccin-mocha-blue.json"
       install -m 0444 ${stylusSeed} "$out/nix-seed.js"
-      chmod u+w "$out/sw.js"
+      chmod u+w "$out/sw.js" "$out/js/worker.js"
+      sed -i 's/then(code)/then(() => code)/g' "$out/js/worker.js"
       sed -i '$a importScripts("nix-seed.js");' "$out/sw.js"
     '';
 

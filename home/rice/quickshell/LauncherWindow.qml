@@ -128,6 +128,7 @@ PanelWindow {
         if (visible) {
             search.text = "";
             appList.currentIndex = 0;
+            appList.positionViewAtBeginning();
             if (shell && shell.refreshClipboard)
                 shell.refreshClipboard();
         }
@@ -914,24 +915,29 @@ PanelWindow {
                 }
                 onTextChanged: {
                     appList.currentIndex = 0;
+                    appList.positionViewAtBeginning();
                     if (launcher.visible && launcher.isClipboardMode(text.trim()) && shell && shell.refreshClipboard)
                         shell.refreshClipboard();
                 }
                 onAccepted: {
                     const items = appList.model.values;
-                    if (items && appList.currentIndex >= 0 && appList.currentIndex < items.length)
-                        launcher.perform(items[appList.currentIndex]);
+                    if (items && items.length > 0) {
+                        const idx = (appList.currentIndex >= 0 && appList.currentIndex < items.length) ? appList.currentIndex : 0;
+                        launcher.perform(items[idx]);
+                    }
                 }
                 Keys.onEscapePressed: shell.launcherVisible = false
                 Keys.onDownPressed: {
-                    if (appList.count > 0)
-                        appList.currentIndex = Math.min(appList.count - 1, appList.currentIndex + 1);
-                    appList.positionViewAtIndex(appList.currentIndex, ListView.Contain);
+                    if (appList.count > 0) {
+                        appList.currentIndex = Math.min(appList.count - 1, (appList.currentIndex < 0 ? 0 : appList.currentIndex + 1));
+                        appList.positionViewAtIndex(appList.currentIndex, ListView.Contain);
+                    }
                 }
                 Keys.onUpPressed: {
-                    if (appList.count > 0)
+                    if (appList.count > 0) {
                         appList.currentIndex = Math.max(0, appList.currentIndex - 1);
-                    appList.positionViewAtIndex(appList.currentIndex, ListView.Contain);
+                        appList.positionViewAtIndex(appList.currentIndex, ListView.Contain);
+                    }
                 }
             }
             ListView {
@@ -943,11 +949,25 @@ PanelWindow {
                 currentIndex: 0
                 highlightMoveDuration: Theme.motionFast
                 model: ScriptModel {
+                    id: resultsModel
                     values: launcher.buildResults()
+                    onValuesChanged: {
+                        if (appList.count > 0) {
+                            appList.currentIndex = 0;
+                            appList.positionViewAtBeginning();
+                        }
+                    }
+                }
+                onCountChanged: {
+                    if (count > 0) {
+                        currentIndex = 0;
+                        positionViewAtBeginning();
+                    }
                 }
                 delegate: Rectangle {
                     id: appRow
                     required property var modelData
+                    required property int index
                     width: ListView.view.width
                     height: 48
                     radius: 9
