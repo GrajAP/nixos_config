@@ -4,6 +4,51 @@
   const markerKey = "nixCatppuccinSeed";
   const markerValue = "@seedVersion@";
   const bundlePath = "catppuccin-mocha-blue.json";
+  const customStylesPath = "custom-userstyles.json";
+
+  async function importCustomStyles() {
+    const response = await fetch(chrome.runtime.getURL(customStylesPath));
+    if (!response.ok) {
+      throw new Error(`Cannot read ${customStylesPath}: ${response.status}`);
+    }
+
+    const customStyles = await response.json();
+    const existing = await globalThis.API.styles.getAll();
+    const byUpdateUrl = new Map(
+      existing
+        .filter((style) => style.updateUrl)
+        .map((style) => [style.updateUrl, style]),
+    );
+
+    for (const style of customStyles) {
+      const current = byUpdateUrl.get(style.updateUrl);
+      if (current) {
+        style.id = current.id;
+        style._id = current._id;
+        style.installDate = current.installDate;
+        style.enabled = current.enabled;
+        if (current.customName) {
+          style.customName = current.customName;
+        }
+      }
+    }
+
+    for (let offset = 0; offset < customStyles.length; offset += 20) {
+      const result = await globalThis.API.styles.importMany(
+        customStyles.slice(offset, offset + 20),
+      );
+      const failed = result.filter((item) => item && item.err);
+      if (failed.length) {
+        throw new Error(
+          `Stylus failed to import ${failed.length} custom userstyles`,
+        );
+      }
+    }
+
+    console.info(
+      `Nix imported ${customStyles.length} custom Catppuccin userstyles`,
+    );
+  }
 
   async function seedCatppuccin() {
     if (globalThis._busy) {
@@ -60,9 +105,11 @@
       }
     }
 
+    await importCustomStyles();
+
     await chrome.storage.local.set({[markerKey]: markerValue});
     console.info(
-      `Nix installed ${styles.length} Catppuccin Mocha Blue userstyles`,
+      `Nix installed ${styles.length} Catppuccin Mocha Blue userstyles + custom userstyles`,
     );
   }
 

@@ -1,0 +1,213 @@
+/* ==UserStyle==
+@name Gmail Catppuccin Proton Complement
+@namespace github.com/grajpap/gmail-catppuccin
+@homepageURL https://github.com/grajpap/gmail-catppuccin
+@version 2026.09.15
+@description Proton-style semantic CSS custom properties and extra selectors — use alongside the official catppuccin Gmail userstyle
+@author grajpap
+@license MIT
+
+@preprocessor less
+@var select lightFlavor "Light Flavor" ["latte:Latte*", "frappe:Frappé", "macchiato:Macchiato", "mocha:Mocha"]
+@var select darkFlavor "Dark Flavor" ["latte:Latte", "frappe:Frappé", "macchiato:Macchiato", "mocha:Mocha*"]
+@var select accentColor "Accent" ["rosewater:Rosewater", "flamingo:Flamingo", "pink:Pink", "mauve:Mauve*", "red:Red", "maroon:Maroon", "peach:Peach", "yellow:Yellow", "green:Green", "teal:Teal", "blue:Blue", "sapphire:Sapphire", "sky:Sky", "lavender:Lavender", "subtext0:Gray"]
+==/UserStyle== */
+
+@import "https://userstyles.catppuccin.com/lib/std/v1.less";
+
+@-moz-document domain("mail.google.com") {
+  :root {
+    @media (prefers-color-scheme: light) {
+      #catppuccin(@lightFlavor);
+    }
+    @media (prefers-color-scheme: dark) {
+      #catppuccin(@darkFlavor);
+    }
+  }
+
+  #catppuccin(@flavor) {
+    #lib.palette();
+    #lib.defaults();
+
+    /* -----------------------------------------------------------
+       Proton-style semantic CSS custom properties
+       Exposes catppuccin palette as semantic tokens for any
+       custom Gmail extensions or userscripts to consume.
+       ----------------------------------------------------------- */
+    & {
+      #lightenOrDarken(@color, @value) {
+        @result: if(
+          @flavor = latte,
+          lighten(@color, @value),
+          darken(@color, @value)
+        );
+      }
+
+      #darkenOrLighten(@color, @value) {
+        @result: if(
+          @flavor = latte,
+          darken(@color, @value),
+          lighten(@color, @value)
+        );
+      }
+
+      --ctp-primary: @accent;
+      --ctp-primary-contrast: @crust;
+      --ctp-surface: @base;
+      --ctp-surface-dim: @mantle;
+      --ctp-surface-bright: @crust;
+      --ctp-surface-container: @surface0;
+      --ctp-surface-container-high: @surface1;
+      --ctp-surface-container-highest: @surface2;
+      --ctp-on-surface: @text;
+      --ctp-on-surface-variant: @subtext1;
+      --ctp-outline: @overlay0;
+      --ctp-outline-variant: @surface0;
+      --ctp-danger: @red;
+      --ctp-warning: @peach;
+      --ctp-success: @green;
+      --ctp-info: @blue;
+      --ctp-link: @blue;
+      --ctp-link-hover: @lavender;
+      --ctp-link-active: @sky;
+
+      /* Proton-style signal variants */
+      --ctp-danger-minor-1: #lightenOrDarken(@red, 30%)[];
+      --ctp-danger-minor-2: #lightenOrDarken(@red, 40%)[];
+      --ctp-danger-major-1: #darkenOrLighten(@red, 4%)[];
+      --ctp-danger-major-2: #darkenOrLighten(@red, 8%)[];
+      --ctp-warning-minor-1: #lightenOrDarken(@peach, 30%)[];
+      --ctp-warning-minor-2: #lightenOrDarken(@peach, 40%)[];
+      --ctp-warning-major-1: #darkenOrLighten(@peach, 4%)[];
+      --ctp-warning-major-2: #darkenOrLighten(@peach, 8%)[];
+      --ctp-success-minor-1: #lightenOrLighten(@green, 30%)[];
+      --ctp-success-minor-2: #lightenOrLighten(@green, 40%)[];
+      --ctp-success-major-1: #darkenOrLighten(@green, 4%)[];
+      --ctp-success-major-2: #darkenOrLighten(@green, 8%)[];
+      --ctp-info-minor-1: #lightenOrLighten(@blue, 30%)[];
+      --ctp-info-minor-2: #lightenOrLighten(@blue, 40%)[];
+      --ctp-info-major-1: #darkenOrLighten(@blue, 4%)[];
+      --ctp-info-major-2: #darkenOrLighten(@blue, 8%)[];
+    }
+
+    /* -----------------------------------------------------------
+       Extra selectors not covered by the official catppuccin Gmail
+       userstyle — fills gaps for a more complete theme.
+       ----------------------------------------------------------- */
+
+    /* Input caret */
+    input,
+    textarea {
+      caret-color: @text;
+    }
+
+    /* Kill text shadows */
+    * {
+      text-shadow: none !important;
+    }
+
+    /* Gmail logo replacement */
+    [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
+    [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"] {
+      height: unset !important;
+      width: unset !important;
+      @svg: escape(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="17.727 14.319 30 22.5" width="30" height="22.5"><path fill="@{blue}" d="M19.773 36.819h4.773V25.227l-6.819-5.114v14.659a2.044 2.044 0 0 0 2.045 2.045"/><path fill="@{green}" d="M40.909 36.819h4.773a2.044 2.044 0 0 0 2.045-2.045v-14.66l-6.819 5.114"/><path fill="@{yellow}" d="M40.909 16.364v8.864l6.819-5.114v-2.727c0-2.529-2.888-3.971-4.909-2.455"/><path fill="@{red}" d="M24.545 25.227v-8.863l8.181 6.136 8.181-6.136v8.864l-8.181 6.136m-15-13.977v2.727l6.819 5.114v-8.864l-1.909-1.431c-2.025-1.517-4.91-.075-4.91 2.455"/></svg>'
+      );
+      content: url("data:image/svg+xml,@{svg}");
+    }
+
+    /* Compose FAB — extra emphasis */
+    .z0 > .L3 {
+      &:focus {
+        background-color: darken(@accent, 4%);
+      }
+    }
+
+    /* Draft text */
+    .boq {
+      color: @red;
+    }
+
+    /* Compose window backgrounds */
+    .Hy.Hy .m,
+    .IG {
+      background-color: @mantle;
+    }
+
+    /* Contact chip */
+    .agh,
+    .bbV {
+      background: @base;
+
+      .afV {
+        background: @base;
+        color: @text;
+
+        &:hover {
+          background: @surface0;
+          color: @text;
+        }
+      }
+    }
+
+    /* Unread email row — slightly tinted */
+    .zA {
+      &:not(.zE):not(.x7) {
+        background-color: fade(@accent, 3%);
+      }
+    }
+
+    /* Attachment hover */
+    .brc {
+      &:hover {
+        background-color: @surface0;
+      }
+    }
+
+    /* Settings page — extra overrides */
+    .r4 {
+      .qK,
+      .qL {
+        background-color: @mantle;
+      }
+
+      .nr,
+      .Ar {
+        border-color: @surface0 !important;
+      }
+    }
+
+    /* Material 3 dialog buttons */
+    div[aria-modal="true"] {
+      [data-mdc-dialog-action="ok"] {
+        background-color: @accent;
+      }
+    }
+
+    /* Checkbox/radio inputs in settings */
+    input[type="checkbox"],
+    input[type="radio"] {
+      accent-color: @accent;
+    }
+
+    /* Scrollbar theming */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: @mantle;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: @surface1;
+      border-radius: 4px;
+
+      &:hover {
+        background: @surface2;
+      }
+    }
+  }
+}
