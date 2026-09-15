@@ -1,0 +1,248 @@
+/* ==========================================================================
+   Catppuccin Mocha Blue Theme for Discord Web
+   ========================================================================== */
+
+:root,
+html,
+body,
+#app-mount,
+.theme-dark,
+.visual-refresh,
+[class*="theme-dark"],
+[data-theme="dark"] {
+  color-scheme: dark !important;
+
+  /* Catppuccin Mocha Palette */
+  --ctp-rosewater: #f5e0dc !important;
+  --ctp-flamingo: #f2cdcd !important;
+  --ctp-pink: #f5c2e7 !important;
+  --ctp-mauve: #cba6f7 !important;
+  --ctp-red: #f38ba8 !important;
+  --ctp-maroon: #eba0ac !important;
+  --ctp-peach: #fab387 !important;
+  --ctp-yellow: #f9e2af !important;
+  --ctp-green: #a6e3a1 !important;
+  --ctp-teal: #94e2d5 !important;
+  --ctp-sky: #89dceb !important;
+  --ctp-sapphire: #74c7ec !important;
+  --ctp-blue: #89b4fa !important;
+  --ctp-lavender: #b4befe !important;
+  --ctp-text: #cdd6f4 !important;
+  --ctp-subtext1: #bac2de !important;
+  --ctp-subtext0: #a6adc8 !important;
+  --ctp-overlay2: #9399b2 !important;
+  --ctp-overlay1: #7f849c !important;
+  --ctp-overlay0: #6c7086 !important;
+  --ctp-surface2: #585b70 !important;
+  --ctp-surface1: #45475a !important;
+  --ctp-surface0: #313244 !important;
+  --ctp-base: #1e1e2e !important;
+  --ctp-mantle: #181825 !important;
+  --ctp-crust: #11111b !important;
+
+  /* Modern Visual Refresh & Base Variables */
+  --bg-base-primary: #1e1e2e !important;
+  --bg-base-secondary: #181825 !important;
+  --bg-base-tertiary: #11111b !important;
+  --bg-surface-raised: #181825 !important;
+  --bg-surface-overlay: #11111b !important;
+  --bg-mod-subtle: #181825 !important;
+  --bg-mod-normal: #313244 !important;
+  --bg-mod-strong: #45475a !important;
+
+  --background-surface-high: #1e1e2e !important;
+  --background-surface-higher: #242438 !important;
+  --background-surface-highest: #313244 !important;
+  --background-surface-low: #181825 !important;
+  --background-surface-lower: #181825 !important;
+  --background-surface-lowest: #11111b !important;
+
+  --background-base-low: #181825 !important;
+  --background-base-lower: #181825 !important;
+  --background-base-lowest: #11111b !important;
+  --background-base-high: #1e1e2e !important;
+  --background-base-higher: #242438 !important;
+  --background-base-highest: #313244 !important;
+
+  --background-mod-subtle: #181825 !important;
+  --background-mod-normal: #313244 !important;
+  --background-mod-strong: #45475a !important;
+
+  /* Classic Discord Variables */
+  --background-primary: #1e1e2e !important;
+  --background-secondary: #181825 !important;
+  --background-secondary-alt: #181825 !important;
+  --background-tertiary: #11111b !important;
+  --background-accent: #313244 !important;
+  --background-floating: #11111b !important;
+  --background-mobile-primary: #1e1e2e !important;
+  --background-mobile-secondary: #181825 !important;
+
+  /* Primary Palette Overrides (Eliminates Discord Default Grey Panels) */
+  --primary-100: #dce0e8 !important;
+  --primary-200: #cdd6f4 !important;
+  --primary-300: #bac2de !important;
+  --primary-400: #a6adc8 !important;
+  --primary-500: #89b4fa !important;
+  --primary-600: #1e1e2e !important;
+  --primary-630: #181825 !important;
+  --primary-660: #181825 !important;
+  --primary-700: #11111b !important;
+  --primary-800: #11111b !important;
+  --primary-830: #0d0d15 !important;
+  --primary-860: #0d0d15 !important;
+  --primary-900: #0d0d15 !important;
+
+  /* Brand / Accent Tokens (Mocha Blue) */
+  --brand-experiment: #89b4fa !important;
+  --brand-500: #89b4fa !important;
+  --brand-530: #71a4f9 !important;
+  --brand-560: #5895f8 !important;
+  --brand-260: rgba(137, 180, 250, 0.2) !important;
+  --blurple-50: #89b4fa !important;
+  --blurple-60: #71a4f9 !important;
+  --white: #cdd6f4 !important;
+  --white-500: #cdd6f4 !important;
+
+  /* Text & Interactive Tokens */
+  --text-normal: #cdd6f4 !important;
+  --text-default: #cdd6f4 !important;
+  --text-muted: #a6adc8 !important;
+  --text-subtle: #a6adc8 !important;
+  --text-link: #89b4fa !important;
+  --text-positive: #a6e3a1 !important;
+  --text-warning: #f9e2af !important;
+  --text-danger: #f38ba8 !important;
+  --interactive-normal: #a6adc8 !important;
+  --interactive-hover: #cdd6f4 !important;
+  --interactive-active: #ffffff !important;
+  --interactive-muted: #6c7086 !important;
+  --header-primary: #cdd6f4 !important;
+  --header-secondary: #a6adc8 !important;
+  --icon-primary: #cdd6f4 !important;
+  --icon-secondary: #a6adc8 !important;
+  --border-subtle: #313244 !important;
+  --border-strong: #45475a !important;
+
+  /* Chat & Inputs */
+  --chat-background: #1e1e2e !important;
+  --channeltextarea-background: #313244 !important;
+  --scrollbar-auto-thumb: #313244 !important;
+  --scrollbar-auto-track: #181825 !important;
+  --scrollbar-thin-thumb: #313244 !important;
+  --scrollbar-thin-track: transparent !important;
+}
+
+/* Ensure no unwanted global background image covers the app */
+html,
+body,
+#app-mount,
+div[class*="app_"] {
+  background-image: none !important;
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+
+/* 1. Server List (Guilds rail - Crust) */
+nav[aria-label*="Servers"],
+nav[class*="guilds_"],
+div[class*="guilds_"],
+[class*="guilds_"],
+ul[data-list-id="guildsnav"] {
+  background-color: #11111b !important;
+}
+
+/* 2. Channels Sidebar (Mantle) */
+nav[aria-label*="Channels"],
+div[class*="sidebar_"],
+nav[class*="sidebar_"],
+[class*="sidebar_"] > nav,
+div[class*="privateChannels_"],
+div[class*="scroller_"][class*="thin_"] {
+  background-color: #181825 !important;
+}
+
+/* 3. Top Header / Channel Titlebar (Mantle) */
+section[class*="title_"],
+header[class*="header_"],
+div[class*="title_"] {
+  background-color: #181825 !important;
+  border-bottom: 1px solid #313244 !important;
+}
+
+/* 4. Chat Content & Messages Area (Base) */
+main[class*="chatContent_"],
+div[class*="chat_"],
+div[class*="chatContent_"],
+div[class*="messagesWrapper_"],
+div[data-list-id="chat-messages"] {
+  background-color: #1e1e2e !important;
+}
+
+/* 5. Message Input Box (Surface0) */
+form[class*="form_"],
+div[class*="channelTextArea_"],
+div[class*="scrollableContainer_"],
+div[class*="channelBottomBarArea_"] {
+  background-color: #313244 !important;
+  border-radius: 8px !important;
+}
+
+/* 6. Members Sidebar (Mantle) */
+aside[class*="membersWrap_"],
+div[class*="members_"],
+div[class*="membersWrap_"] {
+  background-color: #181825 !important;
+}
+
+/* 7. Bottom Left User Profile Panel (Crust) */
+section[class*="panels_"],
+div[class*="panels_"] {
+  background-color: #11111b !important;
+  border-top: 1px solid #313244 !important;
+}
+
+/* 8. Voice & Video Banners (Mantle) */
+div[class*="connection_"],
+div[class*="voiceUsers_"],
+div[class*="wrapper_"][class*="callContainer_"] {
+  background-color: #181825 !important;
+}
+
+/* 9. Popouts, Modals & Menus (Crust / Mantle) */
+div[class*="menu_"],
+div[class*="popout_"],
+div[class*="modal_"],
+div[class*="root_"][class*="modal_"] {
+  background-color: #181825 !important;
+  border: 1px solid #313244 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+/* 10. Buttons & Interactive elements */
+button[class*="lookFilled_"][class*="colorBrand_"] {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+button[class*="lookFilled_"][class*="colorBrand_"]:hover {
+  background-color: #b4befe !important;
+}
+
+/* 11. Code blocks & embeds */
+code,
+pre,
+div[class*="embedFull_"] {
+  background-color: #181825 !important;
+  border-left-color: #89b4fa !important;
+  border-radius: 6px !important;
+}
+
+/* 12. Mention badges & pill tags */
+span[class*="mention_"] {
+  background-color: rgba(137, 180, 250, 0.15) !important;
+  color: #89b4fa !important;
+}
+div[class*="numberBadge_"] {
+  background-color: #f38ba8 !important;
+  color: #11111b !important;
+}

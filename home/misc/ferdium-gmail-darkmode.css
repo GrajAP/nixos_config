@@ -1,0 +1,2658 @@
+/* ==========================================================================
+   Catppuccin Mocha Blue Theme for Gmail (Core High-Specificity Overrides)
+   ========================================================================== */
+
+:root,
+html,
+body {
+  color-scheme: dark !important;
+
+  /* Palette */
+  --ctp-rosewater: #f5e0dc !important;
+  --ctp-flamingo: #f2cdcd !important;
+  --ctp-pink: #f5c2e7 !important;
+  --ctp-mauve: #cba6f7 !important;
+  --ctp-red: #f38ba8 !important;
+  --ctp-maroon: #eba0ac !important;
+  --ctp-peach: #fab387 !important;
+  --ctp-yellow: #f9e2af !important;
+  --ctp-green: #a6e3a1 !important;
+  --ctp-teal: #94e2d5 !important;
+  --ctp-sky: #89dceb !important;
+  --ctp-sapphire: #74c7ec !important;
+  --ctp-blue: #89b4fa !important;
+  --ctp-lavender: #b4befe !important;
+  --ctp-text: #cdd6f4 !important;
+  --ctp-subtext1: #bac2de !important;
+  --ctp-subtext0: #a6adc8 !important;
+  --ctp-overlay2: #9399b2 !important;
+  --ctp-overlay1: #7f849c !important;
+  --ctp-overlay0: #6c7086 !important;
+  --ctp-surface2: #585b70 !important;
+  --ctp-surface1: #45475a !important;
+  --ctp-surface0: #313244 !important;
+  --ctp-base: #1e1e2e !important;
+  --ctp-mantle: #181825 !important;
+  --ctp-crust: #11111b !important;
+
+  /* Google Material 3 (GM3) System Tokens */
+  --gm3-sys-color-surface: #1e1e2e !important;
+  --gm3-sys-color-surface-dim: #181825 !important;
+  --gm3-sys-color-surface-bright: #313244 !important;
+  --gm3-sys-color-surface-container-lowest: #11111b !important;
+  --gm3-sys-color-surface-container-low: #181825 !important;
+  --gm3-sys-color-surface-container: #1e1e2e !important;
+  --gm3-sys-color-surface-container-high: #313244 !important;
+  --gm3-sys-color-surface-container-highest: #45475a !important;
+  --gm3-sys-color-on-surface: #cdd6f4 !important;
+  --gm3-sys-color-on-surface-variant: #a6adc8 !important;
+  --gm3-sys-color-outline: #313244 !important;
+  --gm3-sys-color-outline-variant: #45475a !important;
+  --gm3-sys-color-primary: #89b4fa !important;
+  --gm3-sys-color-on-primary: #11111b !important;
+  --gm3-sys-color-primary-container: #313244 !important;
+  --gm3-sys-color-on-primary-container: #89b4fa !important;
+  --gm3-sys-color-secondary-container: #313244 !important;
+  --gm3-sys-color-on-secondary-container: #cdd6f4 !important;
+  --gm3-sys-color-inverse-surface: #cdd6f4 !important;
+  --gm3-sys-color-inverse-on-surface: #11111b !important;
+  --gm3-sys-color-background: #1e1e2e !important;
+  --gm3-sys-color-on-background: #cdd6f4 !important;
+
+  /* Legacy GM Tokens */
+  --gm-fill: #1e1e2e !important;
+  --gm-hairline: #313244 !important;
+}
+
+/* Base Body and Main Workspace Containers */
+html,
+body,
+.bkK,
+.bkL,
+.nH,
+.UI,
+.aeJ,
+.AO,
+.aeN,
+div[role="main"],
+div[role="navigation"],
+div[role="region"],
+.nH.oy8Mbf,
+.nH.oy8Mbf.qp {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+
+/* 1. Top Google Bar & Header (Crust) */
+#gb,
+header#gb,
+.gb_Ld,
+.gb_Vd,
+.gb_Ud,
+.gb_4c,
+.gb_Cc,
+.gb_yc,
+.gb_zc {
+  background-color: #11111b !important;
+  color: #cdd6f4 !important;
+  border-bottom: 1px solid #313244 !important;
+}
+
+/* Search Bar (Surface0) */
+form[role="search"],
+.gb_ne,
+.gb_me,
+.gb_le,
+.gb_ke,
+.gb_je,
+.gb_he,
+.gb_fe,
+header form,
+div[data-ogpc] {
+  background-color: #313244 !important;
+  color: #cdd6f4 !important;
+  border-radius: 8px !important;
+}
+input[name="q"],
+.gb_le input,
+.gb_ke input {
+  background-color: transparent !important;
+  color: #cdd6f4 !important;
+}
+input[name="q"]::placeholder {
+  color: #a6adc8 !important;
+}
+
+/* 2. Left Navigation Sidebar / Rail (Mantle) */
+div[role="navigation"],
+.aeN,
+.w-asV,
+.bhZ.bym,
+.bhZ.bjB,
+.aHS-bnt,
+.aHS-bnr,
+.aHS-bnp,
+.aHS-bnh,
+.aHS-bns {
+  background-color: #181825 !important;
+}
+
+/* Left Nav Item Selected (Surface0 with Mocha Blue Accent) */
+.aio .nZ.aiq,
+.nZ,
+.aiq,
+div[role="navigation"] div[role="tab"][aria-selected="true"],
+div[role="navigation"] .TO.nZ {
+  background-color: #313244 !important;
+  color: #89b4fa !important;
+  border-radius: 16px !important;
+}
+.nZ .n0,
+.aiq .n0,
+.nZ .bsU {
+  color: #89b4fa !important;
+  font-weight: 700 !important;
+}
+.TO:hover,
+div[role="navigation"] .TO:hover {
+  background-color: rgba(49, 50, 68, 0.6) !important;
+  border-radius: 16px !important;
+}
+
+/* 3. Compose Email Button (Catppuccin Blue Accent) */
+.T-I.T-I-KE.L3,
+div[role="button"][gh="cm"],
+.z0 > .L3 {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+  font-weight: 600 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+.T-I.T-I-KE.L3:hover,
+div[role="button"][gh="cm"]:hover,
+.z0 > .L3:hover {
+  background-color: #b4befe !important;
+  color: #11111b !important;
+}
+.T-I.T-I-KE.L3 svg,
+div[role="button"][gh="cm"] svg {
+  fill: #11111b !important;
+}
+
+/* 4. Email List Table & Rows */
+table.F.cf.zt,
+table.cf.zt,
+.Cp {
+  background-color: #1e1e2e !important;
+}
+
+/* Unread Rows (Base with bold text) */
+tr.zA.zE {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  border-bottom: 1px solid #313244 !important;
+}
+tr.zA.zE .bqe,
+tr.zA.zE .bog {
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+/* Read Rows (Mantle) */
+tr.zA.yO {
+  background-color: #181825 !important;
+  color: #bac2de !important;
+  border-bottom: 1px solid #313244 !important;
+}
+tr.zA.yO .bqe,
+tr.zA.yO .bog {
+  font-weight: 400 !important;
+  color: #bac2de !important;
+}
+
+/* Hovered Rows (Surface0) */
+tr.zA:hover {
+  background-color: #313244 !important;
+  box-shadow: inset 3px 0 0 #89b4fa !important;
+}
+
+/* Selected Rows (Surface1) */
+tr.zA.x7 {
+  background-color: #45475a !important;
+}
+
+/* Sender & Subject Text */
+.y6, .bqe, .bog, .zF, .yP {
+  color: #cdd6f4 !important;
+}
+.y2 {
+  color: #a6adc8 !important;
+}
+
+/* 5. Toolbar & Action Buttons (Top of list) */
+.G-atb,
+.D.E.G-atb {
+  background-color: #1e1e2e !important;
+  border-bottom: 1px solid #313244 !important;
+}
+.T-I-ax7 {
+  color: #cdd6f4 !important;
+}
+.T-I-ax7:hover {
+  background-color: #313244 !important;
+}
+
+/* 6. Email Reading Pane & Messages */
+.a3s,
+.a3s.aiL,
+.adn.ads,
+.gE.iv.gt,
+.ii.gt,
+div[role="listitem"],
+.hx {
+  background-color: transparent !important;
+  color: #cdd6f4 !important;
+}
+.a3s * {
+  color: inherit !important;
+}
+.gA.gt {
+  background-color: #181825 !important;
+  border: 1px solid #313244 !important;
+}
+
+/* 7. Compose Window (Surface0 / Mantle) */
+div[role="dialog"].AD,
+.AD,
+.M9 {
+  background-color: #181825 !important;
+  color: #cdd6f4 !important;
+  border: 1px solid #45475a !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+.aYF {
+  background-color: #11111b !important;
+  color: #cdd6f4 !important;
+}
+.Ao.editable,
+div.editable[role="textbox"] {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+.btC {
+  background-color: #181825 !important;
+  border-top: 1px solid #313244 !important;
+}
+
+/* Send Button */
+.T-I.J-J5-Ji.aoO.v7.T-I-atl.L3 {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+.T-I.J-J5-Ji.aoO.v7.T-I-atl.L3:hover {
+  background-color: #b4befe !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+::-webkit-scrollbar-track {
+  background: #181825 !important;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #313244 !important;
+  border-radius: 4px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #89b4fa !important;
+}
+
+
+/* deno-fmt-ignore */
+/* deno-fmt-ignore */
+/* ==UserStyle==
+@name Gmail Catppuccin
+@namespace github.com/catppuccin/userstyles/styles/gmail
+@homepageURL https://github.com/catppuccin/userstyles/tree/main/styles/gmail
+@version 2026.08.16
+@updateURL https://github.com/catppuccin/userstyles/raw/main/styles/gmail/catppuccin.user.less
+@supportURL https://github.com/catppuccin/userstyles/issues?q=is%3Aopen+is%3Aissue+label%3Agmail
+@description Soothing pastel theme for Gmail
+@author Catppuccin
+@license MIT
+
+@preprocessor less
+@var select lightFlavor "Light Flavor" ["latte:Latte*", "frappe:Frappé", "macchiato:Macchiato", "mocha:Mocha"]
+@var select darkFlavor "Dark Flavor" ["latte:Latte", "frappe:Frappé", "macchiato:Macchiato", "mocha:Mocha*"]
+@var select accentColor "Accent" ["rosewater:Rosewater", "flamingo:Flamingo", "pink:Pink", "mauve:Mauve*", "red:Red", "maroon:Maroon", "peach:Peach", "yellow:Yellow", "green:Green", "teal:Teal", "blue:Blue", "sapphire:Sapphire", "sky:Sky", "lavender:Lavender", "subtext0:Gray"]
+==/UserStyle== */
+:root,
+html,
+body {
+  color-scheme: dark !important;
+  /* Gmail logo */
+  /* Tooltips */
+  /* Buttons */
+  /* Solid primary */
+  /* Transparent primary */
+  /* Transparent secondary */
+  /* Header and sidebars */
+  /* Header icons */
+  /* Search mail input */
+  /* Search mail input on focus */
+  /* Active search / filter modal */
+  /* Pill filters */
+  /* Advanced search/filters modal */
+  /* Sidebar selected item */
+  /* Icons */
+  /* Compose email button */
+  /* Top section of inbox */
+  /* Inbox categories */
+  /* Icons */
+  /* Currently selected category */
+  /* Inbox categories hover */
+  /* Email count / pagination */
+  /* Inbox footer */
+  /* Storage progress bar */
+  /* External link icon */
+  /* Read emails */
+  /* Read email text */
+  /* Important icon filled, star icon filled */
+  /* Read email dates */
+  /* Read email summary truncated */
+  /* Selected unread emails */
+  /* Unsubscribe button */
+  /* Draft text */
+  /* No drafts message, trash 30 days message */
+  /* Your social/promotions/updates tab is empty */
+  /* You could lose access banner */
+  /* Attachments chips */
+  /* Floating menu */
+  /* Modal search input */
+  /* Magnifying glass icon */
+  /* Edit label modal */
+  /* Toast notifications */
+  /* Close icon */
+  /* Compose mail window */
+  /* Top header bar */
+  /* Bottom toolbar icons */
+  /* Floating toolbar (expanded window) */
+  /* Send button */
+  /* Contact autofill */
+  --pkw-background: #181825 !important;
+  --pkw-outline: #313244 !important;
+  --pkw-outline-variant: #313244 !important;
+  --pkw-on-surface-variant: #cdd6f4 !important;
+  /* Contact chip */
+  /* Settings */
+  /* Navigation header */
+  /* Main panel */
+  /* Labels page */
+  /* Confirm popup modal */
+}
+:root ::selection,
+html ::selection,
+body ::selection {
+  background-color: rgba(137, 180, 250, 0.3) !important;
+}
+:root input::placeholder,
+html input::placeholder,
+body input::placeholder,
+:root textarea::placeholder,
+html textarea::placeholder,
+body textarea::placeholder {
+  color: #a6adc8 !important;
+}
+:root input,
+html input,
+body input,
+:root textarea,
+html textarea,
+body textarea {
+  caret-color: #cdd6f4 !important;
+}
+:root #input-styling input,
+html #input-styling input,
+body #input-styling input,
+:root #input-styling select,
+html #input-styling select,
+body #input-styling select,
+:root #input-styling button,
+html #input-styling button,
+body #input-styling button {
+  background-color: #181825 !important;
+  color: #cdd6f4 !important;
+  border-color: #313244 !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+}
+:root *,
+html *,
+body * {
+  text-shadow: none !important;
+}
+:root [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
+html [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
+body [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
+:root [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"],
+html [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"],
+body [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"] {
+  height: unset !important;
+  width: unset !important;
+  content: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%2217.727%2014.319%2030%2022.5%22%20width%3D%2230%22%20height%3D%2222.5%22%3E%3Cpath%20fill%3D%22%2389b4fa%22%20d%3D%22M19.773%2036.819h4.773V25.227l-6.819-5.114v14.659a2.044%202.044%200%200%200%202.045%202.045%22/%3E%3Cpath%20fill%3D%22%23a6e3a1%22%20d%3D%22M40.909%2036.819h4.773a2.044%202.044%200%200%200%202.045-2.045v-14.66l-6.819%205.114%22/%3E%3Cpath%20fill%3D%22%23f9e2af%22%20d%3D%22M40.909%2016.364v8.864l6.819-5.114v-2.727c0-2.529-2.888-3.971-4.909-2.455%22/%3E%3Cpath%20fill%3D%22%23f38ba8%22%20d%3D%22M24.545%2025.227v-8.863l8.181%206.136%208.181-6.136v8.864l-8.181%206.136m-15-13.977v2.727l6.819%205.114v-8.864l-1.909-1.431c-2.025-1.517-4.91-.075-4.91%202.455%22/%3E%3C/svg%3E") !important;
+}
+:root .T-ays-iP,
+html .T-ays-iP,
+body .T-ays-iP,
+:root .gb_Ac,
+html .gb_Ac,
+body .gb_Ac {
+  background-color: #11111b !important;
+  color: #cdd6f4 !important;
+}
+:root .T-I-atl,
+html .T-I-atl,
+body .T-I-atl {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+:root .l0,
+html .l0,
+body .l0,
+:root div.b8 .a8k,
+html div.b8 .a8k,
+body div.b8 .a8k,
+:root .bAo > .ad,
+html .bAo > .ad,
+body .bAo > .ad {
+  color: #89b4fa !important;
+}
+:root .l0::before,
+html .l0::before,
+body .l0::before,
+:root div.b8 .a8k::before,
+html div.b8 .a8k::before,
+body div.b8 .a8k::before,
+:root .bAo > .ad::before,
+html .bAo > .ad::before,
+body .bAo > .ad::before {
+  background-color: #89b4fa !important;
+}
+:root .bs0 > .acM,
+html .bs0 > .acM,
+body .bs0 > .acM,
+:root .bti > .btg,
+html .bti > .btg,
+body .bti > .btg,
+:root .a8Y > .T-I-ax7,
+html .a8Y > .T-I-ax7,
+body .a8Y > .T-I-ax7 {
+  color: #cdd6f4 !important;
+  /* Disabled */
+}
+:root .bs0 > .acM.acN,
+html .bs0 > .acM.acN,
+body .bs0 > .acM.acN,
+:root .bti > .btg.acN,
+html .bti > .btg.acN,
+body .bti > .btg.acN,
+:root .a8Y > .T-I-ax7.acN,
+html .a8Y > .T-I-ax7.acN,
+body .a8Y > .T-I-ax7.acN {
+  color: #a6adc8 !important;
+}
+:root .bs0 > .acM:hover::before,
+html .bs0 > .acM:hover::before,
+body .bs0 > .acM:hover::before,
+:root .bti > .btg:hover::before,
+html .bti > .btg:hover::before,
+body .bti > .btg:hover::before,
+:root .a8Y > .T-I-ax7:hover::before,
+html .a8Y > .T-I-ax7:hover::before,
+body .a8Y > .T-I-ax7:hover::before {
+  background-color: #9399b2 !important;
+}
+:root .w-asV,
+html .w-asV,
+body .w-asV,
+:root .bkL,
+html .bkL,
+body .bkL,
+:root .bhZ.bym,
+html .bhZ.bym,
+body .bhZ.bym,
+:root .bhZ.bjB,
+html .bhZ.bjB,
+body .bhZ.bjB,
+:root .bhZ.bym.baA,
+html .bhZ.bym.baA,
+body .bhZ.bym.baA {
+  background-color: #181825 !important;
+}
+:root .gb_Kc svg,
+html .gb_Kc svg,
+body .gb_Kc svg,
+:root .gb_Pc.gb_Uc svg,
+html .gb_Pc.gb_Uc svg,
+body .gb_Pc.gb_Uc svg,
+:root .gb_Lc .gb_rd .gb_sd,
+html .gb_Lc .gb_rd .gb_sd,
+body .gb_Lc .gb_rd .gb_sd,
+:root .gb_Lc .gb_rd .gb_Kc,
+html .gb_Lc .gb_rd .gb_Kc,
+body .gb_Lc .gb_rd .gb_Kc,
+:root .gb_Lc .gb_rd .gb_ud,
+html .gb_Lc .gb_rd .gb_ud,
+body .gb_Lc .gb_rd .gb_ud,
+:root .gb_Pc.gb_Uc .gb_sd,
+html .gb_Pc.gb_Uc .gb_sd,
+body .gb_Pc.gb_Uc .gb_sd {
+  color: #cdd6f4 !important;
+}
+:root .gb_Kc .gb_hd,
+html .gb_Kc .gb_hd,
+body .gb_Kc .gb_hd {
+  background-color: #45475a !important;
+}
+:root .gb_Kc .gb_hd .gb_je,
+html .gb_Kc .gb_hd .gb_je,
+body .gb_Kc .gb_hd .gb_je,
+:root .gb_Kc .gb_hd .gb_qe,
+html .gb_Kc .gb_hd .gb_qe,
+body .gb_Kc .gb_hd .gb_qe,
+:root .gb_Kc .gb_hd .gsan_a,
+html .gb_Kc .gb_hd .gsan_a,
+body .gb_Kc .gb_hd .gsan_a,
+:root .gb_Kc .gb_hd .gsas_a,
+html .gb_Kc .gb_hd .gsas_a,
+body .gb_Kc .gb_hd .gsas_a,
+:root .gb_Kc .gb_hd svg,
+html .gb_Kc .gb_hd svg,
+body .gb_Kc .gb_hd svg {
+  color: #cdd6f4 !important;
+}
+:root .gb_hd.gb_id,
+html .gb_hd.gb_id,
+body .gb_hd.gb_id {
+  background-color: #1e1e2e !important;
+}
+:root .gssb_c,
+html .gssb_c,
+body .gssb_c {
+  /* Icons */
+  /* Recent searches */
+  /* Hovered recent searches */
+  /* Separator */
+  /* Search results */
+  /* Icons */
+  /* People involved */
+}
+:root .gssb_c button svg,
+html .gssb_c button svg,
+body .gssb_c button svg,
+:root .gssb_c .asor,
+html .gssb_c .asor,
+body .gssb_c .asor {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .gssb_c .aRp,
+html .gssb_c .aRp,
+body .gssb_c .aRp,
+:root .gssb_c .gssb_e,
+html .gssb_c .gssb_e,
+body .gssb_c .gssb_e,
+:root .gssb_c .gssb_m,
+html .gssb_c .gssb_m,
+body .gssb_c .gssb_m {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+:root .gssb_c .gssb_i,
+html .gssb_c .gssb_i,
+body .gssb_c .gssb_i {
+  background-color: #313244 !important;
+  /* X icon */
+}
+:root .gssb_c .gssb_i > .gssb_a,
+html .gssb_c .gssb_i > .gssb_a,
+body .gssb_c .gssb_i > .gssb_a {
+  border-left-color: #89b4fa !important;
+}
+:root .gssb_c .gssb_i .gsaq_b,
+html .gssb_c .gssb_i .gsaq_b,
+body .gssb_c .gssb_i .gsaq_b {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .gssb_c .aSP,
+html .gssb_c .aSP,
+body .gssb_c .aSP,
+:root .gssb_c .gssb_e,
+html .gssb_c .gssb_e,
+body .gssb_c .gssb_e {
+  border-color: #585b70 !important;
+}
+:root .gssb_c .gssb_l,
+html .gssb_c .gssb_l,
+body .gssb_c .gssb_l {
+  background-color: #313244 !important;
+}
+:root .gssb_c .gsoi_0,
+html .gssb_c .gsoi_0,
+body .gssb_c .gsoi_0,
+:root .gssb_c .asor_o,
+html .gssb_c .asor_o,
+body .gssb_c .asor_o,
+:root .gssb_c .gsoi_msra,
+html .gssb_c .gsoi_msra,
+body .gssb_c .gsoi_msra {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .gssb_c .asor_e,
+html .gssb_c .asor_e,
+body .gssb_c .asor_e {
+  color: #a6adc8 !important;
+}
+:root .H2,
+html .H2,
+body .H2 {
+  background-color: #1e1e2e !important;
+  border-color: #313244 !important;
+  color: #bac2de !important;
+  fill: #bac2de !important;
+}
+:root .H2:hover,
+html .H2:hover,
+body .H2:hover {
+  background-color: #181825 !important;
+}
+:root .H2.bws,
+html .H2.bws,
+body .H2.bws {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+  fill: #11111b !important;
+}
+:root .H2.bws .HV,
+html .H2.bws .HV,
+body .H2.bws .HV {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(44%) saturate(549%) hue-rotate(204deg) brightness(18%) contrast(96%) !important;
+}
+:root .H2.bws:hover .H1,
+html .H2.bws:hover .H1,
+body .H2.bws:hover .H1 {
+  background-color: #71a4f9 !important;
+}
+:root .aqc .H2,
+html .aqc .H2,
+body .aqc .H2 {
+  border-color: #cdd6f4 !important;
+  color: #cdd6f4 !important;
+}
+:root .aqc .H2.bws,
+html .aqc .H2.bws,
+body .aqc .H2.bws {
+  background-color: #585b70 !important;
+  color: #181825 !important;
+}
+:root .ZF-z6,
+html .ZF-z6,
+body .ZF-z6,
+:root .ZF-zT,
+html .ZF-zT,
+body .ZF-zT,
+:root .ZF-Av .lJ,
+html .ZF-Av .lJ,
+body .ZF-Av .lJ,
+:root .ZF-Av .lN,
+html .ZF-Av .lN,
+body .ZF-Av .lN {
+  background-color: #1e1e2e !important;
+  /* Text inputs */
+  /* Calendar input */
+  /* Checkbox inputs */
+  /* Dropdown/select inputs */
+}
+:root .ZF-z6,
+html .ZF-z6,
+body .ZF-z6,
+:root .ZF-zT,
+html .ZF-zT,
+body .ZF-zT,
+:root .ZF-Av .lJ,
+html .ZF-Av .lJ,
+body .ZF-Av .lJ,
+:root .ZF-Av .lN,
+html .ZF-Av .lN,
+body .ZF-Av .lN,
+:root .ZF-z6 .boo > .ZG,
+html .ZF-z6 .boo > .ZG,
+body .ZF-z6 .boo > .ZG,
+:root .ZF-zT .boo > .ZG,
+html .ZF-zT .boo > .ZG,
+body .ZF-zT .boo > .ZG,
+:root .ZF-Av .lJ .boo > .ZG,
+html .ZF-Av .lJ .boo > .ZG,
+body .ZF-Av .lJ .boo > .ZG,
+:root .ZF-Av .lN .boo > .ZG,
+html .ZF-Av .lN .boo > .ZG,
+body .ZF-Av .lN .boo > .ZG,
+:root .ZF-z6 .boo .aQl > .J-JN-M-I-Jm,
+html .ZF-z6 .boo .aQl > .J-JN-M-I-Jm,
+body .ZF-z6 .boo .aQl > .J-JN-M-I-Jm,
+:root .ZF-zT .boo .aQl > .J-JN-M-I-Jm,
+html .ZF-zT .boo .aQl > .J-JN-M-I-Jm,
+body .ZF-zT .boo .aQl > .J-JN-M-I-Jm,
+:root .ZF-Av .lJ .boo .aQl > .J-JN-M-I-Jm,
+html .ZF-Av .lJ .boo .aQl > .J-JN-M-I-Jm,
+body .ZF-Av .lJ .boo .aQl > .J-JN-M-I-Jm,
+:root .ZF-Av .lN .boo .aQl > .J-JN-M-I-Jm,
+html .ZF-Av .lN .boo .aQl > .J-JN-M-I-Jm,
+body .ZF-Av .lN .boo .aQl > .J-JN-M-I-Jm,
+:root .ZF-z6 .boo .aaa > .J-JN-M-I-Jm,
+html .ZF-z6 .boo .aaa > .J-JN-M-I-Jm,
+body .ZF-z6 .boo .aaa > .J-JN-M-I-Jm,
+:root .ZF-zT .boo .aaa > .J-JN-M-I-Jm,
+html .ZF-zT .boo .aaa > .J-JN-M-I-Jm,
+body .ZF-zT .boo .aaa > .J-JN-M-I-Jm,
+:root .ZF-Av .lJ .boo .aaa > .J-JN-M-I-Jm,
+html .ZF-Av .lJ .boo .aaa > .J-JN-M-I-Jm,
+body .ZF-Av .lJ .boo .aaa > .J-JN-M-I-Jm,
+:root .ZF-Av .lN .boo .aaa > .J-JN-M-I-Jm,
+html .ZF-Av .lN .boo .aaa > .J-JN-M-I-Jm,
+body .ZF-Av .lN .boo .aaa > .J-JN-M-I-Jm,
+:root .ZF-z6 .boo .ZE > .J-JN-M-I-Jm,
+html .ZF-z6 .boo .ZE > .J-JN-M-I-Jm,
+body .ZF-z6 .boo .ZE > .J-JN-M-I-Jm,
+:root .ZF-zT .boo .ZE > .J-JN-M-I-Jm,
+html .ZF-zT .boo .ZE > .J-JN-M-I-Jm,
+body .ZF-zT .boo .ZE > .J-JN-M-I-Jm,
+:root .ZF-Av .lJ .boo .ZE > .J-JN-M-I-Jm,
+html .ZF-Av .lJ .boo .ZE > .J-JN-M-I-Jm,
+body .ZF-Av .lJ .boo .ZE > .J-JN-M-I-Jm,
+:root .ZF-Av .lN .boo .ZE > .J-JN-M-I-Jm,
+html .ZF-Av .lN .boo .ZE > .J-JN-M-I-Jm,
+body .ZF-Av .lN .boo .ZE > .J-JN-M-I-Jm {
+  color: #cdd6f4 !important;
+}
+:root .ZF-z6 .btl.acK,
+html .ZF-z6 .btl.acK,
+body .ZF-z6 .btl.acK,
+:root .ZF-zT .btl.acK,
+html .ZF-zT .btl.acK,
+body .ZF-zT .btl.acK,
+:root .ZF-Av .lJ .btl.acK,
+html .ZF-Av .lJ .btl.acK,
+body .ZF-Av .lJ .btl.acK,
+:root .ZF-Av .lN .btl.acK,
+html .ZF-Av .lN .btl.acK,
+body .ZF-Av .lN .btl.acK,
+:root .ZF-z6 .btn::before,
+html .ZF-z6 .btn::before,
+body .ZF-z6 .btn::before,
+:root .ZF-zT .btn::before,
+html .ZF-zT .btn::before,
+body .ZF-zT .btn::before,
+:root .ZF-Av .lJ .btn::before,
+html .ZF-Av .lJ .btn::before,
+body .ZF-Av .lJ .btn::before,
+:root .ZF-Av .lN .btn::before,
+html .ZF-Av .lN .btn::before,
+body .ZF-Av .lN .btn::before {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .ZF-z6 .nr,
+html .ZF-z6 .nr,
+body .ZF-z6 .nr,
+:root .ZF-zT .nr,
+html .ZF-zT .nr,
+body .ZF-zT .nr,
+:root .ZF-Av .lJ .nr,
+html .ZF-Av .lJ .nr,
+body .ZF-Av .lJ .nr,
+:root .ZF-Av .lN .nr,
+html .ZF-Av .lN .nr,
+body .ZF-Av .lN .nr {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+:root .ZF-z6 .nr:focus,
+html .ZF-z6 .nr:focus,
+body .ZF-z6 .nr:focus,
+:root .ZF-zT .nr:focus,
+html .ZF-zT .nr:focus,
+body .ZF-zT .nr:focus,
+:root .ZF-Av .lJ .nr:focus,
+html .ZF-Av .lJ .nr:focus,
+body .ZF-Av .lJ .nr:focus,
+:root .ZF-Av .lN .nr:focus,
+html .ZF-Av .lN .nr:focus,
+body .ZF-Av .lN .nr:focus {
+  box-shadow: inset 0 -1px 0 0 #89b4fa !important;
+}
+:root .ZF-z6 .bs5::after,
+html .ZF-z6 .bs5::after,
+body .ZF-z6 .bs5::after,
+:root .ZF-zT .bs5::after,
+html .ZF-zT .bs5::after,
+body .ZF-zT .bs5::after,
+:root .ZF-Av .lJ .bs5::after,
+html .ZF-Av .lJ .bs5::after,
+body .ZF-Av .lJ .bs5::after,
+:root .ZF-Av .lN .bs5::after,
+html .ZF-Av .lN .bs5::after,
+body .ZF-Av .lN .bs5::after {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .ZF-z6 .J-JB-KA,
+html .ZF-z6 .J-JB-KA,
+body .ZF-z6 .J-JB-KA,
+:root .ZF-zT .J-JB-KA,
+html .ZF-zT .J-JB-KA,
+body .ZF-zT .J-JB-KA,
+:root .ZF-Av .lJ .J-JB-KA,
+html .ZF-Av .lJ .J-JB-KA,
+body .ZF-Av .lJ .J-JB-KA,
+:root .ZF-Av .lN .J-JB-KA,
+html .ZF-Av .lN .J-JB-KA,
+body .ZF-Av .lN .J-JB-KA,
+:root .ZF-z6 .J-JB-KA-JS,
+html .ZF-z6 .J-JB-KA-JS,
+body .ZF-z6 .J-JB-KA-JS,
+:root .ZF-zT .J-JB-KA-JS,
+html .ZF-zT .J-JB-KA-JS,
+body .ZF-zT .J-JB-KA-JS,
+:root .ZF-Av .lJ .J-JB-KA-JS,
+html .ZF-Av .lJ .J-JB-KA-JS,
+body .ZF-Av .lJ .J-JB-KA-JS,
+:root .ZF-Av .lN .J-JB-KA-JS,
+html .ZF-Av .lN .J-JB-KA-JS,
+body .ZF-Av .lN .J-JB-KA-JS,
+:root .ZF-z6 .J-JB-KA-Jk,
+html .ZF-z6 .J-JB-KA-Jk,
+body .ZF-z6 .J-JB-KA-Jk,
+:root .ZF-zT .J-JB-KA-Jk,
+html .ZF-zT .J-JB-KA-Jk,
+body .ZF-zT .J-JB-KA-Jk,
+:root .ZF-Av .lJ .J-JB-KA-Jk,
+html .ZF-Av .lJ .J-JB-KA-Jk,
+body .ZF-Av .lJ .J-JB-KA-Jk,
+:root .ZF-Av .lN .J-JB-KA-Jk,
+html .ZF-Av .lN .J-JB-KA-Jk,
+body .ZF-Av .lN .J-JB-KA-Jk,
+:root .ZF-z6 .J-JB-KA-LG,
+html .ZF-z6 .J-JB-KA-LG,
+body .ZF-z6 .J-JB-KA-LG,
+:root .ZF-zT .J-JB-KA-LG,
+html .ZF-zT .J-JB-KA-LG,
+body .ZF-zT .J-JB-KA-LG,
+:root .ZF-Av .lJ .J-JB-KA-LG,
+html .ZF-Av .lJ .J-JB-KA-LG,
+body .ZF-Av .lJ .J-JB-KA-LG,
+:root .ZF-Av .lN .J-JB-KA-LG,
+html .ZF-Av .lN .J-JB-KA-LG,
+body .ZF-Av .lN .J-JB-KA-LG {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  border-color: #313244 !important;
+  /* Past days */
+  /* Future days */
+  /* Hovered day */
+  /* Selected day */
+  /* Unselected today */
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA .J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA .J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA .J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA .J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-Ku-Kk {
+  color: #a6adc8 !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-LH,
+:root .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-a1R-JB.J-JB-KA-Ku-Kk,
+:root .ZF-z6 .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-z6 .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-z6 .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-zT .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-zT .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-zT .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB.J-JB-KA-a1R-JB {
+  color: #bac2de !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover {
+  color: #11111b !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-z6 .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-zT .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-JB:not(.J-JB-KA-K8, .J-JB-KA-KO):hover::before {
+  background-color: rgba(137, 180, 250, 0.7) !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-KO,
+html .ZF-z6 .J-JB-KA .J-JB-KA-KO,
+body .ZF-z6 .J-JB-KA .J-JB-KA-KO,
+:root .ZF-zT .J-JB-KA .J-JB-KA-KO,
+html .ZF-zT .J-JB-KA .J-JB-KA-KO,
+body .ZF-zT .J-JB-KA .J-JB-KA-KO,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-KO,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-KO,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-KO,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-KO,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-KO,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-KO,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-KO,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-KO,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-KO,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO {
+  color: #11111b !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-KO::before,
+html .ZF-z6 .J-JB-KA .J-JB-KA-KO::before,
+body .ZF-z6 .J-JB-KA .J-JB-KA-KO::before,
+:root .ZF-zT .J-JB-KA .J-JB-KA-KO::before,
+html .ZF-zT .J-JB-KA .J-JB-KA-KO::before,
+body .ZF-zT .J-JB-KA .J-JB-KA-KO::before,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO::before,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO::before,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-KO::before,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-KO::before,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-KO::before,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-KO::before,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO::before,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO::before,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-KO::before,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-KO::before,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-KO::before,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-KO::before,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO::before,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO::before,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-KO::before,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO::before,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO::before,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-KO::before,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO::before,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO::before,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-KO::before,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO::before,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO::before,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-KO::before,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO::before,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO::before,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-KO::before,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO::before,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO::before,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-KO::before,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO::before,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO::before,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-KO::before,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-KO::before,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-KO::before,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-KO::before,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO::before,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO::before,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-KO::before,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO::before,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO::before,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-KO::before {
+  background-color: #89b4fa !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-K8,
+html .ZF-z6 .J-JB-KA .J-JB-KA-K8,
+body .ZF-z6 .J-JB-KA .J-JB-KA-K8,
+:root .ZF-zT .J-JB-KA .J-JB-KA-K8,
+html .ZF-zT .J-JB-KA .J-JB-KA-K8,
+body .ZF-zT .J-JB-KA .J-JB-KA-K8,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-K8,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-K8,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-K8,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-K8,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-K8,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-K8,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-K8,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-K8,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-K8,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8 {
+  color: #11111b !important;
+}
+:root .ZF-z6 .J-JB-KA .J-JB-KA-K8::before,
+html .ZF-z6 .J-JB-KA .J-JB-KA-K8::before,
+body .ZF-z6 .J-JB-KA .J-JB-KA-K8::before,
+:root .ZF-zT .J-JB-KA .J-JB-KA-K8::before,
+html .ZF-zT .J-JB-KA .J-JB-KA-K8::before,
+body .ZF-zT .J-JB-KA .J-JB-KA-K8::before,
+:root .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8::before,
+html .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8::before,
+body .ZF-Av .lJ .J-JB-KA .J-JB-KA-K8::before,
+:root .ZF-Av .lN .J-JB-KA .J-JB-KA-K8::before,
+html .ZF-Av .lN .J-JB-KA .J-JB-KA-K8::before,
+body .ZF-Av .lN .J-JB-KA .J-JB-KA-K8::before,
+:root .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8::before,
+html .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8::before,
+body .ZF-z6 .J-JB-KA-JS .J-JB-KA-K8::before,
+:root .ZF-zT .J-JB-KA-JS .J-JB-KA-K8::before,
+html .ZF-zT .J-JB-KA-JS .J-JB-KA-K8::before,
+body .ZF-zT .J-JB-KA-JS .J-JB-KA-K8::before,
+:root .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8::before,
+html .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8::before,
+body .ZF-Av .lJ .J-JB-KA-JS .J-JB-KA-K8::before,
+:root .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8::before,
+html .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8::before,
+body .ZF-Av .lN .J-JB-KA-JS .J-JB-KA-K8::before,
+:root .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8::before,
+html .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8::before,
+body .ZF-z6 .J-JB-KA-Jk .J-JB-KA-K8::before,
+:root .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8::before,
+html .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8::before,
+body .ZF-zT .J-JB-KA-Jk .J-JB-KA-K8::before,
+:root .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8::before,
+html .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8::before,
+body .ZF-Av .lJ .J-JB-KA-Jk .J-JB-KA-K8::before,
+:root .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8::before,
+html .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8::before,
+body .ZF-Av .lN .J-JB-KA-Jk .J-JB-KA-K8::before,
+:root .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8::before,
+html .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8::before,
+body .ZF-z6 .J-JB-KA-LG .J-JB-KA-K8::before,
+:root .ZF-zT .J-JB-KA-LG .J-JB-KA-K8::before,
+html .ZF-zT .J-JB-KA-LG .J-JB-KA-K8::before,
+body .ZF-zT .J-JB-KA-LG .J-JB-KA-K8::before,
+:root .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8::before,
+html .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8::before,
+body .ZF-Av .lJ .J-JB-KA-LG .J-JB-KA-K8::before,
+:root .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8::before,
+html .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8::before,
+body .ZF-Av .lN .J-JB-KA-LG .J-JB-KA-K8::before {
+  background-color: #9399b2 !important;
+}
+:root .ZF-z6 .bs1 + .bs3,
+html .ZF-z6 .bs1 + .bs3,
+body .ZF-z6 .bs1 + .bs3,
+:root .ZF-zT .bs1 + .bs3,
+html .ZF-zT .bs1 + .bs3,
+body .ZF-zT .bs1 + .bs3,
+:root .ZF-Av .lJ .bs1 + .bs3,
+html .ZF-Av .lJ .bs1 + .bs3,
+body .ZF-Av .lJ .bs1 + .bs3,
+:root .ZF-Av .lN .bs1 + .bs3,
+html .ZF-Av .lN .bs1 + .bs3,
+body .ZF-Av .lN .bs1 + .bs3,
+:root .ZF-z6 .btj + .aD,
+html .ZF-z6 .btj + .aD,
+body .ZF-z6 .btj + .aD,
+:root .ZF-zT .btj + .aD,
+html .ZF-zT .btj + .aD,
+body .ZF-zT .btj + .aD,
+:root .ZF-Av .lJ .btj + .aD,
+html .ZF-Av .lJ .btj + .aD,
+body .ZF-Av .lJ .btj + .aD,
+:root .ZF-Av .lN .btj + .aD,
+html .ZF-Av .lN .btj + .aD,
+body .ZF-Av .lN .btj + .aD {
+  color: #cdd6f4 !important;
+}
+:root .ZF-z6 .bs1 + .bs3::before,
+html .ZF-z6 .bs1 + .bs3::before,
+body .ZF-z6 .bs1 + .bs3::before,
+:root .ZF-zT .bs1 + .bs3::before,
+html .ZF-zT .bs1 + .bs3::before,
+body .ZF-zT .bs1 + .bs3::before,
+:root .ZF-Av .lJ .bs1 + .bs3::before,
+html .ZF-Av .lJ .bs1 + .bs3::before,
+body .ZF-Av .lJ .bs1 + .bs3::before,
+:root .ZF-Av .lN .bs1 + .bs3::before,
+html .ZF-Av .lN .bs1 + .bs3::before,
+body .ZF-Av .lN .bs1 + .bs3::before,
+:root .ZF-z6 .btj + .aD::before,
+html .ZF-z6 .btj + .aD::before,
+body .ZF-z6 .btj + .aD::before,
+:root .ZF-zT .btj + .aD::before,
+html .ZF-zT .btj + .aD::before,
+body .ZF-zT .btj + .aD::before,
+:root .ZF-Av .lJ .btj + .aD::before,
+html .ZF-Av .lJ .btj + .aD::before,
+body .ZF-Av .lJ .btj + .aD::before,
+:root .ZF-Av .lN .btj + .aD::before,
+html .ZF-Av .lN .btj + .aD::before,
+body .ZF-Av .lN .btj + .aD::before {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .ZF-z6 .J-JN-M-I,
+html .ZF-z6 .J-JN-M-I,
+body .ZF-z6 .J-JN-M-I,
+:root .ZF-zT .J-JN-M-I,
+html .ZF-zT .J-JN-M-I,
+body .ZF-zT .J-JN-M-I,
+:root .ZF-Av .lJ .J-JN-M-I,
+html .ZF-Av .lJ .J-JN-M-I,
+body .ZF-Av .lJ .J-JN-M-I,
+:root .ZF-Av .lN .J-JN-M-I,
+html .ZF-Av .lN .J-JN-M-I,
+body .ZF-Av .lN .J-JN-M-I {
+  color: #cdd6f4 !important;
+}
+:root .TK .TO.nZ:active,
+html .TK .TO.nZ:active,
+body .TK .TO.nZ:active,
+:root .TK .TO.ol:active,
+html .TK .TO.ol:active,
+body .TK .TO.ol:active,
+:root .TK .TO.nZ,
+html .TK .TO.nZ,
+body .TK .TO.nZ,
+:root .TK .TO.ol,
+html .TK .TO.ol,
+body .TK .TO.ol,
+:root .byl .TK .nZ.aBP,
+html .byl .TK .nZ.aBP,
+body .byl .TK .nZ.aBP,
+:root .byl .TK .nZ.aS3,
+html .byl .TK .nZ.aS3,
+body .byl .TK .nZ.aS3,
+:root .byl .TK .nZ.aS4,
+html .byl .TK .nZ.aS4,
+body .byl .TK .nZ.aS4,
+:root .byl .TK .nZ.aS5,
+html .byl .TK .nZ.aS5,
+body .byl .TK .nZ.aS5,
+:root .byl .TK .nZ.aS6,
+html .byl .TK .nZ.aS6,
+body .byl .TK .nZ.aS6,
+:root .VDSZAf.H5o3mc,
+html .VDSZAf.H5o3mc,
+body .VDSZAf.H5o3mc {
+  background-color: #313244 !important;
+}
+:root .TO.NQ,
+html .TO.NQ,
+body .TO.NQ,
+:root .n6 .ah9:hover,
+html .n6 .ah9:hover,
+body .n6 .ah9:hover,
+:root .n6 .ah9.aiu:hover,
+html .n6 .ah9.aiu:hover,
+body .n6 .ah9.aiu:hover,
+:root .n6 .ah9:focus,
+html .n6 .ah9:focus,
+body .n6 .ah9:focus,
+:root .TK .TO:active,
+html .TK .TO:active,
+body .TK .TO:active,
+:root .n6 .ah9.aiu:active,
+html .n6 .ah9.aiu:active,
+body .n6 .ah9.aiu:active,
+:root .CL:hover,
+html .CL:hover,
+body .CL:hover,
+:root .H5o3mc:not(.VDSZAf):hover,
+html .H5o3mc:not(.VDSZAf):hover,
+body .H5o3mc:not(.VDSZAf):hover,
+:root .CL.NQ,
+html .CL.NQ,
+body .CL.NQ,
+:root .H5o3mc:not(.VDSZAf).NQ,
+html .H5o3mc:not(.VDSZAf).NQ,
+body .H5o3mc:not(.VDSZAf).NQ {
+  background-color: #45475a !important;
+}
+:root .byl .TK .TO.nZ > .aHS-bnt .n0,
+html .byl .TK .TO.nZ > .aHS-bnt .n0,
+body .byl .TK .TO.nZ > .aHS-bnt .n0,
+:root .TK .nZ > .aHS-bnt .bsU,
+html .TK .nZ > .aHS-bnt .bsU,
+body .TK .nZ > .aHS-bnt .bsU,
+:root .byl .TK .nZ.aS3 .nU > .n0,
+html .byl .TK .nZ.aS3 .nU > .n0,
+body .byl .TK .nZ.aS3 .nU > .n0,
+:root .TK .nZ.aS3 .bsU,
+html .TK .nZ.aS3 .bsU,
+body .TK .nZ.aS3 .bsU,
+:root .byl .TK .nZ.aS4 .nU > .n0,
+html .byl .TK .nZ.aS4 .nU > .n0,
+body .byl .TK .nZ.aS4 .nU > .n0,
+:root .TK .nZ.aS4 .bsU,
+html .TK .nZ.aS4 .bsU,
+body .TK .nZ.aS4 .bsU,
+:root .byl .TK .nZ.aS5 .nU > .n0,
+html .byl .TK .nZ.aS5 .nU > .n0,
+body .byl .TK .nZ.aS5 .nU > .n0,
+:root .TK .nZ.aS5 .bsU,
+html .TK .nZ.aS5 .bsU,
+body .TK .nZ.aS5 .bsU,
+:root .byl .TK .nZ.aS6 .nU > .n0,
+html .byl .TK .nZ.aS6 .nU > .n0,
+body .byl .TK .nZ.aS6 .nU > .n0,
+:root .TK .nZ.aS6 .bsU,
+html .TK .nZ.aS6 .bsU,
+body .TK .nZ.aS6 .bsU,
+:root .TK .TO.nZ .nU > .n0,
+html .TK .TO.nZ .nU > .n0,
+body .TK .TO.nZ .nU > .n0,
+:root .TK .ol.NQ .nU > .n0,
+html .TK .ol.NQ .nU > .n0,
+body .TK .ol.NQ .nU > .n0,
+:root .TK .TO.ol .nU > .n0,
+html .TK .TO.ol .nU > .n0,
+body .TK .TO.ol .nU > .n0,
+:root .TK .nZ .bsU,
+html .TK .nZ .bsU,
+body .TK .nZ .bsU,
+:root .TK .ol .bsU,
+html .TK .ol .bsU,
+body .TK .ol .bsU,
+:root .VDSZAf.H5o3mc > .Q7,
+html .VDSZAf.H5o3mc > .Q7,
+body .VDSZAf.H5o3mc > .Q7,
+:root .TO .nU > .n0,
+html .TO .nU > .n0,
+body .TO .nU > .n0,
+:root .TO.NQ .nU > .n0,
+html .TO.NQ .nU > .n0,
+body .TO.NQ .nU > .n0,
+:root .TO.nZ .nU > .n0,
+html .TO.nZ .nU > .n0,
+body .TO.nZ .nU > .n0,
+:root .ah9 > .CJ,
+html .ah9 > .CJ,
+body .ah9 > .CJ,
+:root .n3 > .CL > .CK,
+html .n3 > .CL > .CK,
+body .n3 > .CL > .CK,
+:root .aAv,
+html .aAv,
+body .aAv,
+:root .bsU,
+html .bsU,
+body .bsU {
+  color: #cdd6f4 !important;
+}
+:root .nZ > .TN.aHS-bnt .qj,
+html .nZ > .TN.aHS-bnt .qj,
+body .nZ > .TN.aHS-bnt .qj,
+:root .TO:not(.nZ) > .TN > .qj:not([style*="background-color"]),
+html .TO:not(.nZ) > .TN > .qj:not([style*="background-color"]),
+body .TO:not(.nZ) > .TN > .qj:not([style*="background-color"]),
+:root .n6 .n4 .G-asx,
+html .n6 .n4 .G-asx,
+body .n6 .n4 .G-asx,
+:root .aAw .aAu,
+html .aAw .aAu,
+body .aAw .aAu,
+:root .pM,
+html .pM,
+body .pM,
+:root .TO.nZ > .TN > .qj,
+html .TO.nZ > .TN > .qj,
+body .TO.nZ > .TN > .qj,
+:root .n3 .CL::before,
+html .n3 .CL::before,
+body .n3 .CL::before {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .z0 > .L3,
+html .z0 > .L3,
+body .z0 > .L3 {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+:root .z0 > .L3:focus,
+html .z0 > .L3:focus,
+body .z0 > .L3:focus {
+  background-color: #cdd6f4 !important;
+}
+:root .WR .z0 > .L3::before,
+html .WR .z0 > .L3::before,
+body .WR .z0 > .L3::before,
+:root .WR.anZ .z0 > .L3::before,
+html .WR.anZ .z0 > .L3::before,
+body .WR.anZ .z0 > .L3::before {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(44%) saturate(549%) hue-rotate(204deg) brightness(18%) contrast(96%) !important;
+}
+:root .bkK > .nH,
+html .bkK > .nH,
+body .bkK > .nH {
+  background-color: #313244 !important;
+  /* Icons */
+}
+:root .bkK > .nH .bzn,
+html .bkK > .nH .bzn,
+body .bkK > .nH .bzn,
+:root .bkK > .nH .aqJ .amJ,
+html .bkK > .nH .aqJ .amJ,
+body .bkK > .nH .aqJ .amJ,
+:root .bkK > .nH .adg .adk,
+html .bkK > .nH .adg .adk,
+body .bkK > .nH .adg .adk {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .aKx > .aKz,
+html .aKx > .aKz,
+body .aKx > .aKz {
+  color: #cdd6f4 !important;
+}
+:root .aAy > div,
+html .aAy > div,
+body .aAy > div {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .J-KU-KO::before,
+html .J-KU-KO::before,
+body .J-KU-KO::before {
+  background-color: #cdd6f4 !important;
+}
+:root .aRz.J-KU:hover,
+html .aRz.J-KU:hover,
+body .aRz.J-KU:hover {
+  background-color: #45475a !important;
+}
+:root div[aria-label="Show more messages"] .Dj,
+html div[aria-label="Show more messages"] .Dj,
+body div[aria-label="Show more messages"] .Dj {
+  color: #bac2de !important;
+}
+:root div[aria-label="Show more messages"]::before,
+html div[aria-label="Show more messages"]::before,
+body div[aria-label="Show more messages"]::before {
+  background-color: #cdd6f4 !important;
+}
+:root .h0,
+html .h0,
+body .h0 {
+  color: #bac2de !important;
+}
+:root .md.mj,
+html .md.mj,
+body .md.mj,
+:root .aeU .ma,
+html .aeU .ma,
+body .aeU .ma,
+:root .ma .mb,
+html .ma .mb,
+body .ma .mb,
+:root .ae3 .l6,
+html .ae3 .l6,
+body .ae3 .l6,
+:root .l9,
+html .l9,
+body .l9,
+:root .l8,
+html .l8,
+body .l8,
+:root .aiD,
+html .aiD,
+body .aiD {
+  color: #bac2de !important;
+}
+:root .aiC,
+html .aiC,
+body .aiC {
+  background-color: #6c7086 !important;
+}
+:root .aiC .aiA,
+html .aiC .aiA,
+body .aiC .aiA {
+  background-color: #a6adc8 !important;
+}
+:root .aiz,
+html .aiz,
+body .aiz {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .yO,
+html .yO,
+body .yO {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  box-shadow: inset 0 -1px 0 0 #313244 !important;
+}
+:root .yO:hover,
+html .yO:hover,
+body .yO:hover {
+  box-shadow: inset 1px 0 0 #313244, inset -1px 0 0 #313244, 0 0 4px 0 #45475a, 0 0 6px 2px #45475a !important;
+}
+:root .zE,
+html .zE,
+body .zE {
+  color: #cdd6f4 !important;
+}
+:root .xY > .T-Jo,
+html .xY > .T-Jo,
+body .xY > .T-Jo,
+:root td.apU > .T-KT.aXw::before,
+html td.apU > .T-KT.aXw::before,
+body td.apU > .T-KT.aXw::before,
+:root .pG .a9q,
+html .pG .a9q,
+body .pG .a9q,
+:root .aqN,
+html .aqN,
+body .aqN,
+:root .bqY li,
+html .bqY li,
+body .bqY li {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .ha .a9q.pH,
+html .ha .a9q.pH,
+body .ha .a9q.pH,
+:root .a9q.pH,
+html .a9q.pH,
+body .a9q.pH,
+:root .aoj,
+html .aoj,
+body .aoj,
+:root td.apU > .T-KT.T-KT-Jp::before,
+html td.apU > .T-KT.T-KT-Jp::before,
+body td.apU > .T-KT.T-KT-Jp::before {
+  filter: brightness(0) saturate(100%) invert(85%) sepia(27%) saturate(512%) hue-rotate(336deg) brightness(108%) contrast(96%) !important;
+}
+:root .pG:hover > .a9q::before,
+html .pG:hover > .a9q::before,
+body .pG:hover > .a9q::before {
+  background-color: rgba(249, 226, 175, 0.3) !important;
+}
+:root .yO > .xW,
+html .yO > .xW,
+body .yO > .xW {
+  color: #a6adc8 !important;
+}
+:root .y2,
+html .y2,
+body .y2 {
+  color: #bac2de !important;
+}
+:root .x7,
+html .x7,
+body .x7 {
+  background-color: #89b4fa !important;
+  color: #181825 !important;
+  /* Dates */
+}
+:root .x7 .xW,
+html .x7 .xW,
+body .x7 .xW {
+  color: #11111b !important;
+}
+:root .x7 .xY > .T-Jo,
+html .x7 .xY > .T-Jo,
+body .x7 .xY > .T-Jo,
+:root .x7 td.apU > .T-KT.aXw::before,
+html .x7 td.apU > .T-KT.aXw::before,
+body .x7 td.apU > .T-KT.aXw::before,
+:root .x7 .pG .a9q,
+html .x7 .pG .a9q,
+body .x7 .pG .a9q,
+:root .x7 .aqN,
+html .x7 .aqN,
+body .x7 .aqN,
+:root .x7 .bqY li,
+html .x7 .bqY li,
+body .x7 .bqY li {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(44%) saturate(549%) hue-rotate(204deg) brightness(18%) contrast(96%) !important;
+}
+:root .aOd.T-I,
+html .aOd.T-I,
+body .aOd.T-I {
+  color: #cdd6f4 !important;
+  box-shadow: inset 0 0 0 1px #585b70 !important;
+}
+:root .boq,
+html .boq,
+body .boq {
+  color: #f38ba8 !important;
+}
+:root .TD,
+html .TD,
+body .TD,
+:root .Tm .ya,
+html .Tm .ya,
+body .Tm .ya {
+  background-color: #45475a !important;
+  color: #cdd6f4 !important;
+}
+:root .aRs,
+html .aRs,
+body .aRs {
+  background-color: #1e1e2e !important;
+  color: #a6adc8 !important;
+}
+:root .aRs .aRv,
+html .aRs .aRv,
+body .aRs .aRv {
+  color: #cdd6f4 !important;
+}
+:root .aRs .aRq,
+html .aRs .aRq,
+body .aRs .aRq {
+  color: #89b4fa !important;
+}
+:root .GR,
+html .GR,
+body .GR {
+  background-color: #1e1e2e !important;
+  /* Primary text */
+  /* Subtext */
+  /* Dismiss button */
+  /* Add recovery info button */
+}
+:root .GR .GX,
+html .GR .GX,
+body .GR .GX {
+  color: #cdd6f4 !important;
+}
+:root .GR .GT,
+html .GR .GT,
+body .GR .GT {
+  color: #bac2de !important;
+}
+:root .GR .GW,
+html .GR .GW,
+body .GR .GW {
+  color: #cdd6f4 !important;
+}
+:root .GR .GW::before,
+html .GR .GW::before,
+body .GR .GW::before {
+  background-color: #cdd6f4 !important;
+}
+:root .GR .GV,
+html .GR .GV,
+body .GR .GV {
+  color: #89b4fa !important;
+}
+:root .GR .GV::before,
+html .GR .GV::before,
+body .GR .GV::before {
+  background-color: #89b4fa !important;
+}
+:root .brc,
+html .brc,
+body .brc {
+  box-shadow: inset 0 0 0 1px #313244 !important;
+  color: #cdd6f4 !important;
+}
+:root .brc:hover,
+html .brc:hover,
+body .brc:hover {
+  background-color: #313244 !important;
+}
+:root .J-M,
+html .J-M,
+body .J-M,
+:root .OO.Pa,
+html .OO.Pa,
+body .OO.Pa {
+  background-color: #45475a !important;
+  /* Menu section header */
+  /* Menu item */
+  /* Disabled */
+  /* Checkmark, arrow, checkbox, star, calendar icon */
+  /* Hovered menu item */
+  /* Menu section divider */
+}
+:root .J-M .J-awr,
+html .J-M .J-awr,
+body .J-M .J-awr,
+:root .OO.Pa .J-awr,
+html .OO.Pa .J-awr,
+body .OO.Pa .J-awr,
+:root .J-M .asc,
+html .J-M .asc,
+body .J-M .asc,
+:root .OO.Pa .asc,
+html .OO.Pa .asc,
+body .OO.Pa .asc {
+  color: #bac2de !important;
+}
+:root .J-M .J-N,
+html .J-M .J-N,
+body .J-M .J-N,
+:root .OO.Pa .J-N,
+html .OO.Pa .J-N,
+body .OO.Pa .J-N,
+:root .J-M .J-Ks-KO .J-N-Jz,
+html .J-M .J-Ks-KO .J-N-Jz,
+body .J-M .J-Ks-KO .J-N-Jz,
+:root .OO.Pa .J-Ks-KO .J-N-Jz,
+html .OO.Pa .J-Ks-KO .J-N-Jz,
+body .OO.Pa .J-Ks-KO .J-N-Jz,
+:root .J-M .J-N-JT .J-N-Jz,
+html .J-M .J-N-JT .J-N-Jz,
+body .J-M .J-N-JT .J-N-Jz,
+:root .OO.Pa .J-N-JT .J-N-Jz,
+html .OO.Pa .J-N-JT .J-N-Jz,
+body .OO.Pa .J-N-JT .J-N-Jz,
+:root .J-M .J-N-JW .J-N-Jz,
+html .J-M .J-N-JW .J-N-Jz,
+body .J-M .J-N-JW .J-N-Jz,
+:root .OO.Pa .J-N-JW .J-N-Jz,
+html .OO.Pa .J-N-JW .J-N-Jz,
+body .OO.Pa .J-N-JW .J-N-Jz,
+:root .J-M .J-LC,
+html .J-M .J-LC,
+body .J-M .J-LC,
+:root .OO.Pa .J-LC,
+html .OO.Pa .J-LC,
+body .OO.Pa .J-LC,
+:root .J-M .J-JK,
+html .J-M .J-JK,
+body .J-M .J-JK,
+:root .OO.Pa .J-JK,
+html .OO.Pa .J-JK,
+body .OO.Pa .J-JK,
+:root .J-M .bmz,
+html .J-M .bmz,
+body .J-M .bmz,
+:root .OO.Pa .bmz,
+html .OO.Pa .bmz,
+body .OO.Pa .bmz {
+  color: #cdd6f4 !important;
+}
+:root .J-M .J-N-JE .J-N-atj,
+html .J-M .J-N-JE .J-N-atj,
+body .J-M .J-N-JE .J-N-atj,
+:root .OO.Pa .J-N-JE .J-N-atj,
+html .OO.Pa .J-N-JE .J-N-atj,
+body .OO.Pa .J-N-JE .J-N-atj,
+:root .J-M .J-N-JE .J-N-Jz,
+html .J-M .J-N-JE .J-N-Jz,
+body .J-M .J-N-JE .J-N-Jz,
+:root .OO.Pa .J-N-JE .J-N-Jz,
+html .OO.Pa .J-N-JE .J-N-Jz,
+body .OO.Pa .J-N-JE .J-N-Jz {
+  color: #a6adc8 !important;
+}
+:root .J-M .J-Ks-KO .J-N-Jo,
+html .J-M .J-Ks-KO .J-N-Jo,
+body .J-M .J-Ks-KO .J-N-Jo,
+:root .OO.Pa .J-Ks-KO .J-N-Jo,
+html .OO.Pa .J-Ks-KO .J-N-Jo,
+body .OO.Pa .J-Ks-KO .J-N-Jo,
+:root .J-M .asi .J-Ks-KO::before,
+html .J-M .asi .J-Ks-KO::before,
+body .J-M .asi .J-Ks-KO::before,
+:root .OO.Pa .asi .J-Ks-KO::before,
+html .OO.Pa .asi .J-Ks-KO::before,
+body .OO.Pa .asi .J-Ks-KO::before,
+:root .J-M .J-Ph-hFsbo,
+html .J-M .J-Ph-hFsbo,
+body .J-M .J-Ph-hFsbo,
+:root .OO.Pa .J-Ph-hFsbo,
+html .OO.Pa .J-Ph-hFsbo,
+body .OO.Pa .J-Ph-hFsbo,
+:root .J-M .J-LC-Jo,
+html .J-M .J-LC-Jo,
+body .J-M .J-LC-Jo,
+:root .OO.Pa .J-LC-Jo,
+html .OO.Pa .J-LC-Jo,
+body .OO.Pa .J-LC-Jo,
+:root .J-M .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+html .J-M .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+body .J-M .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+:root .OO.Pa .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+html .OO.Pa .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+body .OO.Pa .bi4 > .T-KT:not(.T-KT-Jp, .byM)::before,
+:root .J-M .aaA.mYVwse,
+html .J-M .aaA.mYVwse,
+body .J-M .aaA.mYVwse,
+:root .OO.Pa .aaA.mYVwse,
+html .OO.Pa .aaA.mYVwse,
+body .OO.Pa .aaA.mYVwse,
+:root .J-M .J-N-JX,
+html .J-M .J-N-JX,
+body .J-M .J-N-JX,
+:root .OO.Pa .J-N-JX,
+html .OO.Pa .J-N-JX,
+body .OO.Pa .J-N-JX {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .J-M .bmz.bjF::before,
+html .J-M .bmz.bjF::before,
+body .J-M .bmz.bjF::before,
+:root .OO.Pa .bmz.bjF::before,
+html .OO.Pa .bmz.bjF::before,
+body .OO.Pa .bmz.bjF::before {
+  border-color: #a6adc8 !important;
+}
+:root .J-M .J-N-JT,
+html .J-M .J-N-JT,
+body .J-M .J-N-JT,
+:root .OO.Pa .J-N-JT,
+html .OO.Pa .J-N-JT,
+body .OO.Pa .J-N-JT,
+:root .J-M .J-N-JW,
+html .J-M .J-N-JW,
+body .J-M .J-N-JW,
+:root .OO.Pa .J-N-JW,
+html .OO.Pa .J-N-JW,
+body .OO.Pa .J-N-JW,
+:root .J-M .J-LC-JT,
+html .J-M .J-LC-JT,
+body .J-M .J-LC-JT,
+:root .OO.Pa .J-LC-JT,
+html .OO.Pa .J-LC-JT,
+body .OO.Pa .J-LC-JT,
+:root .J-M .J-LC-JW,
+html .J-M .J-LC-JW,
+body .J-M .J-LC-JW,
+:root .OO.Pa .J-LC-JW,
+html .OO.Pa .J-LC-JW,
+body .OO.Pa .J-LC-JW,
+:root .J-M .J-JK-JT,
+html .J-M .J-JK-JT,
+body .J-M .J-JK-JT,
+:root .OO.Pa .J-JK-JT,
+html .OO.Pa .J-JK-JT,
+body .OO.Pa .J-JK-JT,
+:root .J-M .J-JK-JW,
+html .J-M .J-JK-JW,
+body .J-M .J-JK-JW,
+:root .OO.Pa .J-JK-JW,
+html .OO.Pa .J-JK-JW,
+body .OO.Pa .J-JK-JW,
+:root .J-M .bmz.bk5,
+html .J-M .bmz.bk5,
+body .J-M .bmz.bk5,
+:root .OO.Pa .bmz.bk5,
+html .OO.Pa .bmz.bk5,
+body .OO.Pa .bmz.bk5 {
+  background-color: #585b70 !important;
+  border-color: #7f849c !important;
+}
+:root .J-M .J-Kh,
+html .J-M .J-Kh,
+body .J-M .J-Kh,
+:root .OO.Pa .J-Kh,
+html .OO.Pa .J-Kh,
+body .OO.Pa .J-Kh {
+  border-top-color: #585b70 !important;
+}
+:root .agd .J-M-JJ input,
+html .agd .J-M-JJ input,
+body .agd .J-M-JJ input {
+  background-color: #45475a !important;
+  color: #cdd6f4 !important;
+}
+:root .bqf,
+html .bqf,
+body .bqf {
+  box-shadow: inset 0 -2px 0 0 #585b70 !important;
+}
+:root .bqf:focus,
+html .bqf:focus,
+body .bqf:focus {
+  box-shadow: inset 0 -2px 0 0 #89b4fa !important;
+}
+:root .A0,
+html .A0,
+body .A0 {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root div.Kj-JD,
+html div.Kj-JD,
+body div.Kj-JD {
+  background-color: #1e1e2e !important;
+  /* Edit label text */
+  /* Close X icon */
+  /* Input labels */
+  /* Cancel button */
+  /* Save button */
+}
+:root div.Kj-JD span.Kj-JD-K7-K0,
+html div.Kj-JD span.Kj-JD-K7-K0,
+body div.Kj-JD span.Kj-JD-K7-K0 {
+  color: #cdd6f4 !important;
+}
+:root div.Kj-JD span.Kj-JD-K7-Jq::after,
+html div.Kj-JD span.Kj-JD-K7-Jq::after,
+body div.Kj-JD span.Kj-JD-K7-Jq::after {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root div.Kj-JD input,
+html div.Kj-JD input,
+body div.Kj-JD input,
+:root div.Kj-JD select,
+html div.Kj-JD select,
+body div.Kj-JD select,
+:root div.Kj-JD button,
+html div.Kj-JD button,
+body div.Kj-JD button {
+  background-color: #181825 !important;
+  color: #cdd6f4 !important;
+  border-color: #313244 !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+}
+:root div.Kj-JD div.Kj-JD-Jz,
+html div.Kj-JD div.Kj-JD-Jz,
+body div.Kj-JD div.Kj-JD-Jz {
+  color: #bac2de !important;
+}
+:root div.Kj-JD div.Kj-JD-Jl > button,
+html div.Kj-JD div.Kj-JD-Jl > button,
+body div.Kj-JD div.Kj-JD-Jl > button,
+:root div.Kj-JD .bBh .Kj-JD-Jl > .J-at1-auR,
+html div.Kj-JD .bBh .Kj-JD-Jl > .J-at1-auR,
+body div.Kj-JD .bBh .Kj-JD-Jl > .J-at1-auR {
+  color: #bac2de !important;
+}
+:root div.Kj-JD div.Kj-JD-Jl > button.J-at1-atl,
+html div.Kj-JD div.Kj-JD-Jl > button.J-at1-atl,
+body div.Kj-JD div.Kj-JD-Jl > button.J-at1-atl,
+:root div.Kj-JD div.Kj-JD-Jl > button.J-at1-auR,
+html div.Kj-JD div.Kj-JD-Jl > button.J-at1-auR,
+body div.Kj-JD div.Kj-JD-Jl > button.J-at1-auR {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+:root .bAp.b8.UC .vh,
+html .bAp.b8.UC .vh,
+body .bAp.b8.UC .vh {
+  background-color: #11111b !important;
+  color: #cdd6f4 !important;
+}
+:root .b8 .bBe .bBf,
+html .b8 .bBe .bBf,
+body .b8 .bBe .bBf {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .Hy.Hy .m,
+html .Hy.Hy .m,
+body .Hy.Hy .m,
+:root .IG,
+html .IG,
+body .IG {
+  background-color: #181825 !important;
+}
+:root .Hy.Hy .m .Hp,
+html .Hy.Hy .m .Hp,
+body .Hy.Hy .m .Hp,
+:root .IG .Hp,
+html .IG .Hp,
+body .IG .Hp,
+:root .Hy.Hy .m .zu,
+html .Hy.Hy .m .zu,
+body .Hy.Hy .m .zu,
+:root .IG .zu,
+html .IG .zu,
+body .IG .zu,
+:root .Hy.Hy .m .H,
+html .Hy.Hy .m .H,
+body .Hy.Hy .m .H,
+:root .IG .H,
+html .IG .H,
+body .IG .H,
+:root .Hy.Hy .m .Iy .az9,
+html .Hy.Hy .m .Iy .az9,
+body .Hy.Hy .m .Iy .az9,
+:root .IG .Iy .az9,
+html .IG .Iy .az9,
+body .IG .Iy .az9 {
+  color: #cdd6f4 !important;
+}
+:root .Hy.Hy .m .Hm img,
+html .Hy.Hy .m .Hm img,
+body .Hy.Hy .m .Hm img,
+:root .IG .Hm img,
+html .IG .Hm img,
+body .IG .Hm img,
+:root .Hy.Hy .m .SB,
+html .Hy.Hy .m .SB,
+body .Hy.Hy .m .SB,
+:root .IG .SB,
+html .IG .SB,
+body .IG .SB,
+:root .Hy.Hy .m .b7 .mK,
+html .Hy.Hy .m .b7 .mK,
+body .Hy.Hy .m .b7 .mK,
+:root .IG .b7 .mK,
+html .IG .b7 .mK,
+body .IG .b7 .mK,
+:root .Hy.Hy .m .bAm .aaq .mK,
+html .Hy.Hy .m .bAm .aaq .mK,
+body .Hy.Hy .m .bAm .aaq .mK,
+:root .IG .bAm .aaq .mK,
+html .IG .bAm .aaq .mK,
+body .IG .bAm .aaq .mK,
+:root .Hy.Hy .m .Un .mK,
+html .Hy.Hy .m .Un .mK,
+body .Hy.Hy .m .Un .mK,
+:root .IG .Un .mK,
+html .IG .Un .mK,
+body .IG .Un .mK,
+:root .Hy.Hy .m .HX .mK,
+html .Hy.Hy .m .HX .mK,
+body .Hy.Hy .m .HX .mK,
+:root .IG .HX .mK,
+html .IG .HX .mK,
+body .IG .HX .mK,
+:root .Hy.Hy .m .HQ .Un::after,
+html .Hy.Hy .m .HQ .Un::after,
+body .Hy.Hy .m .HQ .Un::after,
+:root .IG .HQ .Un::after,
+html .IG .HQ .Un::after,
+body .IG .HQ .Un::after {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .aaZ,
+html .aaZ,
+body .aaZ,
+:root .Ap,
+html .Ap,
+body .Ap,
+:root .Am,
+html .Am,
+body .Am,
+:root .aDg > .aDj,
+html .aDg > .aDj,
+body .aDg > .aDj,
+:root .aoP .Ar,
+html .aoP .Ar,
+body .aoP .Ar,
+:root .wO,
+html .wO,
+body .wO,
+:root .aoT,
+html .aoT,
+body .aoT,
+:root .agP,
+html .agP,
+body .agP,
+:root .aGb,
+html .aGb,
+body .aGb,
+:root .GQ,
+html .GQ,
+body .GQ {
+  color: #cdd6f4 !important;
+  caret-color: #cdd6f4 !important;
+}
+:root .aaZ,
+html .aaZ,
+body .aaZ,
+:root .Ap,
+html .Ap,
+body .Ap,
+:root .Am,
+html .Am,
+body .Am,
+:root .aDg > .aDj,
+html .aDg > .aDj,
+body .aDg > .aDj,
+:root .aoP .Ar,
+html .aoP .Ar,
+body .aoP .Ar,
+:root .wO,
+html .wO,
+body .wO,
+:root .aoT,
+html .aoT,
+body .aoT,
+:root .agP,
+html .agP,
+body .agP,
+:root .aGb,
+html .aGb,
+body .aGb,
+:root .GQ,
+html .GQ,
+body .GQ,
+:root .aaZ::before,
+html .aaZ::before,
+body .aaZ::before,
+:root .Ap::before,
+html .Ap::before,
+body .Ap::before,
+:root .Am::before,
+html .Am::before,
+body .Am::before,
+:root .aDg > .aDj::before,
+html .aDg > .aDj::before,
+body .aDg > .aDj::before,
+:root .aoP .Ar::before,
+html .aoP .Ar::before,
+body .aoP .Ar::before,
+:root .wO::before,
+html .wO::before,
+body .wO::before,
+:root .aoT::before,
+html .aoT::before,
+body .aoT::before,
+:root .agP::before,
+html .agP::before,
+body .agP::before,
+:root .aGb::before,
+html .aGb::before,
+body .aGb::before,
+:root .GQ::before,
+html .GQ::before,
+body .GQ::before {
+  background: #1e1e2e !important;
+}
+:root .gQ,
+html .gQ,
+body .gQ,
+:root .gO,
+html .gO,
+body .gO,
+:root .oL,
+html .oL,
+body .oL {
+  color: #a6adc8 !important;
+}
+:root .aaA,
+html .aaA,
+body .aaA,
+:root .btC .dv,
+html .btC .dv,
+body .btC .dv,
+:root .btC .og.T-I-J3,
+html .btC .og.T-I-J3,
+body .btC .og.T-I-J3,
+:root .btC .J-N-JX.og.T-I-J3,
+html .btC .J-N-JX.og.T-I-J3,
+body .btC .J-N-JX.og.T-I-J3,
+:root .btC .Y1,
+html .btC .Y1,
+body .btC .Y1,
+:root .btC .Xv.T-I.J-JN-M-I > .J-JN-M-I-JG,
+html .btC .Xv.T-I.J-JN-M-I > .J-JN-M-I-JG,
+body .btC .Xv.T-I.J-JN-M-I > .J-JN-M-I-JG,
+:root .J-JN-M-I-JG,
+html .J-JN-M-I-JG,
+body .J-JN-M-I-JG,
+:root .J-Z-M-I-J6-H > .J-Z-M-I-JG,
+html .J-Z-M-I-J6-H > .J-Z-M-I-JG,
+body .J-Z-M-I-J6-H > .J-Z-M-I-JG {
+  filter: brightness(0) saturate(100%) invert(75%) sepia(82%) saturate(1008%) hue-rotate(189deg) brightness(120%) contrast(90%) !important;
+}
+:root .J-Z,
+html .J-Z,
+body .J-Z {
+  background-color: #181825 !important;
+}
+:root .J-Z .J-Z-I,
+html .J-Z .J-Z-I,
+body .J-Z .J-Z-I,
+:root .J-Z .J-Z-M-I,
+html .J-Z .J-Z-M-I,
+body .J-Z .J-Z-M-I {
+  color: #bac2de !important;
+}
+:root .gU .v7.T-I:not(.btz),
+html .gU .v7.T-I:not(.btz),
+body .gU .v7.T-I:not(.btz),
+:root .gU .hG:not(.v6),
+html .gU .hG:not(.v6),
+body .gU .hG:not(.v6) {
+  background-color: #89b4fa !important;
+  color: #11111b !important;
+}
+:root .hG > .G-asx,
+html .hG > .G-asx,
+body .hG > .G-asx,
+:root .SI .hG > .G-asx,
+html .SI .hG > .G-asx,
+body .SI .hG > .G-asx {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(44%) saturate(549%) hue-rotate(204deg) brightness(18%) contrast(96%) !important;
+}
+:root .afC,
+html .afC,
+body .afC,
+:root .bvx,
+html .bvx,
+body .bvx {
+  background: #181825 !important;
+  /* Contact list item */
+}
+:root .afC .agJ .aL8,
+html .afC .agJ .aL8,
+body .afC .agJ .aL8,
+:root .bvx .agJ .aL8,
+html .bvx .agJ .aL8,
+body .bvx .agJ .aL8,
+:root .afC .agJ .aXS,
+html .afC .agJ .aXS,
+body .afC .agJ .aXS,
+:root .bvx .agJ .aXS,
+html .bvx .agJ .aXS,
+body .bvx .agJ .aXS {
+  color: #cdd6f4 !important;
+}
+:root .afC .agJ:hover,
+html .afC .agJ:hover,
+body .afC .agJ:hover,
+:root .bvx .agJ:hover,
+html .bvx .agJ:hover,
+body .bvx .agJ:hover {
+  background: #1e1e2e !important;
+}
+:root .agh,
+html .agh,
+body .agh,
+:root .bbV,
+html .bbV,
+body .bbV {
+  background: #1e1e2e !important;
+}
+:root .agh .afV,
+html .agh .afV,
+body .agh .afV,
+:root .bbV .afV,
+html .bbV .afV,
+body .bbV .afV {
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+:root .agh .afV:hover,
+html .agh .afV:hover,
+body .agh .afV:hover,
+:root .bbV .afV:hover,
+html .bbV .afV:hover,
+body .bbV .afV:hover {
+  background: #313244 !important;
+  color: #cdd6f4 !important;
+}
+:root .dt,
+html .dt,
+body .dt {
+  color: #cdd6f4 !important;
+}
+:root .v,
+html .v,
+body .v {
+  /* Tabs */
+  /* Currently selected tab */
+}
+:root .v .fY,
+html .v .fY,
+body .v .fY,
+:root .v .f1,
+html .v .f1,
+body .v .f1 {
+  background-color: #313244 !important;
+}
+:root .v .fY .f0,
+html .v .fY .f0,
+body .v .fY .f0,
+:root .v .f1 .f0,
+html .v .f1 .f0,
+body .v .f1 .f0 {
+  color: #cdd6f4 !important;
+}
+:root .v .fZ,
+html .v .fZ,
+body .v .fZ {
+  box-shadow: inset 0 -2px 0 0 #89b4fa !important;
+}
+:root .r4,
+html .r4,
+body .r4 {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  /* Dividers */
+  /* Links */
+  /* Some buttons */
+}
+:root .r4 .r7 td,
+html .r4 .r7 td,
+body .r4 .r7 td,
+:root .r4 .Jb .J0:not(:last-child),
+html .r4 .Jb .J0:not(:last-child),
+body .r4 .Jb .J0:not(:last-child) {
+  border-bottom-color: #313244 !important;
+}
+:root .r4 .r7 .e,
+html .r4 .r7 .e,
+body .r4 .r7 .e,
+:root .r4 .sA,
+html .r4 .sA,
+body .r4 .sA,
+:root .r4 .r4 .e,
+html .r4 .r4 .e,
+body .r4 .r4 .e,
+:root .r4 .el,
+html .r4 .el,
+body .r4 .el {
+  color: #89b4fa !important;
+}
+:root .r4 input,
+html .r4 input,
+body .r4 input,
+:root .r4 select,
+html .r4 select,
+body .r4 select,
+:root .r4 button,
+html .r4 button,
+body .r4 button {
+  background-color: #181825 !important;
+  color: #cdd6f4 !important;
+  border-color: #313244 !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+}
+:root .r4 .qK,
+html .r4 .qK,
+body .r4 .qK,
+:root .r4 .qL,
+html .r4 .qL,
+body .r4 .qL {
+  background-color: #181825 !important;
+}
+:root .r4 .nr,
+html .r4 .nr,
+body .r4 .nr,
+:root .r4 .Ar,
+html .r4 .Ar,
+body .r4 .Ar {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  border-color: #313244 !important;
+}
+:root .r4 .Uu,
+html .r4 .Uu,
+body .r4 .Uu {
+  box-shadow: inset 0 0 0 1px #313244 !important;
+  color: #89b4fa !important;
+}
+:root .alO,
+html .alO,
+body .alO {
+  background-color: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  /* Table items */
+  /* Links */
+  /* Dividers */
+}
+:root .alO .rb,
+html .alO .rb,
+body .alO .rb {
+  color: #bac2de !important;
+}
+:root .alO .To.Ze,
+html .alO .To.Ze,
+body .alO .To.Ze {
+  background-color: #313244 !important;
+}
+:root .alO .alP,
+html .alO .alP,
+body .alO .alP {
+  color: #89b4fa !important;
+}
+:root .alO .rZ,
+html .alO .rZ,
+body .alO .rZ {
+  background-color: #313244 !important;
+}
+:root div[aria-modal="true"],
+html div[aria-modal="true"],
+body div[aria-modal="true"] {
+  --gm3-dialog-refactored-container-color: #1e1e2e;
+  --gm3-dialog-refactored-supporting-text-color: #cdd6f4;
+  --gm3-dialog-refactored-headline-color: #cdd6f4;
+  /* Buttons */
+}
+:root div[aria-modal="true"] [data-mdc-dialog-action="ok"],
+html div[aria-modal="true"] [data-mdc-dialog-action="ok"],
+body div[aria-modal="true"] [data-mdc-dialog-action="ok"] {
+  background-color: #89b4fa !important;
+  --gm3-button-text-label-text-color: #11111b;
+  --gm3-button-text-hover-label-text-color: #11111b;
+  --gm3-button-text-pressed-label-text-color: #11111b;
+}
+:root div[aria-modal="true"] [data-mdc-dialog-action="cancel"],
+html div[aria-modal="true"] [data-mdc-dialog-action="cancel"],
+body div[aria-modal="true"] [data-mdc-dialog-action="cancel"] {
+  --gm3-button-text-label-text-color: #bac2de;
+  --gm3-button-text-hover-label-text-color: #cdd6f4;
+  --gm3-button-text-focus-label-text-color: #cdd6f4;
+  --gm3-button-text-pressed-label-text-color: #cdd6f4;
+}
+:root div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:hover,
+html div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:hover,
+body div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:hover,
+:root div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:focus,
+html div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:focus,
+body div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:focus,
+:root div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:active,
+html div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:active,
+body div[aria-modal="true"] [data-mdc-dialog-action="cancel"]:active {
+  background-color: #313244 !important;
+}
