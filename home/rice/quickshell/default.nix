@@ -94,8 +94,11 @@
     ];
     text =
       builtins.replaceStrings
-      ["@alarmSound@"]
-      ["${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"]
+      ["@alarmSound@" "@breakSound@"]
+      [
+        "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"
+        "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/complete.oga"
+      ]
       (builtins.readFile ./scripts/shutdown-timer.sh);
   };
   spotifyPickerScript = pkgs.writeText "quickshell-spotify-picker.mjs" (

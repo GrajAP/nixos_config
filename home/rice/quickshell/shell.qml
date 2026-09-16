@@ -86,6 +86,13 @@ ShellRoot {
   property string alarmPendingTarget: ""
   property int alarmRemaining: 0
   property bool alarmRinging: false
+  property int breakWorkMinutes: 30
+  property int breakDurationMinutes: 5
+  property bool breakAutoRepeat: false
+  property string breakPendingTarget: ""
+  property int breakRemaining: 0
+  property string breakPhase: ""
+  readonly property bool breakActive: breakPendingTarget.length > 0 || breakPhase.length > 0
   property string shutdownStatus: ""
   property var codexUsage: null
   property string codexUsageError: ""
@@ -223,6 +230,7 @@ ShellRoot {
     running: root.alarmRinging
       || root.alarmPendingTarget.length > 0
       || (root.widgetVisible && root.widgetPage === "shutdown" && root.shutdownPendingTarget.length > 0)
+      || root.breakActive
     repeat: true
     onTriggered: root.refreshShutdownStatus()
   }
@@ -1018,6 +1026,16 @@ ShellRoot {
     const rest = minutes % 60;
     return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
   }
+  function setBreakWorkDelay(minutes) {
+    root.breakWorkMinutes = Math.max(5, Math.min(720, Math.round(minutes)));
+  }
+  function breakWorkDelayLabel() {
+    const minutes = root.breakWorkMinutes;
+    if (minutes < 60) return minutes + " min";
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
+  }
   function shutdownRemainingLabel() {
     return root.timerRemainingLabel(root.shutdownRemaining);
   }
@@ -1036,12 +1054,27 @@ ShellRoot {
       root.alarmPendingTarget = payload.alarmPending || "";
       root.alarmRemaining = Number(payload.alarmRemaining || 0);
       root.alarmRinging = Boolean(payload.alarmRinging);
+      root.breakPendingTarget = payload.breakPending || "";
+      root.breakRemaining = Number(payload.breakRemaining || 0);
+      root.breakPhase = payload.breakPhase || "";
+      if (payload.breakWorkMin)
+        root.breakWorkMinutes = Number(payload.breakWorkMin);
+      if (payload.breakDurationMin)
+        root.breakDurationMinutes = Number(payload.breakDurationMin);
+      if (payload.breakRepeat !== undefined)
+        root.breakAutoRepeat = Boolean(Number(payload.breakRepeat));
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
       else if (root.alarmRinging)
         root.shutdownStatus = "Alarm is ringing";
       else if (root.alarmPendingTarget.length > 0)
         root.shutdownStatus = "Alarm " + root.alarmPendingTarget + " · " + root.timerRemainingLabel(root.alarmRemaining) + " left";
+      else if (root.breakPhase === "break")
+        root.shutdownStatus = "Break time · " + root.timerRemainingLabel(root.breakRemaining) + " left";
+      else if (root.breakPhase === "finished")
+        root.shutdownStatus = "Break finished";
+      else if (root.breakPendingTarget.length > 0)
+        root.shutdownStatus = "Break timer " + root.breakPendingTarget + " · " + root.timerRemainingLabel(root.breakRemaining) + " left";
       else if (root.shutdownCustomTarget.length > 0)
         root.shutdownStatus = "Shutdown set " + root.shutdownCustomTarget;
       else
@@ -1063,9 +1096,14 @@ ShellRoot {
   function scheduleAlarm() {
     root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes)]);
   }
+  function scheduleBreak() {
+    root.runShutdownTimer(["schedule-break-in", String(root.breakWorkMinutes), String(root.breakDurationMinutes), root.breakAutoRepeat ? "1" : "0"]);
+  }
   function scheduleSelectedTimer() {
     if (root.shutdownTimerMode === "alarm")
       root.scheduleAlarm();
+    else if (root.shutdownTimerMode === "break")
+      root.scheduleBreak();
     else
       root.scheduleShutdown();
   }
@@ -1078,9 +1116,17 @@ ShellRoot {
   function acknowledgeAlarm() {
     root.runShutdownTimer(["acknowledge-alarm"]);
   }
+  function cancelBreak() {
+    root.runShutdownTimer(["cancel-break"]);
+  }
+  function acknowledgeBreak() {
+    root.runShutdownTimer(["acknowledge-break"]);
+  }
   function cancelSelectedTimer() {
     if (root.shutdownTimerMode === "alarm")
       root.cancelAlarm();
+    else if (root.shutdownTimerMode === "break")
+      root.cancelBreak();
     else
       root.cancelPendingShutdown();
   }
@@ -2288,20 +2334,20 @@ ShellRoot {
           Rectangle {
             anchors.fill: parent
             radius: 8
-            color: root.alarmRinging ? Theme.warning : root.barWidgetBackground("shutdown")
-            border.color: root.alarmRinging ? Theme.warning : root.barWidgetBorder("shutdown")
+            color: root.alarmRinging ? Theme.warning : (root.breakPhase === "break" ? Theme.success : root.barWidgetBackground("shutdown"))
+            border.color: root.alarmRinging ? Theme.warning : (root.breakPhase === "break" ? Theme.success : root.barWidgetBorder("shutdown"))
             border.width: 1
           }
           Text {
             id: shutdownIcon
             anchors.centerIn: parent
-            text: "󰐥"
-            color: root.alarmRinging ? Theme.background : root.barWidgetText("shutdown", Theme.text)
+            text: root.breakActive ? "\udb80\udd76" : (root.alarmPendingTarget.length > 0 || root.alarmRinging ? "\udb80\udc20" : "\udb81\udc25")
+            color: root.alarmRinging || root.breakPhase === "break" ? Theme.background : root.barWidgetText("shutdown", Theme.text)
             font.family: Theme.fontIcon
             font.pixelSize: 17
 
             SequentialAnimation on opacity {
-              running: root.alarmRinging
+              running: root.alarmRinging || root.breakPhase === "break"
               loops: Animation.Infinite
               NumberAnimation { from: 1; to: 0.35; duration: 420; easing.type: Easing.InOutSine }
               NumberAnimation { from: 0.35; to: 1; duration: 420; easing.type: Easing.InOutSine }
@@ -2421,7 +2467,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: "Shutdown", screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
+            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
