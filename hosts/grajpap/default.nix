@@ -91,6 +91,10 @@ in {
       keyboards = {
         internalKeyboard = {
           devices = [
+            "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-event-kbd"
+            "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-if02-event-kbd"
+            "/dev/input/by-path/pci-0000:09:00.3-usb-0:6.4:1.0-event-kbd"
+            "/dev/input/by-path/pci-0000:09:00.3-usb-0:6.4:1.2-event-kbd"
             "/dev/input/by-path/pci-0000:09:00.3-usb-0:6.2:1.0-event-kbd"
             "/dev/input/by-path/pci-0000:09:00.3-usb-0:6.2:1.2-event-kbd"
             "/dev/input/by-path/pci-0000:0e:00.3-usb-0:4.2:1.1-event-kbd"
