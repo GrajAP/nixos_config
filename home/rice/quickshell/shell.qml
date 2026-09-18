@@ -88,7 +88,8 @@ ShellRoot {
   property bool alarmRinging: false
   property int breakWorkMinutes: 30
   property int breakDurationMinutes: 5
-  property bool breakAutoRepeat: false
+  property bool breakAutoRepeat: true
+  property bool breakInitialized: false
   property string breakPendingTarget: ""
   property int breakRemaining: 0
   property string breakPhase: ""
@@ -515,7 +516,13 @@ ShellRoot {
     if (page === "weather") weatherQuery.running = true;
     if (page === "calendar") calendarQuery.running = true;
     if (page === "clipboard") clipboardQuery.running = true;
-    if (page === "shutdown") root.refreshShutdownStatus();
+    if (page === "shutdown") {
+      if (root.breakActive)
+        root.shutdownTimerMode = "break";
+      else if (root.alarmRinging || root.alarmPendingTarget.length > 0)
+        root.shutdownTimerMode = "alarm";
+      root.refreshShutdownStatus();
+    }
   }
   function toggleClipboardHistory() {
     root.toggleWidget("clipboard");
@@ -1063,6 +1070,16 @@ ShellRoot {
         root.breakDurationMinutes = Number(payload.breakDurationMin);
       if (payload.breakRepeat !== undefined)
         root.breakAutoRepeat = Boolean(Number(payload.breakRepeat));
+      else
+        root.breakAutoRepeat = true;
+
+      if (!root.breakInitialized) {
+        root.breakInitialized = true;
+        const breakRunning = (root.breakPendingTarget.length > 0 || root.breakPhase.length > 0);
+        if (!breakRunning) {
+          root.scheduleBreak();
+        }
+      }
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
       else if (root.alarmRinging)

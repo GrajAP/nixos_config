@@ -5,7 +5,7 @@
 }: let
   upstreamUserstyles = pkgs.fetchurl {
     url = "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
-    hash = "sha256-kPWI8G5P0CsT6rI/MB6GzpoPTw9rTOAgmj1ASLcjhd4=";
+    hash = "sha256-uV3vq5NXiJ68oOc7TK8bSsvhYosgKZizNJjUNVMnS7k=";
   };
 
   stylusArchive = pkgs.fetchurl {
@@ -23,26 +23,40 @@
 
   catppuccinMochaBlue =
     pkgs.runCommand "catppuccin-mocha-blue-stylus.json" {
-      nativeBuildInputs = [pkgs.jq];
+      nativeBuildInputs = [pkgs.python3];
     } ''
-      jq '
-        .[0].settings.updateInterval = 24
-        | .[0].settings.updateOnlyEnabled = false
-        | .[0].settings.patchCsp = true
-        | map(
-            if .usercssData.vars? then
-              if .usercssData.vars.lightFlavor? then
-                .usercssData.vars.lightFlavor.value = "mocha"
-              else . end
-              | if .usercssData.vars.darkFlavor? then
-                .usercssData.vars.darkFlavor.value = "mocha"
-              else . end
-              | if .usercssData.vars.accentColor? then
-                .usercssData.vars.accentColor.value = "blue"
-              else . end
-            else . end
-          )
-      ' ${upstreamUserstyles} > "$out"
+            python3 - "${upstreamUserstyles}" "$out" <<'EOF'
+      import json, re, sys
+
+      with open(sys.argv[1], "r", encoding="utf-8") as f:
+          data = json.load(f)
+
+      data[0]["settings"]["updateInterval"] = 24
+      data[0]["settings"]["updateOnlyEnabled"] = False
+      data[0]["settings"]["patchCsp"] = True
+
+      for item in data:
+          vars = item.get("usercssData", {}).get("vars", {})
+          if "lightFlavor" in vars:
+              vars["lightFlavor"]["value"] = "mocha"
+          if "darkFlavor" in vars:
+              vars["darkFlavor"]["value"] = "mocha"
+          if "accentColor" in vars:
+              vars["accentColor"]["value"] = "blue"
+
+          if item.get("name") == "Chess.com Catppuccin":
+              src = item["sourceCode"]
+              pattern = r"\s*\.light-mode\s*\{[^}]*\}\s*\.dark-mode\s*\{[^}]*\}"
+              replacement = """\n  :root,\n  :root.dark-mode,\n  :root.light-mode,\n  html,\n  .dark-mode,\n  .light-mode {\n    #catppuccin(@darkFlavor);\n  }"""
+              src = re.sub(pattern, replacement, src, count=1)
+              src = src.replace("\n    body {\n      --theme-background-color:", "\n    &, body {\n      --theme-background-color:")
+              item["sourceCode"] = src
+              item["updateUrl"] = ""
+              item["updatable"] = False
+
+      with open(sys.argv[2], "w", encoding="utf-8") as f:
+          json.dump(data, f)
+      EOF
     '';
 
   customUserstyles = pkgs.runCommand "custom-catppuccin-userstyles.json" {nativeBuildInputs = [pkgs.jq];} ''
@@ -132,7 +146,7 @@
   '';
 
   stylusSeed = pkgs.replaceVars ./stylus-seed.js {
-    seedVersion = "catppuccin-all-userstyles-2026-v3-discord";
+    seedVersion = "catppuccin-all-userstyles-2026-v6-chesscom";
   };
 
   stylusExtension =

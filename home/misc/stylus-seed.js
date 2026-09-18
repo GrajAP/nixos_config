@@ -79,9 +79,14 @@
         .filter((style) => style.updateUrl)
         .map((style) => [style.updateUrl, style]),
     );
+    const byName = new Map(
+      existing
+        .filter((style) => style.name)
+        .map((style) => [style.name, style]),
+    );
 
     for (const style of styles) {
-      const current = byUpdateUrl.get(style.updateUrl);
+      const current = (style.updateUrl && byUpdateUrl.get(style.updateUrl)) || byName.get(style.name);
       if (!current) {
         continue;
       }
@@ -90,6 +95,9 @@
       style._id = current._id;
       style.installDate = current.installDate;
       style.enabled = current.enabled;
+      if (style.name === "Chess.com Catppuccin") {
+        style.enabled = true;
+      }
       if (current.customName) {
         style.customName = current.customName;
       }
