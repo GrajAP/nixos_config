@@ -29,7 +29,7 @@
       (binding "bind" "Launchers" "${mod}, RETURN" ''exec, foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'if herdr tab list --session main >/dev/null 2>&1; then herdr tab create --session main --cwd "$HOME" --focus >/dev/null 2>&1; fi; exec herdr --session main' '' "Open terminal")
       (binding "bind" "Launchers" "${mod}, SPACE" "global, quickshell:launcher" "Toggle application launcher")
       (binding "bind" "Launchers" "${mod}, F" ''exec, helium --profile-path="${config.home.homeDirectory}/.config/net.imput.helium/Default"'' "Open Helium browser")
-      (binding "bind" "Launchers" "${mod}, D" "exec, vesktop" "Open Vesktop")
+      (binding "bind" "Launchers" "${mod}, D" "exec, ferdium" "Open Ferdium")
       (binding "bind" "Launchers" "${mod}, E" "exec, nemo" "Open file manager")
       (binding "bind" "Launchers" "${mod}, PERIOD" "exec, emote" "Open emoji picker")
 

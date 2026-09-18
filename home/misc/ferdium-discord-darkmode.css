@@ -1,13 +1,10 @@
-/* ==========================================================================
-   Catppuccin Mocha Blue Theme for Discord Web
-   ========================================================================== */
 
+/* Catppuccin Mocha Palette & Universal Discord Overrides */
 :root,
 html,
 body,
 #app-mount,
 .theme-dark,
-.visual-refresh,
 [class*="theme-dark"],
 [data-theme="dark"] {
   color-scheme: dark !important;
@@ -40,7 +37,17 @@ body,
   --ctp-mantle: #181825 !important;
   --ctp-crust: #11111b !important;
 
-  /* Modern Visual Refresh & Base Variables */
+  /* Classic & Modern Discord Core Backgrounds */
+  --background-primary: #1e1e2e !important;
+  --background-secondary: #181825 !important;
+  --background-secondary-alt: #1c1c2b !important;
+  --background-tertiary: #11111b !important;
+  --background-accent: #313244 !important;
+  --background-floating: #11111b !important;
+  --background-nested-floating: #181825 !important;
+  --background-mobile-primary: #1e1e2e !important;
+  --background-mobile-secondary: #181825 !important;
+
   --bg-base-primary: #1e1e2e !important;
   --bg-base-secondary: #181825 !important;
   --bg-base-tertiary: #11111b !important;
@@ -64,21 +71,11 @@ body,
   --background-base-higher: #242438 !important;
   --background-base-highest: #313244 !important;
 
-  --background-mod-subtle: #181825 !important;
-  --background-mod-normal: #313244 !important;
-  --background-mod-strong: #45475a !important;
+  --background-mod-subtle: rgba(88, 91, 112, 0.25) !important;
+  --background-mod-normal: rgba(88, 91, 112, 0.15) !important;
+  --background-mod-strong: rgba(88, 91, 112, 0.45) !important;
 
-  /* Classic Discord Variables */
-  --background-primary: #1e1e2e !important;
-  --background-secondary: #181825 !important;
-  --background-secondary-alt: #181825 !important;
-  --background-tertiary: #11111b !important;
-  --background-accent: #313244 !important;
-  --background-floating: #11111b !important;
-  --background-mobile-primary: #1e1e2e !important;
-  --background-mobile-secondary: #181825 !important;
-
-  /* Primary Palette Overrides (Eliminates Discord Default Grey Panels) */
+  /* Primary Palette Overrides (Eliminates Discord Slate-Grey) */
   --primary-100: #dce0e8 !important;
   --primary-200: #cdd6f4 !important;
   --primary-300: #bac2de !important;
@@ -126,6 +123,7 @@ body,
 
   /* Chat & Inputs */
   --chat-background: #1e1e2e !important;
+  --chat-background-default: #1e1e2e !important;
   --channeltextarea-background: #313244 !important;
   --scrollbar-auto-thumb: #313244 !important;
   --scrollbar-auto-track: #181825 !important;
@@ -133,7 +131,7 @@ body,
   --scrollbar-thin-track: transparent !important;
 }
 
-/* Ensure no unwanted global background image covers the app */
+/* Explicit Layout Selectors */
 html,
 body,
 #app-mount,
@@ -143,7 +141,6 @@ div[class*="app_"] {
   color: #cdd6f4 !important;
 }
 
-/* 1. Server List (Guilds rail - Crust) */
 nav[aria-label*="Servers"],
 nav[class*="guilds_"],
 div[class*="guilds_"],
@@ -152,7 +149,6 @@ ul[data-list-id="guildsnav"] {
   background-color: #11111b !important;
 }
 
-/* 2. Channels Sidebar (Mantle) */
 nav[aria-label*="Channels"],
 div[class*="sidebar_"],
 nav[class*="sidebar_"],
@@ -162,7 +158,6 @@ div[class*="scroller_"][class*="thin_"] {
   background-color: #181825 !important;
 }
 
-/* 3. Top Header / Channel Titlebar (Mantle) */
 section[class*="title_"],
 header[class*="header_"],
 div[class*="title_"] {
@@ -170,7 +165,6 @@ div[class*="title_"] {
   border-bottom: 1px solid #313244 !important;
 }
 
-/* 4. Chat Content & Messages Area (Base) */
 main[class*="chatContent_"],
 div[class*="chat_"],
 div[class*="chatContent_"],
@@ -179,70 +173,156 @@ div[data-list-id="chat-messages"] {
   background-color: #1e1e2e !important;
 }
 
-/* 5. Message Input Box (Surface0) */
 form[class*="form_"],
 div[class*="channelTextArea_"],
 div[class*="scrollableContainer_"],
 div[class*="channelBottomBarArea_"] {
   background-color: #313244 !important;
-  border-radius: 8px !important;
 }
 
-/* 6. Members Sidebar (Mantle) */
 aside[class*="membersWrap_"],
 div[class*="members_"],
 div[class*="membersWrap_"] {
   background-color: #181825 !important;
 }
 
-/* 7. Bottom Left User Profile Panel (Crust) */
 section[class*="panels_"],
 div[class*="panels_"] {
   background-color: #11111b !important;
   border-top: 1px solid #313244 !important;
 }
 
-/* 8. Voice & Video Banners (Mantle) */
-div[class*="connection_"],
-div[class*="voiceUsers_"],
-div[class*="wrapper_"][class*="callContainer_"] {
-  background-color: #181825 !important;
-}
 
-/* 9. Popouts, Modals & Menus (Crust / Mantle) */
-div[class*="menu_"],
-div[class*="popout_"],
-div[class*="modal_"],
-div[class*="root_"][class*="modal_"] {
-  background-color: #181825 !important;
-  border: 1px solid #313244 !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
-}
-
-/* 10. Buttons & Interactive elements */
-button[class*="lookFilled_"][class*="colorBrand_"] {
-  background-color: #89b4fa !important;
-  color: #11111b !important;
-}
-button[class*="lookFilled_"][class*="colorBrand_"]:hover {
-  background-color: #b4befe !important;
-}
-
-/* 11. Code blocks & embeds */
-code,
-pre,
-div[class*="embedFull_"] {
-  background-color: #181825 !important;
-  border-left-color: #89b4fa !important;
-  border-radius: 6px !important;
-}
-
-/* 12. Mention badges & pill tags */
-span[class*="mention_"] {
-  background-color: rgba(137, 180, 250, 0.15) !important;
-  color: #89b4fa !important;
-}
-div[class*="numberBadge_"] {
-  background-color: #f38ba8 !important;
-  color: #11111b !important;
-}
+/* Official Catppuccin Mocha Rules */
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=item_][class*=addFriend_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=numberBadge_][style*="background-color: var(--background-feedback-notification);"],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=numberBadge_][style*="background-color: var(--badge-notification-background);"],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=iconBadge_][class*=isCurrentUserConnected_],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=botTag_],:is(.theme-dark, [data-theme="dark"], html, body) span[class^=unreadPill_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=listItem_] div[class^=wrapper_] [class*=selected_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=icon_][class*=noIcon_],:is(.theme-dark, [data-theme="dark"], html, body) button[class^=container_]>div[class^=icon_]>svg,:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newBadge_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorRed_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorGreen_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorLink_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorBrand_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=colorable_][class*=join_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=status_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=dots_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=textBadge_][class*=base_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=descriptionIcon_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=uploadDropModal_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=stepIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=activeIcon_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=tooltipBrand_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=tooltipGreen_],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=planOptionDiscount_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=memberCount_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=flowerStar_]+div[class*=childContainer_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=streamerModeEnabledBtn_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=nowPlaying_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=pageControlContainer_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=notice_][class*=colorBrand_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorStreamerMode_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorSpotify_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorPremium_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorPlayStation_],:is(.theme-dark, [data-theme="dark"], html, body) .interactive:hover,:is(.theme-dark, [data-theme="dark"], html, body) div[class^=item_][class*=addFriend_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=numberBadge_][style*="background-color: var(--background-feedback-notification);"],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=numberBadge_][style*="background-color: var(--badge-notification-background);"],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=iconBadge_][class*=isCurrentUserConnected_],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=botTag_],:is(.theme-dark, [data-theme="dark"], html, body) span[class^=unreadPill_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=listItem_] div[class^=wrapper_] [class*=selected_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=icon_][class*=noIcon_],:is(.theme-dark, [data-theme="dark"], html, body) button[class^=container_]>div[class^=icon_]>svg,:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newBadge_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorRed_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorGreen_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorLink_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorBrand_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=colorable_][class*=join_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=status_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=dots_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=textBadge_][class*=base_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=descriptionIcon_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=uploadDropModal_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=stepIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=activeIcon_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=tooltipBrand_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=tooltipGreen_],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=planOptionDiscount_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=memberCount_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=flowerStar_]+div[class*=childContainer_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=streamerModeEnabledBtn_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=nowPlaying_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=pageControlContainer_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=notice_][class*=colorBrand_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorStreamerMode_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorSpotify_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorPremium_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=colorPlayStation_],:is(.theme-dark, [data-theme="dark"], html, body) .interactive:hover {--white: #11111b;--white-500: #11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorBrand_]:not(:has(>div>div[class*=buttonIcon_])),:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=lookFilled_][class*=colorBrand_]:not(:has(>div>div[class*=buttonIcon_])) {color:#11111b !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary,:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary {color:#11111b !important;background-color:#89b4fa !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary:hover,:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary:hover {background-color:#649df8 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary:active,:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-primary:active {background-color:#4c8df7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"],:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"] {color:#11111b !important;background-color:#89b4fa !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"]:hover,:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"]:hover {background-color:#649df8 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"]:active,:is(.theme-dark, [data-theme="dark"], html, body) button[class^=button_][class*=" primary_"]:active {background-color:#4c8df7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=active_],:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-positive,:is(.theme-dark, [data-theme="dark"], html, body) button[class*=button_][class*=active_],:is(.theme-dark, [data-theme="dark"], html, body) button.vc-btn-positive {color:#11111b !important}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=automodText_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=automodText_] {color:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=pinIcon_]>svg>path,:is(.theme-dark, [data-theme="dark"], html, body) div[class^=pinIcon_]>svg>path {fill:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=bannerContainer_] [style*="color: white"],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=friendRequestContainer_]>button[class*=colorGreen_] [style*="color: white"],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=bannerContainer_] [style*="color: white"],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=friendRequestContainer_]>button[class*=colorGreen_] [style*="color: white"] {color:#11111b !important}
+:is(.theme-dark, [data-theme="dark"], html, body) .vcd-screen-picker-option-radio[data-checked=true],:is(.theme-dark, [data-theme="dark"], html, body) .vcd-screen-picker-option-radio[data-checked=true] {--text-default: #11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class*=selectorButtonSelected_] div[class*=selectorText_],:is(.theme-dark, [data-theme="dark"], html, body) button:hover div[class*=selectorText_],:is(.theme-dark, [data-theme="dark"], html, body) button[class*=selectorButtonSelected_] div[class*=selectorText_],:is(.theme-dark, [data-theme="dark"], html, body) button:hover div[class*=selectorText_] {color:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=selectedIcon_]>circle[fill=white],:is(.theme-dark, [data-theme="dark"], html, body) svg[class^=selectedIcon_]>circle[fill=white] {fill:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class*=textBadge_][class*=base_][style*="background-color: var(--background-accent)"],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=textBadge_][class*=base_][style*="background-color: var(--background-accent)"] {--white: #cdd6f4}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class*=winButtonClose_]:hover,:is(.theme-dark, [data-theme="dark"], html, body) div[class*=winButtonClose_]:hover {color:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=bar_][class*=unreadMentionsBar_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=bar_][class*=unreadMentionsBar_] {color:#11111b}
+:root, html, body, #app-mount, .theme-dark, [class*="theme-dark"], [data-theme="dark"], .visual-refresh.theme-dark,.visual-refresh .theme-dark {--brand-100: white;--brand-130: white;--brand-160: white;--brand-200: white;--brand-230: white;--brand-260: white;--brand-300: white;--brand-330: white;--brand-360: #ebf2fe;--brand-400: #d2e3fd;--brand-430: #bad3fc;--brand-460: #a1c4fb;--brand-500: #89b4fa !important;--brand-530: #71a4f9;--brand-560: #5895f8;--brand-600: #4085f7;--brand-630: #2776f6;--brand-660: #0f66f5;--brand-700: #0a5be0;--brand-730: #0956d4;--brand-760: #0851c8;--brand-800: #084cbc;--brand-830: #0747b0;--brand-860: #0742a3;--brand-900: #063d97;--brand-05a: rgba(137, 180, 250, 0.05);--brand-10a: rgba(137, 180, 250, 0.1);--brand-15a: rgba(137, 180, 250, 0.15);--brand-20a: rgba(137, 180, 250, 0.2);--brand-25a: rgba(137, 180, 250, 0.25);--brand-30a: rgba(137, 180, 250, 0.3);--brand-35a: rgba(137, 180, 250, 0.35);--brand-40a: rgba(137, 180, 250, 0.4);--brand-45a: rgba(137, 180, 250, 0.45);--brand-50a: rgba(137, 180, 250, 0.5);--brand-55a: rgba(137, 180, 250, 0.55);--brand-60a: rgba(137, 180, 250, 0.6);--brand-65a: rgba(137, 180, 250, 0.65);--brand-70a: rgba(137, 180, 250, 0.7);--brand-75a: rgba(137, 180, 250, 0.75);--brand-80a: rgba(137, 180, 250, 0.8);--brand-85a: rgba(137, 180, 250, 0.85);--brand-90a: rgba(137, 180, 250, 0.9);--brand-95a: rgba(137, 180, 250, 0.95);--__header-bar-background: #181825 !important;--text-default: #cdd6f4;--text-muted: #a6adc8 !important;--text-link: #89b4fa !important;--text-brand: #89b4fa;--text-strong: #cdd6f4 !important;--text-subtle: #bac2de;--text-feedback-positive: #a6e3a1;--text-feedback-critical: #f38ba8;--text-feedback-warning: #f9e2af;--text-feedback-info: #89b4fa;--message-reacted-background-default: rgba(137, 180, 250, 0.3) !important;--message-reacted-text-default: #89b4fa;--opacity-blurple-8: rgba(137, 180, 250, 0.08);--opacity-blurple-16: rgba(137, 180, 250, 0.16);--opacity-blurple-24: rgba(137, 180, 250, 0.24);--opacity-blurple-32: rgba(137, 180, 250, 0.32);--opacity-blurple-60: rgba(137, 180, 250, 0.6);--blurple-50: #89b4fa;--blurple-60: #5895f8;--app-frame-background: #0d0d15;--background-secondary-alt: #1c1c2b !important;--background-accent: #45475a !important;--background-surface-highest: #313244 !important;--background-surface-higher: #2b2b3b !important;--background-surface-high: #1e1e2e !important;--background-base-lowest: #11111b !important;--background-base-lower: #181825 !important;--background-base-low: #1c1c2b !important;--bg-surface-raised: #181825;--background-gradient-highest: #1c1c2b;--home-background: #1e1e2e;--chat-background: #1e1e2e;--chat-background-default: #1e1e2e;--chat-border: #11111b;--chat-text-muted: #a6adc8;--checkbox-icon-active: #11111b;--checkbox-border-default: #6c7086;--radio-thumb-background-active: #11111b;--border-muted: #313244;--border-strong: #181825;--border-normal: #11111b;--border-subtle: #1e1e2e !important;--background-mod-muted: rgba(88, 91, 112, 0.05);--background-mod-normal: rgba(88, 91, 112, 0.15);--background-mod-subtle: rgba(88, 91, 112, 0.25) !important;--background-mod-strong: rgba(88, 91, 112, 0.45) !important;--custom-channel-members-bg: #181825;--custom-status-bubble-background: #11111b !important;--custom-status-bubble-background-color: #181825 !important;--card-background-default: #313244 !important;--background-feedback-positive: rgba(166, 227, 161, 0.15);--icon-feedback-positive: #a6e3a1;--background-feedback-warning: rgba(249, 226, 175, 0.15);--icon-feedback-warning: #f9e2af;--background-feedback-critical: rgba(243, 139, 168, 0.15);--icon-feedback-critical: #f38ba8;--background-feedback-info: rgba(137, 220, 235, 0.15);--icon-feedback-info: #89dceb;--background-feedback-notification: #f38ba8;--icon-feedback-notification: #f38ba8;--badge-notification-background: #f38ba8;--status-positive: #a6e3a1;--status-positive-background: #a6e3a1;--status-positive-text: #1e1e2e;--status-warning: #f9e2af;--status-warning-background: #f9e2af;--status-warning-text: #1e1e2e;--status-danger: #f38ba8;--black-500: #11111b;--green-360: #a6e3a1;--green-300: #a6e3a1;--yellow-360: #f9e2af;--yellow-300: #f9e2af;--red-400: #f38ba8;--red-430: #ee5d85;--red-500: #ec4674;--blue-500: #5895f8;--blue-530: #4085f7;--primary-100: #bac2de;--primary-200: #a6adc8;--primary-300: #bac2de;--primary-400: #bac2de;--primary-630: #313244;--primary-700: #45475a;--primary-800: #11111b;--white: #cdd6f4;--white-500: #cdd6f4;--guild-boosting-pink: #f5c2e7;--guild-boosting-blue: #89b4fa;--guild-boosting-purple: #cba6f7;--premium-perk-yellow: #f9e2af;--premium-perk-purple: #cba6f7;--premium-perk-dark-blue: #5895f8;--premium-perk-light-blue: #a1c4fb;--premium-perk-blue: #89b4fa;--premium-perk-green: #a6e3a1;--premium-perk-pink: #f5c2e7;--premium-perk-orange: #fab387;--premium-tier-0-blue: #89b4fa;--premium-tier-0-purple: #cba6f7;--premium-tier-1-blue-for-gradients: #74c7ec;--premium-tier-1-dark-blue-for-gradients: #89b4fa;--premium-tier-2-purple-for-gradients: #b077f3;--premium-tier-2-purple-for-gradients-2: #cba6f7;--premium-tier-2-pink-for-gradients: #f5c2e7;--control-primary-background-default: #89b4fa;--control-primary-background-hover: #649df8;--control-primary-background-active: #4c8df7;--control-secondary-background-default: #45475a !important;--control-secondary-background-hover: #3a3c4c;--control-secondary-background-active: #343644;--control-secondary-border-default: #313244;--control-secondary-text-default: #cdd6f4 !important;--control-secondary-text-hover: #cdd6f4;--control-critical-primary-background-default: #f38ba8;--control-critical-primary-background-hover: #f17497;--control-critical-primary-background-active: #ee5d85;--control-critical-primary-text-default: #1e1e2e;--control-critical-primary-text-hover: #1e1e2e;--control-critical-secondary-background-default: transparent;--control-critical-secondary-background-hover: #f27f9f;--control-critical-secondary-background-active: #f17497;--control-critical-secondary-border-default: #f38ba8;--control-critical-secondary-border-hover: #f27f9f;--control-critical-secondary-border-active: #f27f9f;--control-critical-secondary-text-default: #cdd6f4;--control-critical-secondary-text-hover: #1e1e2e;--control-critical-secondary-text-active: #1e1e2e;--control-connected-background-default: #a6e3a1;--control-connected-background-hover: #93dd8d;--control-connected-background-active: #8ada84;--control-connected-border-default: #a6e3a1;--control-connected-border-hover: #9de097;--control-connected-border-active: #9de097;--button-outline-primary-text: #cdd6f4;--button-outline-brand-text: #cdd6f4;--button-outline-brand-background-hover: #7dacf9;--button-outline-brand-border-active: #7dacf9;--modal-background: #1e1e2e !important;--modal-footer-background: #1e1e2e;--scrollbar-thin-thumb: #89b4fa;--scrollbar-thin-track: transparent;--scrollbar-auto-thumb: #89b4fa;--scrollbar-auto-track: #11111b;--scrollbar-auto-scrollbar-color-thumb: #89b4fa;--scrollbar-auto-scrollbar-color-track: #11111b;--input-background-default: #11111b;--input-text-default: #cdd6f4;--input-placeholder-text-default: #bac2de;--input-border-default: #6c7086;--logo-primary: #cdd6f4;--control-brand-foreground: #89b4fa;--control-brand-foreground-new: #89b4fa;--mention-foreground: #89b4fa;--mention-background: rgba(137, 180, 250, 0.3);--message-mentioned-background-default: rgba(249, 226, 175, 0.1);--message-mentioned-background-hover: rgba(249, 226, 175, 0.08);--message-background-hover: rgba(17, 17, 27, 0.3) !important;--message-automod-background-default: rgba(245, 224, 220, 0.05);--message-automod-background-hover: rgba(245, 224, 220, 0.1);--message-highlight-background-default: rgba(137, 180, 250, 0.08);--message-highlight-background-hover: rgba(137, 180, 250, 0.06);--background-code: #1e1e2e;--channels-default: #969ebe !important;--channel-icon: #969ebe !important;--channel-text-area-placeholder: rgba(205, 214, 244, 0.5);--channeltextarea-background: #181825;--icon-muted: #969ebe !important;--icon-voice-muted: #f38ba8;--icon-default: #cdd6f4;--icon-strong: #cdd6f4;--icon-subtle: #bac2de;--textbox-markdown-syntax: #6c7086;--spoiler-revealed-background: #313244;--spoiler-hidden-background: #585b70;--__adaptive-focus-ring-color: #89b4fa;--interactive-icon-default: #cdd6f4 !important;--interactive-icon-hover: #cdd6f4;--interactive-icon-active: #cdd6f4;--interactive-text-default: #cdd6f4 !important;--interactive-text-hover: #cdd6f4;--interactive-text-active: #cdd6f4;--interactive-muted: #6c7086;--interactive-background-hover: rgba(147, 153, 178, 0.15);--interactive-background-selected: rgba(108, 112, 134, 0.2);--interactive-background-active: rgba(205, 214, 244, 0.17);--__spoiler-background-color--hidden: #585b70;--__spoiler-warning-background-color: #63677e;--user-profile-overlay-background: #181825;--user-profile-overlay-background-hover: #313244;--plum-23: #1e1e2e;--badge-text-brand: #1e1e2e;--text-status-online: #a6e3a1;--text-status-idle: #f9e2af;--text-status-dnd: #f38ba8;--text-status-offline: #bac2de;--icon-status-online: #a6e3a1;--icon-status-idle: #f9e2af;--icon-status-dnd: #f38ba8;--icon-status-offline: #bac2de;--twitch: #b077f3;--playstation: #5895f8;--spotify: #a6e3a1;--notice-background-critical: #f38ba8;--notice-background-info: #89b4fa;--notice-background-positive: #a6e3a1;--notice-background-warning: #f9e2af;--notice-text-critical: #11111b;--notice-text-info: #11111b;--notice-text-positive: #11111b;--notice-text-warning: #11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) ::selection,:is(.theme-dark, [data-theme="dark"], html, body) ::selection {background-color:rgba(137, 180, 250, 0.6)}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=staffBadge_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=staffBadge_] {background-image:url("data:image/svg+xml,%3Csvg fill='none' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2311111b'%3E%3Cpath d='m5.92127 6.03526s.22115-.33086.31286-.47743c.09172-.14657-.23743-.49286-.36514-.60257-.12772-.10971-.32914-.05486-.32914-.05486-1.60715.71229-2.41115 2.17372-2.52086 2.466-.10972.29229.27943.61115.56657.76715.132.072.342-.08743.47143-.20572l.04371-.04457.06772-.06857.00085-.00086 4.37229 4.35517.59743-.5975 1.09801-1.098-4.32173-4.43224z'/%3E%3Cpath d='m16.2505 10.6294.2306-.2194 2.0717 2.052c.0146.0129.03.018.0437.018.0395 0 .072-.036.072-.036s2.2937-2.2757 2.3015-2.2834c.0677-.0669 0-.1037 0-.1037l-1.7692-1.78119-.0026.00258-.2425-.23743.1354-.13029.2897.03343-.0548-.384.0728-.07371-.1088-.55372c-.378-.53571-1.4135-1.39371-1.4135-1.39371l-.5417-.09772-.0548.07286-.408-.06086.0394.348.0257.02572-.1209.12171-.6685-.654s-3.8795-2.10686-4.086-2.20457c-.1166-.054-.2023-.09-.2846-.09-.0634 0-.1251.02143-.1963.072-.1646.11571-.0677.34886-.0677.34886l2.412 4.45714.4826.47829-.1509.15085-.0557.05572-.3857-.05315.0591.38229-.1114.11143-.0197-.01972c-.018-.018-.0429-.02742-.0669-.02742s-.048.00942-.0668.02742c-.0369.03686-.0369.09686 0 .13372l.0197.01971-.0532.054-.0137-.01457c-.0188-.018-.0428-.02743-.0668-.02743-.0249 0-.0489.00943-.0669.02743-.0368.03686-.0368.09686 0 .13372l.0146.01457-1.0149 1.02004-.0231-.0232c-.0189-.018-.0429-.0274-.0669-.0274s-.048.0094-.0668.0274c-.0369.0369-.0369.0969 0 .1337l.024.0232-.054.054-.018-.0172c-.018-.0188-.0429-.0283-.066-.0283-.0249 0-.0489.0095-.0677.0283-.036.0369-.036.096 0 .1329l.018.018-.132.1337-.018.1697.0694.0712-.0017.0008-.084.0857-5.47632 5.4755-.07114-.0592-.22714.0326-.12858.1303-.00857-.0086c-.01885-.0189-.04285-.0283-.06685-.0283s-.04886.0094-.06686.0283c-.03686.0369-.03686.096 0 .1329l.01028.0102-.05314.0549-.00514-.0051c-.018-.0189-.04286-.0283-.06686-.0283s-.048.0094-.06686.0283c-.036.0368-.036.096 0 .1328l.006.0069-1.002 1.0191-.02057-.0206c-.01885-.0188-.042-.0274-.06685-.0274-.024 0-.048.0086-.06686.0274-.03686.0369-.03686.0969 0 .1338l.02228.0214-.05314.054-.01628-.0163c-.01886-.018-.04286-.0274-.06772-.0274-.02314 0-.048.0094-.066.0274-.03686.0369-.03686.0969 0 .1337l.01714.018-.07457.0763-.38828-.0694.02914.4337-.12257.1251.10628.5846s.16286.5091.498.8469c.32486.3274.82029.4842.84172.5005l.55971.0977.138-.1354.38572.0626-.06343-.3814.11743-.1149.054.054c.018.018.042.0274.066.0274s.04885-.0094.06685-.0274c.03686-.0377.03686-.0969 0-.1337l-.05314-.0532.05486-.0531.04628.0463c.018.0188.04286.0283.06686.0283s.048-.0095.06686-.0283c.03686-.0369.03686-.096 0-.1329l-.04543-.0463 1.01743-1.0037.04457.0446c.018.0189.04286.0274.06686.0274s.048-.0085.06685-.0274c.036-.0369.036-.0969 0-.1337l-.04371-.0429.054-.054.03771.0377c.018.018.042.0275.066.0275.02486 0 .04886-.0095.06686-.0275.03686-.0368.03686-.0968 0-.1337l-.03686-.0368.114-.1115.04115-.2442-.06086-.0609.00086-.0009.11057-.1097 5.43946-5.4411-.0026-.0052.1063.1098.1706-.0189.1534-.1543.0248.0249c.0189.018.0429.0274.0669.0274s.0489-.0094.0669-.0274c.0368-.0369.0368-.0969 0-.1337l-.0249-.0249.054-.0531.0189.0188c.018.018.042.0274.0668.0274.024 0 .048-.0094.066-.0274.0369-.0368.0369-.0968 0-.1337l-.0188-.0197 1.0165-1.0183.0266.0266c.018.018.042.0274.066.0274.0249 0 .0489-.0094.0669-.0274.0368-.0369.0368-.0969 0-.1337l-.0266-.0266.054-.054.0206.0214c.0188.018.0428.0274.0668.0274s.048-.0094.0669-.0274c.0368-.0377.0368-.0968 0-.1337l-.0206-.0214.1131-.1132.378.0592z'/%3E%3Cpath d='m17.0057 16.7793-2.4111-1.8274-.4294-.4423-1.6637 1.6637.4183.3995 1.5711 2.3562 2.1188 2.3203 2.4421-2.2783z'/%3E%3C/g%3E%3C/svg%3E") !important}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=permissionCheckmark_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=permissionCheckmark_] {background-image:url("data:image/svg+xml,%3Csvg height='18' width='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='m0 0h18v18h-18z'/%3E%3Cpath d='m14.25 14.25h-10.5v-10.5h7.5v-1.5h-7.5c-.8325 0-1.5.6675-1.5 1.5v10.5c0 .8284271.67157288 1.5 1.5 1.5h10.5c.8284271 0 1.5-.6715729 1.5-1.5v-6h-1.5zm-7.5675-6.94-1.0575 1.065 3.375 3.375 7.5-7.5-1.0575-1.065-6.4425 6.4425z' fill='%23a6e3a1'/%3E%3C/g%3E%3C/svg%3E") !important}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=removeKeybind_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=removeKeybind_] {background-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="18" height="18"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cpath d="M0 0h18v18H0"/%3E%3Cpath fill="%2311111b" d="M14.25 4.8075L13.1925 3.75 9 7.9425 4.8075 3.75 3.75 4.8075 7.9425 9 3.75 13.1925 4.8075 14.25 9 10.0575l4.1925 4.1925 1.0575-1.0575L10.0575 9"/%3E%3C/g%3E%3C/svg%3E') !important}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=removeGame_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=removeGame_] {background-image:url("data:image/svg+xml,%3Csvg height='18' viewBox='0 0 18 18' width='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='m14.25 4.808-1.057-1.058-4.193 4.192-4.192-4.192-1.058 1.058 4.192 4.192-4.192 4.193 1.058 1.057 4.192-4.193 4.193 4.193 1.057-1.057-4.193-4.193z' fill-rule='nonzero' fill='%23f38ba8'/%3E%3Cpath d='m0 0h18v18h-18z'/%3E%3C/g%3E%3C/svg%3E") !important}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=emojiRemove_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=emojiRemove_] {background-image:url("data:image/svg+xml,%3Csvg height='18' viewBox='0 0 18 18' width='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='m14.25 4.808-1.057-1.058-4.193 4.192-4.192-4.192-1.058 1.058 4.192 4.192-4.192 4.193 1.058 1.057 4.192-4.193 4.193 4.193 1.057-1.057-4.193-4.193z' fill-rule='nonzero' fill='%23f38ba8'/%3E%3Cpath d='m0 0h18v18h-18z'/%3E%3C/g%3E%3C/svg%3E") !important}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=revokeInvite_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=revokeInvite_] {background-image:url("data:image/svg+xml,%3Csvg height='18' viewBox='0 0 18 18' width='18' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='m14.25 4.808-1.057-1.058-4.193 4.192-4.192-4.192-1.058 1.058 4.192 4.192-4.192 4.193 1.058 1.057 4.192-4.193 4.193 4.193 1.057-1.057-4.193-4.193z' fill-rule='nonzero' fill='%23f38ba8'/%3E%3Cpath d='m0 0h18v18h-18z'/%3E%3C/g%3E%3C/svg%3E") !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=noItemsIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=noItemsIcon_] {background-color:#45475a}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1ProfilePerk_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1ProfilePerk_] {color:#89b4fa !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1BoostPerk_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1BoostPerk_] {color:#f5c2e7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1CustomEmojiPerk_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1CustomEmojiPerk_] {color:#f9e2af !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1UploadPerk_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1UploadPerk_] {color:#b4befe !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1StreamPerk_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier1StreamPerk_] {color:#a6e3a1 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=threadIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=threadIcon_] {color:#cdd6f4 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=premiumIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=premiumIcon_] {color:#f5c2e7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=gameIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=gameIcon_] {color:#cdd6f4 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=currentTierIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=currentTierIcon_] {color:#f5c2e7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier3Icon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=tier3Icon_] {color:#f5c2e7 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=searchIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=searchIcon_] {color:#a6adc8 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=upsellIcon_],:is(.theme-dark, [data-theme="dark"], html, body) svg[class*=upsellIcon_] {color:#f5c2e7 !important}
+:root, html, body, #app-mount, .theme-dark, [class*="theme-dark"], [data-theme="dark"], .visual-refresh.theme-dark,.visual-refresh .theme-dark {--thread-default: var(--ctp-rainbow-thread-disabled) var(--channels-default);--thread-core: var(--ctp-rainbow-thread-disabled) var(--text-default);--thread-spine: var(--ctp-rainbow-thread-disabled) var(--spine-default);--thread-muted: var(--ctp-rainbow-thread-disabled) var(--text-muted)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>div[class^=spineBorder_],:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>div[class^=spineBorder_] {--step: calc(var(--channels-name-line-height) + 10px);background:var(--thread-spine, repeating-linear-gradient(#824e62 calc(var(--step) * 0), #824e62 calc(var(--step) * 1), #866251 calc(var(--step) * 1), #866251 calc(var(--step) * 2), #857a65 calc(var(--step) * 2), #857a65 calc(var(--step) * 3), #5c7a5e calc(var(--step) * 3), #5c7a5e calc(var(--step) * 4), #4d638b calc(var(--step) * 4), #4d638b calc(var(--step) * 5), #6e5c89 calc(var(--step) * 5), #6e5c89 calc(var(--step) * 6)))}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 1),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 1) {--channels-default: var(--thread-default, rgba(243, 139, 168, 0.7));--interactive-text-hover: var(--thread-default, #f38ba8);--interactive-text-active: var(--thread-default, #f38ba8);--text-strong: var(--thread-default, #f38ba8);--text-default: var(--thread-core, #f38ba8);--text-muted: var(--thread-muted, #824e62);--spine-default: var(--thread-spine, #824e62)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 2),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 2) {--channels-default: var(--thread-default, rgba(250, 179, 135, 0.7));--interactive-text-hover: var(--thread-default, #fab387);--interactive-text-active: var(--thread-default, #fab387);--text-strong: var(--thread-default, #fab387);--text-default: var(--thread-core, #fab387);--text-muted: var(--thread-muted, #866251);--spine-default: var(--thread-spine, #866251)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 3),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 3) {--channels-default: var(--thread-default, rgba(249, 226, 175, 0.7));--interactive-text-hover: var(--thread-default, #f9e2af);--interactive-text-active: var(--thread-default, #f9e2af);--text-strong: var(--thread-default, #f9e2af);--text-default: var(--thread-core, #f9e2af);--text-muted: var(--thread-muted, #857a65);--spine-default: var(--thread-spine, #857a65)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 4),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 4) {--channels-default: var(--thread-default, rgba(166, 227, 161, 0.7));--interactive-text-hover: var(--thread-default, #a6e3a1);--interactive-text-active: var(--thread-default, #a6e3a1);--text-strong: var(--thread-default, #a6e3a1);--text-default: var(--thread-core, #a6e3a1);--text-muted: var(--thread-muted, #5c7a5e);--spine-default: var(--thread-spine, #5c7a5e)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 5),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 5) {--channels-default: var(--thread-default, rgba(137, 180, 250, 0.7));--interactive-text-hover: var(--thread-default, #89b4fa);--interactive-text-active: var(--thread-default, #89b4fa);--text-strong: var(--thread-default, #89b4fa);--text-default: var(--thread-core, #89b4fa);--text-muted: var(--thread-muted, #4d638b);--spine-default: var(--thread-spine, #4d638b)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 6),:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group]>li:nth-of-type(6n + 6) {--channels-default: var(--thread-default, rgba(203, 166, 247, 0.7));--interactive-text-hover: var(--thread-default, #cba6f7);--interactive-text-active: var(--thread-default, #cba6f7);--text-strong: var(--thread-default, #cba6f7);--text-default: var(--thread-core, #cba6f7);--text-muted: var(--thread-muted, #6e5c89);--spine-default: var(--thread-spine, #6e5c89)}
+:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group] li:only-of-type,:is(.theme-dark, [data-theme="dark"], html, body) ul[class^=content_]>li[class^=container_]>ul[role=group] li:only-of-type {--channels-default: var(--thread-default, rgba(137, 180, 250, 0.7));--interactive-text-hover: var(--thread-default, #89b4fa);--interactive-text-active: var(--thread-default, #89b4fa);--text-strong: var(--thread-default, #89b4fa);--text-default: var(--thread-core, #89b4fa);--text-muted: var(--thread-muted, #4d638b);--spine-default: var(--thread-spine, #4d638b)}
+:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#45a366"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#45a366"],:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#45a366"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#45a366"] {fill:#a6e3a1}
+:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(69, 163, 102);"],:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(69, 163, 102);"] {background-color:#a6e3a1 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#ffc04e"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#ffc04e"],:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#ffc04e"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#ffc04e"] {fill:#f9e2af}
+:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(255, 192, 78);"],:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(255, 192, 78);"] {background-color:#f9e2af !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#da3e44"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#da3e44"],:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#da3e44"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#da3e44"] {fill:#f38ba8}
+:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(218, 62, 68);"],:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(218, 62, 68);"] {background-color:#f38ba8 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#84858d"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#84858d"],:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#84858d"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#84858d"] {fill:#7f849c}
+:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(132, 133, 141);"],:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(132, 133, 141);"] {background-color:#7f849c !important}
+:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#9147ff"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#9147ff"],:is(.theme-dark, [data-theme="dark"], html, body) svg [fill="#9147ff"],:is(.theme-dark, [data-theme="dark"], html, body) svg[fill="#9147ff"] {fill:var(--twitch)}
+:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(145, 71, 255);"],:is(.theme-dark, [data-theme="dark"], html, body) div[style="background-color: rgb(145, 71, 255);"] {background-color:var(--twitch) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newMessagesBar_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newMessagesBar_] {--white: #11111b;--control-secondary-background-default: var(--brand-500);--control-secondary-background-hover: var(--brand-530)}
+:is(.theme-dark, [data-theme="dark"], html, body) span[class^=folderGroupBackground_],:is(.theme-dark, [data-theme="dark"], html, body) span[class^=folderGroupBackground_] {--background-mod-subtle: #181825 !important}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch],:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch] {background-color:#585b70 !important;border:unset !important;transition:background-color .2s}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:hover,:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:hover {background-color:#45475a !important}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]>svg>rect,:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]>svg>rect {fill:var(--white);transition:fill .2s}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked),:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked) {background-color:var(--brand-500) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked):hover,:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked):hover {background-color:var(--brand-560) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked)>svg>rect,:is(.theme-dark, [data-theme="dark"], html, body) label[class^=container_]>div[data-mana-component=switch]:has(+span>input:checked)>svg>rect {fill:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container,:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container {--primary-400: #585b70}
+:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container svg.vc-switch-slider>rect,:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container svg.vc-switch-slider>rect {fill:var(--white);transition:fill .2s}
+:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container.vc-switch-checked>svg.vc-switch-slider>rect,:is(.theme-dark, [data-theme="dark"], html, body) div.vc-switch-container.vc-switch-checked>svg.vc-switch-slider>rect {fill:#11111b}
+:is(.theme-dark, [data-theme="dark"], html, body) img[class*=maskIcon_][src*="/assets/c8ae30e56eb87fdf.svg"],:is(.theme-dark, [data-theme="dark"], html, body) img[class*=maskIcon_][src*="/assets/c8ae30e56eb87fdf.svg"] {filter:url('data:image/svg+xml;utf8,    <svg xmlns="http://www.w3.org/2000/svg">      <filter id="ctp-recolor" color-interpolation-filters="sRGB">        <feColorMatrix type="matrix" values="          0 0 0 0 0.0666666667          0 0 0 0 0.0666666667          0 0 0 0 0.1058823529          0 0 0 1 0        "/>      </filter>    </svg>    #ctp-recolor')}
+:is(.theme-dark, [data-theme="dark"], html, body) i[class^=check_],:is(.theme-dark, [data-theme="dark"], html, body) i[class^=check_] {filter:url('data:image/svg+xml;utf8,    <svg xmlns="http://www.w3.org/2000/svg">      <filter id="ctp-recolor" color-interpolation-filters="sRGB">        <feColorMatrix type="matrix" values="          0 0 0 0 0.537254902          0 0 0 0 0.7058823529          0 0 0 0 0.9803921569          0 0 0 1 0        "/>      </filter>    </svg>    #ctp-recolor')}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=overlay_][class*=darkThemeGradient_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=overlay_][class*=darkThemeGradient_] {background:linear-gradient(0deg, #1e1e2e 0, rgba(49, 50, 68, 0.5) 50%, rgba(69, 71, 90, 0))}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=textContentFooter_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=textContentFooter_] {background:linear-gradient(0deg, #1e1e2e, rgba(49, 50, 68, 0.97) 36px, rgba(69, 71, 90, 0.4)) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=textContentFooter_] [class*=tagPill_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=textContentFooter_] [class*=tagPill_] {background-color:rgba(69, 71, 90, 0.9)}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newBadge_][class*=textBadge_][style="background-color: var(--brand-260);"],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=botTagOP_],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=newBadge_][class*=textBadge_][style="background-color: var(--brand-260);"],:is(.theme-dark, [data-theme="dark"], html, body) span[class*=botTagOP_] {background-color:var(--brand-500) !important;color:var(--white)}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=quickSelectPopoutOption_]:hover[role=option],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=quickSelectPopoutOption_]:hover[role=option] {background-color:var(--interactive-background-hover)}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=greenGlow_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=greenGlow_] {background:rgba(166, 227, 161, 0.1)}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=greenGlow_]:hover,:is(.theme-dark, [data-theme="dark"], html, body) [class*=greenGlow_]:hover {background:rgba(166, 227, 161, 0.2)}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=redGlow_],:is(.theme-dark, [data-theme="dark"], html, body) [class*=redGlow_] {background:rgba(243, 139, 168, 0.1)}
+:is(.theme-dark, [data-theme="dark"], html, body) [class*=redGlow_]:hover,:is(.theme-dark, [data-theme="dark"], html, body) [class*=redGlow_]:hover {background:rgba(243, 139, 168, 0.2) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class^=experimentButton_][class*=buttonColor_][class*=buttonActive_],:is(.theme-dark, [data-theme="dark"], html, body) button[class^=experimentButton_][class*=buttonColor_][class*=buttonActive_] {background-color:rgba(166, 227, 161, 0.1);border:1px solid rgba(166, 227, 161, 0.1)}
+:is(.theme-dark, [data-theme="dark"], html, body) button[class^=experimentButton_][class*=buttonColor_][class*=buttonActive_]:hover,:is(.theme-dark, [data-theme="dark"], html, body) button[class^=experimentButton_][class*=buttonColor_][class*=buttonActive_]:hover {background-color:rgba(166, 227, 161, 0.2)}
+:is(.theme-dark, [data-theme="dark"], html, body) [style*="color: white"],:is(.theme-dark, [data-theme="dark"], html, body) [style*="color: white"] {color:var(--white) !important}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class*=container_]:focus-within:has(>div[class^=inner_]>input),:is(.theme-dark, [data-theme="dark"], html, body) [class*=input_][type=text]:not([readOnly]):focus,:is(.theme-dark, [data-theme="dark"], html, body) [class*=input_][type=text]:not([readOnly]):focus:hover,:is(.theme-dark, [data-theme="dark"], html, body) div[class*=container_]:focus-within:has(>div[class^=inner_]>input),:is(.theme-dark, [data-theme="dark"], html, body) [class*=input_][type=text]:not([readOnly]):focus,:is(.theme-dark, [data-theme="dark"], html, body) [class*=input_][type=text]:not([readOnly]):focus:hover {--text-link: var(--brand-500)}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=toast_][data-type=success],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=toast_][data-type=success] {--status-positive: #1e1e2e}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class^=toast_][data-type=failure],:is(.theme-dark, [data-theme="dark"], html, body) div[class^=toast_][data-type=failure] {--icon-feedback-critical: #1e1e2e}
+:is(.theme-dark, [data-theme="dark"], html, body) div[class*=button_][class*=dangerous_],:is(.theme-dark, [data-theme="dark"], html, body) div[class*=button_][class*=dangerous_] {color:#f38ba8}
+:is(.theme-dark, [data-theme="dark"], html, body).hljs,:is(.theme-dark, [data-theme="dark"], html, body).hljs {color:#cdd6f4;background:#1e1e2e}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-keyword,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-keyword {color:#cba6f7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-built_in,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-built_in {color:#f38ba8}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-type,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-type {color:#f9e2af}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-literal,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-literal {color:#fab387}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-number,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-number {color:#fab387}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-operator,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-operator {color:#89dceb}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-punctuation,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-punctuation {color:#bac2de}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-property,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-property {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-regexp,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-regexp {color:#f5c2e7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-string,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-string {color:#a6e3a1}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-char.escape_,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-char.escape_ {color:#a6e3a1}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-subst,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-subst {color:#a6adc8}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-symbol,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-symbol {color:#f2cdcd}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable {color:#cba6f7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable.language_,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable.language_ {color:#cba6f7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable.constant_,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-variable.constant_ {color:#fab387}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title {color:#89b4fa}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title.class_,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title.class_ {color:#f9e2af}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title.function_,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-title.function_ {color:#89b4fa}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-params,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-params {color:#cdd6f4}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-comment,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-comment {color:#9399b2}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-doctag,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-doctag {color:#f38ba8}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-meta,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-meta {color:#fab387}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-section,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-section {color:#89b4fa}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-tag,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-tag {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-name,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-name {color:#cba6f7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-attr,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-attr {color:#89b4fa}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-attribute,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-attribute {color:#a6e3a1}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-bullet,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-bullet {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-code,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-code {color:#a6e3a1}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-emphasis,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-emphasis {color:#f38ba8;font-style:italic}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-strong,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-strong {color:#f38ba8;font-weight:bold}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-formula,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-formula {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-link,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-link {color:#74c7ec;font-style:italic}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-quote,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-quote {color:#a6e3a1;font-style:italic}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-tag,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-tag {color:#f9e2af}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-id,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-id {color:#89b4fa}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-class,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-class {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-attr,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-attr {color:#cba6f7}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-pseudo,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-selector-pseudo {color:#94e2d5}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-template-tag,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-template-tag {color:#f2cdcd}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-template-variable,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-template-variable {color:#f2cdcd}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-addition,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-addition {color:#a6e3a1;background:rgba(166,227,161,.15)}
+:is(.theme-dark, [data-theme="dark"], html, body) .hljs-deletion,:is(.theme-dark, [data-theme="dark"], html, body) .hljs-deletion {color:#f38ba8;background:rgba(243,139,168,.15)}
