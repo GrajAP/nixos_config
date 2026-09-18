@@ -10,6 +10,11 @@
       runtimeInputs = [pkgs.tokei];
       text = builtins.readFile ./loc;
     })
+    (pkgs.writeShellApplication {
+      name = "update-userstyles";
+      runtimeInputs = with pkgs; [nix coreutils python3 gnugrep];
+      text = builtins.readFile ./update-userstyles;
+    })
     (pkgs.writeShellScriptBin "katana-switch" (builtins.readFile ./katana-switch))
   ];
 }

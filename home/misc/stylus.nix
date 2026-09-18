@@ -3,9 +3,19 @@
   pkgs,
   ...
 }: let
+  # Preset mirroring https://catppuccin-userstyles-customizer.uncenter.dev/
+  # with Light Flavor = mocha, Dark Flavor = mocha, Accent = blue.
+  # Applied to the upstream export below (same thing the site's Download
+  # button does). To pull newer upstream styles, run `update-userstyles`.
+  userstylesPreset = {
+    lightFlavor = "mocha";
+    darkFlavor = "mocha";
+    accentColor = "blue";
+  };
+
   upstreamUserstyles = pkgs.fetchurl {
     url = "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
-    hash = "sha256-uV3vq5NXiJ68oOc7TK8bSsvhYosgKZizNJjUNVMnS7k=";
+    hash = "sha256-JcgPbDd4R/uZIyjUbPuQEqnq5ee7I21GjsI8dzSc0N0=";
   };
 
   stylusArchive = pkgs.fetchurl {
@@ -24,9 +34,14 @@
   catppuccinMochaBlue =
     pkgs.runCommand "catppuccin-mocha-blue-stylus.json" {
       nativeBuildInputs = [pkgs.python3];
+      inherit (userstylesPreset) lightFlavor darkFlavor accentColor;
     } ''
             python3 - "${upstreamUserstyles}" "$out" <<'EOF'
-      import json, re, sys
+      import json, os, re, sys
+
+      lightFlavor = os.environ["lightFlavor"]
+      darkFlavor = os.environ["darkFlavor"]
+      accentColor = os.environ["accentColor"]
 
       with open(sys.argv[1], "r", encoding="utf-8") as f:
           data = json.load(f)
@@ -38,17 +53,18 @@
       for item in data:
           vars = item.get("usercssData", {}).get("vars", {})
           if "lightFlavor" in vars:
-              vars["lightFlavor"]["value"] = "mocha"
+              vars["lightFlavor"]["value"] = lightFlavor
           if "darkFlavor" in vars:
-              vars["darkFlavor"]["value"] = "mocha"
+              vars["darkFlavor"]["value"] = darkFlavor
           if "accentColor" in vars:
-              vars["accentColor"]["value"] = "blue"
+              vars["accentColor"]["value"] = accentColor
 
           if item.get("name") == "Chess.com Catppuccin":
               src = item["sourceCode"]
               pattern = r"\s*\.light-mode\s*\{[^}]*\}\s*\.dark-mode\s*\{[^}]*\}"
               replacement = """\n  :root,\n  :root.dark-mode,\n  :root.light-mode,\n  html,\n  .dark-mode,\n  .light-mode {\n    #catppuccin(@darkFlavor);\n  }"""
-              src = re.sub(pattern, replacement, src, count=1)
+              src, count = re.subn(pattern, replacement, src, count=1)
+              assert count == 1, "Chess.com flavor-forcing patch no longer matches upstream"
               src = src.replace("\n    body {\n      --theme-background-color:", "\n    &, body {\n      --theme-background-color:")
               item["sourceCode"] = src
               item["updateUrl"] = ""
@@ -146,7 +162,7 @@
   '';
 
   stylusSeed = pkgs.replaceVars ./stylus-seed.js {
-    seedVersion = "catppuccin-all-userstyles-2026-v6-chesscom";
+    seedVersion = "catppuccin-userstyles-2026-09-18";
   };
 
   stylusExtension =

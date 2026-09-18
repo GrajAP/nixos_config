@@ -4,6 +4,7 @@
   discordIndexJs = ./ferdium-discord-index.js;
   discordNotificationCompatJs = ./ferdium-discord-notification-compatibility.js;
   gmailDarkmodeCss = ./ferdium-gmail-darkmode.css;
+  whatsappDarkmodeCss = ./ferdium-whatsapp-darkmode.css;
 in {
   home.activation.ferdiumCatppuccin = lib.hm.dag.entryAfter ["writeBoundary"] ''
         recipes_dir="$HOME/.config/Ferdium/recipes"
@@ -65,6 +66,19 @@ in {
         gmail_dir="$recipes_dir/gmail"
         if [ -d "$gmail_dir" ]; then
           cp -f "${gmailDarkmodeCss}" "$gmail_dir/darkmode.css"
+        fi
+
+        # 3. Setup WhatsApp recipe with persistent Catppuccin theme & version pinning.
+        # The stock darkmode.css is an outdated Franz-era stylesheet that no longer
+        # matches web.whatsapp.com, and the recipe auto-updater wipes custom files.
+        whatsapp_dir="$recipes_dir/whatsapp"
+        if [ -d "$whatsapp_dir" ]; then
+          cp -f "${whatsappDarkmodeCss}" "$whatsapp_dir/darkmode.css"
+
+          # Pin the version so the auto-updater stops overwriting the theme.
+          # NOTE: this also freezes webview.js badge-selector updates; unpin
+          # (delete the dir, restart Ferdium) if unread badges ever go stale.
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$whatsapp_dir/package.json"
         fi
   '';
 }

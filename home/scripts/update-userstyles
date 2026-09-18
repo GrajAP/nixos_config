@@ -1,0 +1,53 @@
+set -euo pipefail
+
+# Refresh the pinned Catppuccin userstyles export used by home/misc/stylus.nix
+# and bump the Stylus seed version so browsers re-import on next launch.
+# Mirrors the preset from https://catppuccin-userstyles-customizer.uncenter.dev/
+# (mocha / mocha / blue), which stylus.nix applies at build time.
+
+flake_dir="${FLAKE:-/etc/nixos}"
+stylus_nix="$flake_dir/home/misc/stylus.nix"
+url="https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json"
+
+if [[ ! -f "$stylus_nix" ]]; then
+  echo "error: $stylus_nix not found (set FLAKE to your checkout)" >&2
+  exit 1
+fi
+
+echo "Fetching latest userstyles export hash..."
+new_hash="$(nix store prefetch-file --json "$url" | python3 -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
+echo "Latest hash: $new_hash"
+
+old_hash="$(grep -A2 'all-userstyles-export/import.json' "$stylus_nix" | grep -o 'sha256-[A-Za-z0-9+/=]*' | head -n 1)"
+echo "Pinned hash: $old_hash"
+
+if [[ "$new_hash" == "$old_hash" ]]; then
+  echo "Already up to date."
+  exit 0
+fi
+
+python3 - "$stylus_nix" "$old_hash" "$new_hash" <<'EOF'
+import datetime
+import re
+import sys
+
+path, old_hash, new_hash = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, encoding="utf-8") as f:
+    content = f.read()
+
+assert content.count(old_hash) == 1, "expected exactly one occurrence of the old hash"
+content = content.replace(old_hash, new_hash)
+
+today = datetime.date.today().isoformat()
+content, count = re.subn(
+    r'seedVersion = "[^"]*";',
+    f'seedVersion = "catppuccin-userstyles-{today}";',
+    content,
+)
+assert count == 1, "expected exactly one seedVersion line"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+print(f"seedVersion bumped for {today}")
+EOF
+
+echo "Updated $stylus_nix. Run ./rebuild.sh --check, then ./rebuild.sh to apply."

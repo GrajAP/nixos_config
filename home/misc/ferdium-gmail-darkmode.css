@@ -243,20 +243,9 @@ tr.zA.x7 {
   background-color: #313244 !important;
 }
 
-/* 6. Email Reading Pane & Messages */
-.a3s,
-.a3s.aiL,
-.adn.ads,
-.gE.iv.gt,
-.ii.gt,
-div[role="listitem"],
-.hx {
-  background-color: transparent !important;
-  color: #cdd6f4 !important;
-}
-.a3s * {
-  color: inherit !important;
-}
+/* 6. Email Reading Pane & Messages.
+   NOTE: email bodies (.a3s) intentionally keep their authored colors.
+   Forcing light text here made light-background newsletters unreadable. */
 .gA.gt {
   background-color: #181825 !important;
   border: 1px solid #313244 !important;
@@ -435,12 +424,12 @@ html *,
 body * {
   text-shadow: none !important;
 }
-:root [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
-html [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
-body [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_default_1x_r5.png"],
-:root [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"],
-html [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"],
-body [src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/logo_gmail_lockup_dark_1x_r5.png"] {
+:root [src*="logo_gmail_lockup_default_"],
+html [src*="logo_gmail_lockup_default_"],
+body [src*="logo_gmail_lockup_default_"],
+:root [src*="logo_gmail_lockup_dark_"],
+html [src*="logo_gmail_lockup_dark_"],
+body [src*="logo_gmail_lockup_dark_"] {
   height: unset !important;
   width: unset !important;
   content: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%2217.727%2014.319%2030%2022.5%22%20width%3D%2230%22%20height%3D%2222.5%22%3E%3Cpath%20fill%3D%22%2389b4fa%22%20d%3D%22M19.773%2036.819h4.773V25.227l-6.819-5.114v14.659a2.044%202.044%200%200%200%202.045%202.045%22/%3E%3Cpath%20fill%3D%22%23a6e3a1%22%20d%3D%22M40.909%2036.819h4.773a2.044%202.044%200%200%200%202.045-2.045v-14.66l-6.819%205.114%22/%3E%3Cpath%20fill%3D%22%23f9e2af%22%20d%3D%22M40.909%2016.364v8.864l6.819-5.114v-2.727c0-2.529-2.888-3.971-4.909-2.455%22/%3E%3Cpath%20fill%3D%22%23f38ba8%22%20d%3D%22M24.545%2025.227v-8.863l8.181%206.136%208.181-6.136v8.864l-8.181%206.136m-15-13.977v2.727l6.819%205.114v-8.864l-1.909-1.431c-2.025-1.517-4.91-.075-4.91%202.455%22/%3E%3C/svg%3E") !important;
