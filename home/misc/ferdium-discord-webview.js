@@ -3,102 +3,6 @@ function _interopRequireDefault(obj) {
 }
 
 const _path = _interopRequireDefault(require('path'));
-const _fs = _interopRequireDefault(require('fs'));
-
-function setupDiscordTheme(cssPath, styleId = 'ctp-discord-theme') {
-  let cachedCss = null;
-
-  const loadCss = () => {
-    if (!cachedCss) {
-      try {
-        if (_fs.default.existsSync(cssPath)) {
-          cachedCss = _fs.default.readFileSync(cssPath, 'utf8');
-        }
-      } catch (e) {
-        console.error('[Catppuccin Discord] Failed to read CSS file:', e);
-      }
-    }
-    return cachedCss;
-  };
-
-  const ensureClasses = () => {
-    try {
-      const targets = [document.documentElement, document.body, document.getElementById('app-mount')];
-      for (const el of targets) {
-        if (el) {
-          if (!el.classList.contains('visual-refresh')) el.classList.add('visual-refresh');
-          if (!el.classList.contains('theme-dark')) el.classList.add('theme-dark');
-          el.setAttribute('data-theme', 'dark');
-        }
-      }
-    } catch (_) {}
-  };
-
-  const applyTheme = () => {
-    try {
-      ensureClasses();
-      const css = loadCss();
-      if (!css) return;
-
-      const target = document.head || document.documentElement;
-      if (!target) return;
-
-      let styleEl = document.getElementById(styleId);
-      if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.id = styleId;
-        styleEl.type = 'text/css';
-        styleEl.textContent = css;
-        target.appendChild(styleEl);
-      } else {
-        if (styleEl.nextSibling || styleEl.parentNode !== target) {
-          target.appendChild(styleEl);
-        }
-      }
-    } catch (e) {
-      console.error('[Catppuccin Discord] Injection error:', e);
-    }
-  };
-
-  applyTheme();
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTheme);
-  }
-  window.addEventListener('load', applyTheme);
-
-  try {
-    const observer = new MutationObserver(() => {
-      applyTheme();
-    });
-
-    const initObserver = () => {
-      if (document.documentElement) {
-        observer.observe(document.documentElement, {
-          childList: false,
-          subtree: false,
-          attributes: true,
-          attributeFilter: ['class', 'data-theme']
-        });
-      }
-      if (document.head) {
-        observer.observe(document.head, {
-          childList: true,
-          subtree: false
-        });
-      }
-    };
-
-    initObserver();
-    if (!document.head) {
-      document.addEventListener('DOMContentLoaded', initObserver);
-    }
-  } catch (e) {
-    console.warn('[Catppuccin Discord] MutationObserver error:', e);
-  }
-
-  setInterval(applyTheme, 1500);
-}
 
 module.exports = (Ferdium, settings) => {
   const getMessages = () => {
@@ -119,10 +23,12 @@ module.exports = (Ferdium, settings) => {
 
   Ferdium.loop(getMessages);
 
-  const cssFile = _path.default.join(__dirname, 'service.css');
-  Ferdium.injectCSS(cssFile);
-  setupDiscordTheme(cssFile, 'ctp-discord-theme');
+  Ferdium.injectCSS(_path.default.join(__dirname, 'service.css'));
+  Ferdium.injectJSUnsafe(
+    _path.default.join(__dirname, 'notification-compatibility.js'),
+  );
 
+  // TODO: See how this can be moved into the main ferdium app and sent as an ipc message for opening with a new window or same Ferdium recipe's webview based on user's preferences
   document.addEventListener(
     'click',
     event => {
@@ -149,6 +55,7 @@ module.exports = (Ferdium, settings) => {
           event.stopPropagation();
 
           if (
+            // Always open file downloads in Ferdium, rather than the external browser
             url.includes('discordapp.com/attachments/') ||
             settings.trapLinkClicks === true
           ) {

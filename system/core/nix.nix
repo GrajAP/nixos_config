@@ -76,6 +76,34 @@
             })
           ];
       })
+      # 2026-09-18: nixpkgs still ships Ferdium 7.1.2 (old Electron/Chromium),
+      # which leaves Discord stuck at "Loading Discord". Track upstream 7.2.3
+      # (Electron 43) until nixpkgs catches up. Remove after nixpkgs ships >= 7.2.3.
+      (_: prev: let
+        arch =
+          {
+            x86_64-linux = "amd64";
+            aarch64-linux = "arm64";
+          }
+          .${
+            prev.stdenv.hostPlatform.system
+          } or (throw "ferdium 7.2.3 overlay: arch ${prev.stdenv.hostPlatform.system} not supported");
+      in {
+        ferdium = prev.ferdium.overrideAttrs {
+          version = "7.2.3";
+          src = prev.fetchurl {
+            url = "https://github.com/ferdium/ferdium-app/releases/download/v7.2.3/Ferdium-linux-7.2.3-${arch}.deb";
+            hash =
+              {
+                x86_64-linux = "sha256-+KP107a8Tmr2qR8pH+gHuXqEqiC5ExPGXoYOqV1Urbo=";
+                aarch64-linux = "sha256-6XnuSqHOJxAURTGWfi4QUBv4ictLmjeJAoyrPg+o+Bg=";
+              }
+              .${
+                prev.stdenv.hostPlatform.system
+              };
+          };
+        };
+      })
       # Keep Codex on the latest verified upstream release. The official static
       # binary avoids waiting for the nixos-unstable package update.
       (_: prev: {

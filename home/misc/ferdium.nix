@@ -2,6 +2,7 @@
   discordDarkmodeCss = ./ferdium-discord-darkmode.css;
   discordWebviewJs = ./ferdium-discord-webview.js;
   discordIndexJs = ./ferdium-discord-index.js;
+  discordNotificationCompatJs = ./ferdium-discord-notification-compatibility.js;
   gmailDarkmodeCss = ./ferdium-gmail-darkmode.css;
 in {
   home.activation.ferdiumCatppuccin = lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -19,6 +20,7 @@ in {
         # Copy persistent webview and index scripts
         cp -f "${discordWebviewJs}" "$discord_dir/webview.js"
         cp -f "${discordIndexJs}" "$discord_dir/index.js"
+        cp -f "${discordNotificationCompatJs}" "$discord_dir/notification-compatibility.js"
 
         # Write user.js for DOM readiness fallback
         cat << 'EOF' > "$discord_dir/user.js"
