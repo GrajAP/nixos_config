@@ -82,6 +82,8 @@
       (binding "binde" "Hardware" ", XF86MonBrightnessUp" "exec, brightnessctl set 10%+ && ${ipc} osd brightness" "Raise brightness")
       (binding "binde" "Hardware" ", XF86MonBrightnessDown" "exec, brightnessctl set 10%- && ${ipc} osd brightness" "Lower brightness")
       (binding "bindl" "Media" ", XF86AudioPlay" "exec, playerctl play-pause" "Play or pause media")
+      (binding "bindl" "Media" ", XF86AudioPause" "exec, playerctl play-pause" "Play or pause media")
+      (binding "bindl" "Media" ", XF86AudioStop" "exec, playerctl stop" "Stop media")
       (binding "bindl" "Media" ", XF86AudioPrev" "exec, playerctl previous" "Previous track")
       (binding "bindl" "Media" ", XF86AudioNext" "exec, playerctl next" "Next track")
 
