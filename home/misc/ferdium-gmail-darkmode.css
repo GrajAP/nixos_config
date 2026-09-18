@@ -244,8 +244,13 @@ tr.zA.x7 {
 }
 
 /* 6. Email Reading Pane & Messages.
-   NOTE: email bodies (.a3s) intentionally keep their authored colors.
-   Forcing light text here made light-background newsletters unreadable. */
+   Email bodies keep a light surface with dark text so newsletters render
+   with readable, authored colors: transparent-bg mails would otherwise show
+   the dark UI through dark text (dark-on-dark). */
+.a3s {
+  background-color: #eff1f5 !important;
+  color: #4c4f69 !important;
+}
 .gA.gt {
   background-color: #181825 !important;
   border: 1px solid #313244 !important;

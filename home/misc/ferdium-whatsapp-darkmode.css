@@ -4,7 +4,11 @@
    Upstream version 2026.08.16, std lib v1.
    Rebuild: fetch catppuccin.user.less + std/v1.less, set
      lightFlavor=latte, darkFlavor=mocha, accentColor=blue, lighterMessages=0,
-   strip the ==UserStyle== header and @-moz-document wrapper, compile with lessc.
+   strip the ==UserStyle== header and @-moz-document wrapper, compile with lessc,
+   then prepend ':root,' to every dark-branch selector list so the Mocha theme
+   applies unconditionally (WhatsApp's .dark marker placement varies; without
+   this the theme silently fails to match). Light-branch (Latte) rules are kept
+   but lose to the later, unconditional Mocha rules.
    Injected by Ferdium as darkmode.css when the service's dark mode is enabled.
    ========================================================================== */
 
@@ -336,8 +340,7 @@
 .app-wrapper-web.app-wrapper-web .react-calendar__month-view__days__day--neighboringMonth,
 .app-wrapper-web.app-wrapper-web:root .react-calendar__month-view__days__day--neighboringMonth {
   color: #7c7f93;
-}
-:root:has(> .dark),
+}:root, :root:has(> .dark),
 .dark.color-refresh,
 .color-refresh.dark,
 .dark .app-wrapper-web.app-wrapper-web,
@@ -566,15 +569,13 @@
   /* Date picker */
   --date-picker-text-color: #cdd6f4;
   --date-picker-text-color-rgb: 205, 214, 244;
-}
-:root:has(> .dark) ::selection,
+}:root, :root:has(> .dark) ::selection,
 .dark.color-refresh ::selection,
 .color-refresh.dark ::selection,
 .dark .app-wrapper-web.app-wrapper-web ::selection,
 .dark .app-wrapper-web.app-wrapper-web:root ::selection {
   background-color: rgba(137, 180, 250, 0.3);
-}
-:root:has(> .dark) input::placeholder,
+}:root, :root:has(> .dark) input::placeholder,
 .dark.color-refresh input::placeholder,
 .color-refresh.dark input::placeholder,
 .dark .app-wrapper-web.app-wrapper-web input::placeholder,
@@ -585,16 +586,14 @@
 .dark .app-wrapper-web.app-wrapper-web textarea::placeholder,
 .dark .app-wrapper-web.app-wrapper-web:root textarea::placeholder {
   color: #a6adc8 !important;
-}
-:root:has(> .dark) .st0,
+}:root, :root:has(> .dark) .st0,
 .dark.color-refresh .st0,
 .color-refresh.dark .st0,
 .dark .app-wrapper-web.app-wrapper-web .st0,
 .dark .app-wrapper-web.app-wrapper-web:root .st0 {
   fill: #89b4fa !important;
   stroke: #313244;
-}
-:root:has(> .dark) input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+}:root, :root:has(> .dark) input[type="time"]::-webkit-datetime-edit-hour-field:focus,
 .dark.color-refresh input[type="time"]::-webkit-datetime-edit-hour-field:focus,
 .color-refresh.dark input[type="time"]::-webkit-datetime-edit-hour-field:focus,
 .dark .app-wrapper-web.app-wrapper-web input[type="time"]::-webkit-datetime-edit-hour-field:focus,
@@ -631,29 +630,25 @@
 .dark .app-wrapper-web.app-wrapper-web:root input[type="date"]::-webkit-datetime-edit-day-field:focus {
   background-color: #89b4fa;
   color: #11111b;
-}
-:root:has(> .dark) [data-icon="wa-wordmark-refreshed"] path,
+}:root, :root:has(> .dark) [data-icon="wa-wordmark-refreshed"] path,
 .dark.color-refresh [data-icon="wa-wordmark-refreshed"] path,
 .color-refresh.dark [data-icon="wa-wordmark-refreshed"] path,
 .dark .app-wrapper-web.app-wrapper-web [data-icon="wa-wordmark-refreshed"] path,
 .dark .app-wrapper-web.app-wrapper-web:root [data-icon="wa-wordmark-refreshed"] path {
   fill: currentcolor;
-}
-:root:has(> .dark) #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])),
+}:root, :root:has(> .dark) #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])),
 .dark.color-refresh #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])),
 .color-refresh.dark #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])),
 .dark .app-wrapper-web.app-wrapper-web #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])),
 .dark .app-wrapper-web.app-wrapper-web:root #wa-popovers-bucket + span > div button:nth-of-type(1):not(:has(> [data-icon="x-alt"])) {
   color: var(--WDS-accent-emphasized);
-}
-:root:has(> .dark) .react-calendar__tile:disabled,
+}:root, :root:has(> .dark) .react-calendar__tile:disabled,
 .dark.color-refresh .react-calendar__tile:disabled,
 .color-refresh.dark .react-calendar__tile:disabled,
 .dark .app-wrapper-web.app-wrapper-web .react-calendar__tile:disabled,
 .dark .app-wrapper-web.app-wrapper-web:root .react-calendar__tile:disabled {
   color: #a6adc8;
-}
-:root:has(> .dark) .react-calendar__month-view__days__day--neighboringMonth,
+}:root, :root:has(> .dark) .react-calendar__month-view__days__day--neighboringMonth,
 .dark.color-refresh .react-calendar__month-view__days__day--neighboringMonth,
 .color-refresh.dark .react-calendar__month-view__days__day--neighboringMonth,
 .dark .app-wrapper-web.app-wrapper-web .react-calendar__month-view__days__day--neighboringMonth,
