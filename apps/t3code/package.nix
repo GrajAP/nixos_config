@@ -130,6 +130,10 @@
       for program in "$out"/bin/*; do
         wrapProgram "$program" \
           --prefix PATH : "${providerPath}" \
+          --set T3CODE_CLERK_PUBLISHABLE_KEY "pk_live_Y2xlcmsudDMuY29kZXMk" \
+          --set T3CODE_CLERK_JWT_TEMPLATE "t3-relay" \
+          --set T3CODE_CLERK_CLI_OAUTH_CLIENT_ID "hzxSgY2cH10sDU2r" \
+          --set T3CODE_RELAY_URL "https://relay.t3.codes" \
           --set SSL_CERT_FILE "${certBundle}" \
           --set NIX_SSL_CERT_FILE "${certBundle}" \
           --set NODE_EXTRA_CA_CERTS "${certBundle}" \
