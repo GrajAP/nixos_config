@@ -66,6 +66,10 @@
 in {
   xdg = {
     dataFile = {
+      # Helium web browser desktop entry.
+      # Widevine DRM (for Netflix, Spotify, etc.) is enabled via Helium-Browser-DRM-Fixer:
+      # https://github.com/Du-vy/Helium-Browser-DRM-Fixer
+      # which downloads and installs Widevine CDM to ~/.config/net.imput.helium/WidevineCdm/<version>.
       "applications/helium.desktop".text = ''
         [Desktop Entry]
         Name=Helium

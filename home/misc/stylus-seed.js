@@ -34,14 +34,21 @@
     }
 
     for (let offset = 0; offset < customStyles.length; offset += 20) {
-      const result = await globalThis.API.styles.importMany(
-        customStyles.slice(offset, offset + 20),
-      );
-      const failed = result.filter((item) => item && item.err);
-      if (failed.length) {
-        throw new Error(
-          `Stylus failed to import ${failed.length} custom userstyles`,
-        );
+      const chunk = customStyles.slice(offset, offset + 20);
+      try {
+        const result = await globalThis.API.styles.importMany(chunk);
+        const failed = result.filter((item) => item && item.err);
+        if (failed.length) {
+          console.warn(`Stylus custom styles batch failures:`, failed);
+        }
+      } catch (batchErr) {
+        for (const single of chunk) {
+          try {
+            await globalThis.API.styles.importMany([single]);
+          } catch (singleErr) {
+            console.warn(`Stylus failed custom style "${single.name}":`, singleErr);
+          }
+        }
       }
     }
 
@@ -67,9 +74,9 @@
 
     const [header, ...styles] = await response.json();
     await globalThis.API.setPrefs({
-      updateInterval: header.settings.updateInterval,
-      updateOnlyEnabled: header.settings.updateOnlyEnabled,
-      patchCsp: header.settings.patchCsp,
+      updateInterval: header.settings?.updateInterval ?? 24,
+      updateOnlyEnabled: header.settings?.updateOnlyEnabled ?? false,
+      patchCsp: header.settings?.patchCsp ?? true,
       styleViaASS: false,
     });
 
@@ -106,12 +113,22 @@
     }
 
     for (let offset = 0; offset < styles.length; offset += 20) {
-      const result = await globalThis.API.styles.importMany(
-        styles.slice(offset, offset + 20),
-      );
-      const failed = result.filter((item) => item && item.err);
-      if (failed.length) {
-        throw new Error(`Stylus failed to import ${failed.length} userstyles`);
+      const chunk = styles.slice(offset, offset + 20);
+      try {
+        const result = await globalThis.API.styles.importMany(chunk);
+        const failed = result.filter((item) => item && item.err);
+        if (failed.length) {
+          console.warn(`Stylus imported batch with ${failed.length} failures:`, failed);
+        }
+      } catch (batchErr) {
+        console.warn(`Stylus batch import failed at offset ${offset}, falling back to item-by-item:`, batchErr);
+        for (const singleStyle of chunk) {
+          try {
+            await globalThis.API.styles.importMany([singleStyle]);
+          } catch (singleErr) {
+            console.warn(`Stylus failed to import style "${singleStyle.name}":`, singleErr);
+          }
+        }
       }
     }
 
@@ -124,8 +141,8 @@
   }
 
   globalThis.keepAlive(
-    seedCatppuccin().catch((error) => {
-      console.error("Nix Catppuccin userstyle import failed", error);
-    }),
+    seedCatppuccin().catch((error) =>
+      console.error("Nix Catppuccin userstyle import failed", error),
+    ),
   );
 })();

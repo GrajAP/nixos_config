@@ -5,18 +5,16 @@
 }: let
   # Preset mirroring https://catppuccin-userstyles-customizer.uncenter.dev/
   # with Light Flavor = mocha, Dark Flavor = mocha, Accent = blue.
-  # Applied to the upstream export below (same thing the site's Download
-  # button does). To pull newer upstream styles, run `update-userstyles`.
+  # Applied to the export bundle below (catppuccin-userstyles.json from import (2).json).
+  # To pull newer upstream styles, run `update-userstyles`.
   userstylesPreset = {
     lightFlavor = "mocha";
     darkFlavor = "mocha";
     accentColor = "blue";
   };
 
-  upstreamUserstyles = pkgs.fetchurl {
-    url = "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json";
-    hash = "sha256-JcgPbDd4R/uZIyjUbPuQEqnq5ee7I21GjsI8dzSc0N0=";
-  };
+  # Pinned Catppuccin userstyles export (from $HOME/download/import (2).json)
+  userstylesExport = ./catppuccin-userstyles.json;
 
   stylusArchive = pkgs.fetchurl {
     url = "https://github.com/openstyles/stylus/releases/download/v2.4.5/stylus-chrome-mv3-v2.4.5-id.zip";
@@ -36,7 +34,7 @@
       nativeBuildInputs = [pkgs.python3];
       inherit (userstylesPreset) lightFlavor darkFlavor accentColor;
     } ''
-            python3 - "${upstreamUserstyles}" "$out" <<'EOF'
+            python3 - "${userstylesExport}" "$out" <<'EOF'
       import json, os, re, sys
 
       lightFlavor = os.environ["lightFlavor"]
@@ -162,7 +160,7 @@
   '';
 
   stylusSeed = pkgs.replaceVars ./stylus-seed.js {
-    seedVersion = "catppuccin-userstyles-2026-09-18";
+    seedVersion = "catppuccin-userstyles-2026-09-20";
   };
 
   stylusExtension =
@@ -179,6 +177,9 @@
       sed -i '$a importScripts("nix-seed.js");' "$out/sw.js"
     '';
 
+  # NOTE: Helium Browser uses Helium-Browser-DRM-Fixer (https://github.com/Du-vy/Helium-Browser-DRM-Fixer)
+  # for Widevine DRM support (Netflix, Spotify, etc.).
+  # Widevine CDM binaries are installed to ~/.config/net.imput.helium/WidevineCdm/<version>.
   helium = inputs.helium-browser.packages."${pkgs.stdenv.hostPlatform.system}".helium;
   heliumWithStylus = pkgs.symlinkJoin {
     name = "helium-with-stylus-catppuccin";

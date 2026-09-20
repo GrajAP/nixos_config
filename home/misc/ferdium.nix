@@ -5,6 +5,8 @@
   discordNotificationCompatJs = ./ferdium-discord-notification-compatibility.js;
   gmailDarkmodeCss = ./ferdium-gmail-darkmode.css;
   whatsappDarkmodeCss = ./ferdium-whatsapp-darkmode.css;
+  protonMailDarkmodeCss = ./ferdium-proton-mail-darkmode.css;
+  instagramDarkmodeCss = ./ferdium-instagram-darkmode.css;
 in {
   home.activation.ferdiumCatppuccin = lib.hm.dag.entryAfter ["writeBoundary"] ''
         recipes_dir="$HOME/.config/Ferdium/recipes"
@@ -62,10 +64,12 @@ in {
     }
     EOF
 
-        # 2. Setup Gmail recipe
+        # 2. Setup Gmail recipe with persistent Catppuccin theme & version pinning
         gmail_dir="$recipes_dir/gmail"
         if [ -d "$gmail_dir" ]; then
           cp -f "${gmailDarkmodeCss}" "$gmail_dir/darkmode.css"
+          cp -f "${gmailDarkmodeCss}" "$gmail_dir/service.css"
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$gmail_dir/package.json"
         fi
 
         # 3. Setup WhatsApp recipe with persistent Catppuccin theme & version pinning.
@@ -74,11 +78,36 @@ in {
         whatsapp_dir="$recipes_dir/whatsapp"
         if [ -d "$whatsapp_dir" ]; then
           cp -f "${whatsappDarkmodeCss}" "$whatsapp_dir/darkmode.css"
+          cp -f "${whatsappDarkmodeCss}" "$whatsapp_dir/service.css"
 
           # Pin the version so the auto-updater stops overwriting the theme.
           # NOTE: this also freezes webview.js badge-selector updates; unpin
           # (delete the dir, restart Ferdium) if unread badges ever go stale.
           sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$whatsapp_dir/package.json"
         fi
+
+        # 4. Setup Proton Mail recipe with Catppuccin theme & version pinning
+        proton_dir="$recipes_dir/proton-mail"
+        if [ -d "$proton_dir" ]; then
+          cp -f "${protonMailDarkmodeCss}" "$proton_dir/darkmode.css"
+          cp -f "${protonMailDarkmodeCss}" "$proton_dir/service.css"
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$proton_dir/package.json"
+        fi
+
+        # 5. Setup Instagram Direct Messages recipe with Catppuccin theme & version pinning
+        instagram_dir="$recipes_dir/instagram-direct-messages"
+        if [ -d "$instagram_dir" ]; then
+          cp -f "${instagramDarkmodeCss}" "$instagram_dir/darkmode.css"
+          cp -f "${instagramDarkmodeCss}" "$instagram_dir/service.css"
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$instagram_dir/package.json"
+        fi
+
+        # 6. Pin Facebook & Messenger recipe versions to prevent upstream theme wipe
+        for fb_svc in facebook messenger; do
+          fb_dir="$recipes_dir/$fb_svc"
+          if [ -d "$fb_dir" ]; then
+            sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$fb_dir/package.json"
+          fi
+        done
   '';
 }

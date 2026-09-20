@@ -168,10 +168,14 @@
 
     # Keep enough headroom for large builds without repeatedly collecting freshly
     # fetched flake inputs when the live system cannot reach max-free.
+    # NOTE: min-free must stay below actually achievable free space (disk is
+    # ~98% full). 32G/40G made auto-GC delete just-fetched flake sources
+    # mid-evaluation: "path ...-source did not exist in the store". 5G/10G
+    # stops the thrash; free disk space to raise this again.
     extraOptions = ''
       warn-dirty = false
-      min-free = ${toString (32 * 1024 * 1024 * 1024)}
-      max-free = ${toString (40 * 1024 * 1024 * 1024)}
+      min-free = ${toString (5 * 1024 * 1024 * 1024)}
+      max-free = ${toString (10 * 1024 * 1024 * 1024)}
     '';
     settings = {
       flake-registry = "/etc/nix/registry.json";
