@@ -178,8 +178,9 @@
         --user-agent 't3code-update-nixos' \
         'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=20')"
 
-      # Prefer the newest nightly/prerelease AppImage. Fall back to the newest
-      # non-draft release only when no nightly asset is published yet.
+      # Keep the desktop on the stable channel so it remains compatible with
+      # the stable mobile client. Fall back to a prerelease only if upstream
+      # has not published a stable AppImage yet.
       release="$(${lib.getExe pkgs.jq} --raw-output '
         def appimage:
           . as $release
@@ -191,7 +192,7 @@
           first(
             .[]
             | select(.draft | not)
-            | select(.prerelease or (.tag_name | test("nightly"; "i")))
+            | select(.prerelease | not)
             | appimage
           )
         ) // (
