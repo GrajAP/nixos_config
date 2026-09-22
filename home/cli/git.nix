@@ -24,6 +24,10 @@
         name = "GrajAP";
         email = "adampisarczyk2006@gmail.com";
       };
+      credential = {
+        "https://github.com".helper = "!gh auth git-credential";
+        "https://gist.github.com".helper = "!gh auth git-credential";
+      };
       init = {defaultBranch = "main";};
       #      delta = {
       #        options.map-styles = "bold purple => syntax #ca9ee6, bold cyan => syntax #8caaee";
