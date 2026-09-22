@@ -1,11 +1,6 @@
-{
-  config,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   browser = ["helium.desktop"];
   mail = ["proton-mail.desktop"];
-  heliumProfilePath = "${config.home.homeDirectory}/.config/net.imput.helium/Default";
   protonMailHandler = pkgs.writeShellApplication {
     name = "proton-mail-handler";
     runtimeInputs = [pkgs.jq];
@@ -21,7 +16,6 @@
 
       encoded_uri="$(jq -nr --arg uri "$uri" '$uri | @uri')"
       exec helium \
-        --profile-path="${heliumProfilePath}" \
         "https://mail.proton.me/inbox/#mailto=$encoded_uri"
     '';
   };
@@ -75,7 +69,7 @@ in {
         Name=Helium
         GenericName=Web Browser
         Comment=Privacy-focused web browser
-        Exec=helium --profile-path="${heliumProfilePath}" %U
+        Exec=helium %U
         Icon=helium
         Terminal=false
         Type=Application
