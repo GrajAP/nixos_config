@@ -52,6 +52,16 @@ in {
     umu-launcher
   ];
 
+  programs = {
+    steam = {
+      enable = true;
+      remotePlay.openFirewall = true;
+      dedicatedServer.openFirewall = true;
+      localNetworkGameTransfers.openFirewall = true;
+    };
+    gamemode.enable = true;
+  };
+
   systemd = {
     services.kanata-cs2-guard = {
       description = "Disable Kanata home-row mods while Counter-Strike 2 or Rocket League is running";

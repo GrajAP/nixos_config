@@ -1,7 +1,6 @@
 {pkgs, ...}: {
   home.packages = with pkgs; [
     heroic
-    steam
     umu-launcher
     vulkan-tools
   ];

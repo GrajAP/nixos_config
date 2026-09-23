@@ -139,6 +139,8 @@ in {
     wineWow64Packages.stable
     winetricks
     innoextract
+    # Steam invokes pactl for audio device discovery; pipewire does not ship it.
+    pulseaudio
   ];
 
   time = {
