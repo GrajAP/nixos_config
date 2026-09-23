@@ -92,6 +92,7 @@ in {
         internalKeyboard = {
           devices = [
             "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-event-kbd"
+            "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-if02-event-kbd"
           ];
           extraArgs = ["--nodelay"];
           extraDefCfg = "process-unmapped-keys yes";

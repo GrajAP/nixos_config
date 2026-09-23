@@ -74,6 +74,7 @@
         };
         input = {
           kb_layout = "pl";
+          kb_options = "caps:none";
         };
         gestures = {
           workspace_swipe_forever = true;

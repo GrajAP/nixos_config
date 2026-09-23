@@ -31,6 +31,7 @@
       (binding "bind" "Launchers" "${mod}, F" "exec, helium" "Open Helium browser")
       (binding "bind" "Launchers" "${mod}, D" "exec, ferdium" "Open Ferdium")
       (binding "bind" "Launchers" "${mod}, E" "exec, nemo" "Open file manager")
+      (binding "bind" "Launchers" "${mod}, S" "exec, signal-desktop" "Open Signal")
       (binding "bind" "Launchers" "${mod}, PERIOD" "exec, emote" "Open emoji picker")
 
       (binding "bind" "Windows" "${mod}, C" "killactive" "Close active window")
