@@ -192,6 +192,13 @@
           first(
             .[]
             | select(.draft | not)
+            | select(.tag_name | test("preview"; "i"))
+            | appimage
+          )
+        ) // (
+          first(
+            .[]
+            | select(.draft | not)
             | select(.prerelease | not)
             | appimage
           )

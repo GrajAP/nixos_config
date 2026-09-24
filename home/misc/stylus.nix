@@ -188,7 +188,6 @@
     postBuild = ''
       wrapProgram "$out/bin/helium" \
         --add-flags "--disable-gtk-ime" \
-        --add-flags "--password-store=basic" \
         --add-flags "--load-extension=${stylusExtension}"
     '';
   };
