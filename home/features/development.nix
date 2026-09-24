@@ -42,14 +42,14 @@ in {
 
   systemd.user = {
     services.t3code-update = {
-      Unit.Description = "Download the newest T3 Code nightly desktop build";
+      Unit.Description = "Download the newest stable T3 Code desktop build";
       Service = {
         Type = "oneshot";
         ExecStart = "${t3code.update}/bin/t3code-update";
       };
     };
     timers.t3code-update = {
-      Unit.Description = "Keep T3 Code on the latest nightly";
+      Unit.Description = "Keep T3 Code on the latest stable release";
       Timer = {
         OnStartupSec = "2min";
         OnUnitActiveSec = "30min";
