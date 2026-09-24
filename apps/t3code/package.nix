@@ -130,6 +130,7 @@
       for program in "$out"/bin/*; do
         wrapProgram "$program" \
           --prefix PATH : "${providerPath}" \
+          --set T3CODE_DISABLE_AUTO_UPDATE "1" \
           --set T3CODE_CLERK_PUBLISHABLE_KEY "pk_live_Y2xlcmsudDMuY29kZXMk" \
           --set T3CODE_CLERK_JWT_TEMPLATE "t3-relay" \
           --set T3CODE_CLERK_CLI_OAUTH_CLIENT_ID "hzxSgY2cH10sDU2r" \
@@ -296,6 +297,7 @@
       fi
 
       export PATH="${providerPath}:$PATH"
+      export T3CODE_DISABLE_AUTO_UPDATE=1
       if [[ -x "$app" ]]; then
         export APPIMAGE="$app"
         exec ${lib.getExe t3codeAppimageRun} "$app" --no-sandbox "$@"
