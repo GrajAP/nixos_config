@@ -94,7 +94,12 @@
     ln -s ${lib.getExe t3codeOpencode} "$out/lib/node_modules/.bin/opencode"
   '';
 
-  providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [t3codeProviderTools pkgs.gh pkgs.git]}";
+  providerPath = "${t3codeProviderTools}/lib/node_modules/.bin:${lib.makeBinPath [
+    t3codeProviderTools
+    pkgs.gh
+    pkgs.git
+    pkgs.cloudflared
+  ]}";
 
   # Antigravity ACP (Gemini backend) runs Python inside the AppImage FHS env.
   # Without a CA bundle it fails with:
@@ -135,6 +140,7 @@
           --set T3CODE_CLERK_JWT_TEMPLATE "t3-relay" \
           --set T3CODE_CLERK_CLI_OAUTH_CLIENT_ID "hzxSgY2cH10sDU2r" \
           --set T3CODE_RELAY_URL "https://relay.t3.codes" \
+          --set T3CODE_CLOUDFLARED_PATH "${lib.getExe pkgs.cloudflared}" \
           --set SSL_CERT_FILE "${certBundle}" \
           --set NIX_SSL_CERT_FILE "${certBundle}" \
           --set NODE_EXTRA_CA_CERTS "${certBundle}" \
@@ -168,7 +174,6 @@
 
       metadata="$(${lib.getExe pkgs.curl} \
         --fail \
-        --location \
         --silent \
         --show-error \
         --retry 3 \
@@ -179,9 +184,9 @@
         --user-agent 't3code-update-nixos' \
         'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=100')"
 
-      # Keep the desktop on the stable channel so it remains compatible with
-      # the stable mobile client. Fall back to a prerelease only if upstream
-      # has not published a stable AppImage yet.
+      # Keep the desktop on the preview channel so features like thread snooze
+      # and the modern orchestration protocol remain available and persist across
+      # updates. Fall back to stable if no preview release is published.
       release="$(${lib.getExe pkgs.jq} --raw-output '
         def appimage:
           . as $release
@@ -193,15 +198,15 @@
           first(
             .[]
             | select(.draft | not)
-            | select(.prerelease | not)
-            | select(.tag_name | test("preview|nightly"; "i") | not)
+            | select(.tag_name | test("preview"; "i"))
             | appimage
           )
         ) // (
           first(
             .[]
             | select(.draft | not)
-            | select(.tag_name | test("preview"; "i"))
+            | select(.prerelease | not)
+            | select(.tag_name | test("preview|nightly"; "i") | not)
             | appimage
           )
         ) // (
@@ -225,18 +230,9 @@
       fi
 
       expected_hash="''${digest#sha256:}"
-      if [[ -x "$app" ]]; then
-        if [[ -r "$version_file" && "$(<"$version_file")" == "$tag" ]]; then
-          echo "T3 Code $tag is already installed"
-          exit 0
-        fi
-
-        # T3 Code's Electron updater does not know about our version marker.
-        # Recognize an AppImage it has already updated instead of downloading
-        # the same release again.
-        installed_hash="$(sha256sum "$app" | cut -d ' ' -f 1)"
-        if [[ "$installed_hash" == "$expected_hash" ]]; then
-          printf '%s\n' "$tag" >"$version_file"
+      if [[ -f "$version_file" && -f "$app" ]]; then
+        installed_version="$(<"$version_file")"
+        if [[ "$installed_version" == "$tag" ]]; then
           echo "T3 Code $tag is already installed"
           exit 0
         fi
@@ -278,6 +274,7 @@
     name = "t3code-desktop-latest";
     runtimeInputs = with pkgs; [
       cacert
+      cloudflared
       coreutils
       t3codeAppimageRun
       update
@@ -299,6 +296,11 @@
 
       export PATH="${providerPath}:$PATH"
       export T3CODE_DISABLE_AUTO_UPDATE=1
+      export T3CODE_CLERK_PUBLISHABLE_KEY="pk_live_Y2xlcmsudDMuY29kZXMk"
+      export T3CODE_CLERK_JWT_TEMPLATE="t3-relay"
+      export T3CODE_CLERK_CLI_OAUTH_CLIENT_ID="hzxSgY2cH10sDU2r"
+      export T3CODE_RELAY_URL="https://relay.t3.codes"
+      export T3CODE_CLOUDFLARED_PATH="${lib.getExe pkgs.cloudflared}"
       if [[ -x "$app" ]]; then
         export APPIMAGE="$app"
         exec ${lib.getExe t3codeAppimageRun} "$app" --no-sandbox "$@"

@@ -61,6 +61,9 @@
     # Protect against time-wait assasination.
     "net.ipv4.tcp_rfc1337" = 1;
 
+    # Allow unprivileged users to use ping sockets (required by cloudflared datagram handling).
+    "net.ipv4.ping_group_range" = "0 2147483647";
+
     # Enable strict reverse path filtering (that is, do not attempt to route
     # packets that "obviously" do not belong to the iface's network; dropped
     # packets are logged as martians).
