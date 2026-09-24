@@ -177,7 +177,7 @@
         --header 'Accept: application/vnd.github+json' \
         --header 'X-GitHub-Api-Version: 2022-11-28' \
         --user-agent 't3code-update-nixos' \
-        'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=20')"
+        'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=100')"
 
       # Keep the desktop on the stable channel so it remains compatible with
       # the stable mobile client. Fall back to a prerelease only if upstream
@@ -193,14 +193,15 @@
           first(
             .[]
             | select(.draft | not)
-            | select(.tag_name | test("preview"; "i"))
+            | select(.prerelease | not)
+            | select(.tag_name | test("preview|nightly"; "i") | not)
             | appimage
           )
         ) // (
           first(
             .[]
             | select(.draft | not)
-            | select(.prerelease | not)
+            | select(.tag_name | test("preview"; "i"))
             | appimage
           )
         ) // (
