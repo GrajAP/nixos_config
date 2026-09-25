@@ -312,6 +312,16 @@
       exec cliphist store
     '';
   };
+  heliumAutostart = pkgs.writeShellScript "helium-autostart" ''
+    # Wait up to 15s for network connectivity so password managers (Proton Pass) resume cleanly
+    for _ in $(seq 1 15); do
+      if ${pkgs.iputils}/bin/ping -c 1 -W 1 1.1.1.1 >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    exec "${config.home.profileDirectory}/bin/helium" "$@"
+  '';
   graphicalAutostartService = command: {
     Unit = {
       After = ["graphical-session.target"];
@@ -610,7 +620,7 @@ in {
       autostart-signal = graphicalAutostartService (lib.getExe pkgs.signal-desktop);
       autostart-ferdium = graphicalAutostartService (lib.getExe' pkgs.ferdium "ferdium");
       autostart-t3code = graphicalAutostartService "${config.home.profileDirectory}/bin/t3code-desktop";
-      autostart-helium = graphicalAutostartService "${config.home.profileDirectory}/bin/helium";
+      autostart-helium = graphicalAutostartService heliumAutostart;
     };
     timers = {
       autostart-kdeconnect = graphicalAutostartTimer "autostart-kdeconnect" 2;

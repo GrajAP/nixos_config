@@ -47,6 +47,16 @@ in {
     };
   };
 
+  systemd.services.dnscrypt-proxy-timesync-restart = mkIf dnscrypt {
+    description = "Restart dnscrypt-proxy after clock synchronization";
+    wantedBy = ["time-sync.target"];
+    after = ["time-sync.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl try-restart dnscrypt-proxy.service";
+    };
+  };
+
   virtualisation.docker = {
     enable = true;
     enableOnBoot = false;
