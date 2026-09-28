@@ -41,7 +41,16 @@
 in {
   imports = [
     ./hardware-configuration.nix
+
+    # PC-only: data disks, Android dev, Nextcloud hosting, backups, health.
+    ../../system/core/storage.nix
+    ../../system/mobile
+    ../../system/sync
+    ../../system/backup
+    ../../system/monitoring
   ];
+
+  fleet.heavy.enable = true;
   environment.systemPackages = with pkgs; [
     acpi
     powertop

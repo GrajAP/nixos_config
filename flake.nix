@@ -48,13 +48,13 @@
       inputs.home-manager.nixosModules.home-manager
       inputs.spicetify-nix.nixosModules.default
     ];
-    mkHost = extraModules:
+    mkHost = hostModule:
       nixpkgs.lib.nixosSystem {
         specialArgs = {inherit inputs;};
-        modules = [(import ./hosts/grajpap)] ++ sharedModules ++ extraModules;
+        modules = [hostModule] ++ sharedModules;
       };
   in {
-    nixosConfigurations.grajpap = mkHost [];
+    nixosConfigurations.grajpap = mkHost ./hosts/grajpap;
     nixosConfigurations.lenovo = nixpkgs-stable.lib.nixosSystem {
       specialArgs = {
         inherit inputs;

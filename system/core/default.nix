@@ -6,6 +6,5 @@
     ./nix.nix
     ./users.nix
     ./bootloader.nix
-    ./storage.nix
   ];
 }

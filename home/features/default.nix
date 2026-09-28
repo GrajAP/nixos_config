@@ -1,14 +1,22 @@
-{...}: {
-  imports = [
-    # Communication and development tools
-    ./communication.nix
-    ./development.nix
+{
+  lib,
+  heavy,
+  ...
+}: {
+  imports =
+    [
+      # Communication and development tools
+      ./communication.nix
+      ./development.nix
 
-    # Media tooling
-    ./bass.nix
+      # Media tooling
+      ./bass.nix
 
-    # Voice and gaming workflows
-    ./voice.nix
-    ./gaming.nix
-  ];
+      # Voice workflows
+      ./voice.nix
+    ]
+    ++ lib.optionals heavy [
+      # Gaming workflows — fleet.heavy.enable, set per host
+      ./gaming.nix
+    ];
 }
