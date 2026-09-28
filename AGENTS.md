@@ -1,7 +1,25 @@
 # Agent Guidelines for NixOS Config
 
-This repository manages the system configuration for the host `grajpap`.
-Follow these rules strictly when working here.
+This repository manages the fleet configuration for the hosts `grajpap` (PC)
+and `lenovo` (24/7 laptop server). Follow these rules strictly when working here.
+
+## Fleet
+
+One flake, two `nixosConfigurations`:
+
+| Host | Flake attr | nixpkgs |
+| --- | --- | --- |
+| PC | `grajpap` | unstable (`nixpkgs`) |
+| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` |
+
+- `rebuild` switches `#$(hostname)` — on each host it picks the right attribute.
+- Access lenovo with `ssh lenovo-user` (LAN) / `ssh lenovo-user-ts` (tailnet),
+  user `grajpap` + NOPASSWD sudo. Root SSH is disabled; the old
+  `Host lenovo`/`lenovo-ts` aliases (`User root`) do not work.
+- Phone notes (POCO adb over USB on lenovo, Pixel 9a) and full inventory:
+  `fleet/` — start at `fleet/INVENTORY.md`. Health: `fleet/status.sh`.
+- Agent skill for fleet questions: `home/agents/skills/fleet/` (symlinked
+  into `.opencode/skills/fleet` for project sessions).
 
 ## Rebuild Script
 
@@ -28,7 +46,9 @@ Do not embed a password or call `switch-to-configuration` directly.
 
 ## Repository Layout
 
-- `flake.nix` — Flake inputs, system outputs, and checks.
+- `flake.nix` — Flake inputs, both host outputs, and checks.
+- `hosts/` — Per-host NixOS configuration (`grajpap/`, `lenovo/`).
+- `fleet/` — Device inventory, per-device notes, health script.
 - `system/` — NixOS system-level configuration (hardware, boot, networking, desktop).
 - `home/` — Home Manager user configuration (shell, desktop theme, apps).
 - `apps/` — Custom package derivations (e.g., quickshell, t3code).

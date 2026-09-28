@@ -69,7 +69,7 @@ fi
 
 if [[ "$mode" == "build" ]]; then
   nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
-  nixos-rebuild build --flake "$repo"
+  nixos-rebuild build --flake "$repo#$(hostname)"
   printf '✓ Build succeeded (no switch, Git untouched)\n'
   exit 0
 fi
@@ -78,26 +78,42 @@ branch="$(git symbolic-ref --quiet --short HEAD)" || {
   printf 'Git commit skipped: detached HEAD\n' >&2
   exit 1
 }
-origin_url="$(git remote get-url origin)"
-case "$origin_url" in
-  git@github.com:*)
-    push_url="https://github.com/${origin_url#git@github.com:}"
-    ;;
-  ssh://git@github.com/*)
-    push_url="https://github.com/${origin_url#ssh://git@github.com/}"
-    ;;
-  https://github.com/*)
-    push_url="$origin_url"
-    ;;
-  *)
-    printf 'Git push skipped: origin is not a GitHub remote\n' >&2
-    exit 1
-    ;;
-esac
+
+has_origin=0
+push_url=""
+if origin_url="$(git remote get-url origin 2>/dev/null)"; then
+  case "$origin_url" in
+    git@github.com:*)
+      push_url="https://github.com/${origin_url#git@github.com:}"
+      has_origin=1
+      ;;
+    ssh://git@github.com/*)
+      push_url="https://github.com/${origin_url#ssh://git@github.com/}"
+      has_origin=1
+      ;;
+    https://github.com/*)
+      push_url="$origin_url"
+      has_origin=1
+      ;;
+    *)
+      printf 'Git push skipped: origin is not a GitHub remote\n' >&2
+      ;;
+  esac
+fi
+
+tree_clean=1
+if ! git diff --quiet || ! git diff --cached --quiet \
+  || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  tree_clean=0
+fi
+
+if ((has_origin && tree_clean)); then
+  git pull --ff-only || printf '⚠ git pull --ff-only failed; continuing with the local tree\n' >&2
+fi
 
 git add -A
 nix flake check --log-format internal-json -v 2>&1 | nom --json
-sudo nixos-rebuild switch --flake "$repo"
+sudo nixos-rebuild switch --flake "$repo#$(hostname)"
 
 profile_system="$(readlink -f /nix/var/nix/profiles/system)"
 live_system="$(readlink -f /run/current-system)"
@@ -120,15 +136,20 @@ if git diff --cached --quiet; then
 fi
 
 git commit -m "chore(nixos): rebuild $(date '+%Y-%m-%d %H:%M')" >/dev/null
-commit="$(git rev-parse HEAD)"
-push_unit="rebuild-git-push-${commit:0:12}-$$"
 
-systemd-run --user --collect --quiet \
-  --unit="$push_unit" \
-  --description="Push NixOS rebuild to GitHub" \
-  --working-directory="$repo" \
-  --property=Type=exec \
-  git -c "remote.origin.pushurl=$push_url" \
-  push origin "${commit}:refs/heads/$branch"
+if ((has_origin)); then
+  commit="$(git rev-parse HEAD)"
+  push_unit="rebuild-git-push-${commit:0:12}-$$"
 
-printf '✓ System switched and committed, GitHub push is running in background\n'
+  systemd-run --user --collect --quiet \
+    --unit="$push_unit" \
+    --description="Push NixOS rebuild to GitHub" \
+    --working-directory="$repo" \
+    --property=Type=exec \
+    git -c "remote.origin.pushurl=$push_url" \
+    push origin "${commit}:refs/heads/$branch"
+
+  printf '✓ System switched and committed, GitHub push is running in background\n'
+else
+  printf '✓ System switched and committed (no GitHub origin; push skipped)\n'
+fi

@@ -1,6 +1,9 @@
 # nixos_config
 
-NixOS flake for host `grajpap`, with home-manager, Hyprland, Quickshell and Stylix theme modules.
+One NixOS flake for the whole fleet: host `grajpap` (PC, unstable) and host
+`lenovo` (24/7 laptop server, 25.11 stable), plus device inventory docs under
+`fleet/`. The PC has home-manager, Hyprland, Quickshell and Stylix theme
+modules; the laptop is headless.
 
 ## Daily workflow
 
@@ -24,9 +27,10 @@ For the normal user workflow, run one command:
 rebuild
 ```
 
-It checks the flake with `nom` progress, builds and switches through `nh`,
-commits all repository changes, then queues the current branch push to GitHub
-as a background user service. When executed from sandboxed environments like
+It checks the flake with `nom` progress, builds and switches `#$(hostname)`
+(so each host rebuilds itself), commits all repository changes, then queues the
+current branch push to GitHub as a background user service when a GitHub origin
+exists. When executed from sandboxed environments like
 T3 Code where `NoNewPrivs` is active, `rebuild` transparently delegates `sudo`
 to the host session via `systemd-run`.
 
@@ -86,7 +90,10 @@ fails, fix the config before activating or merging.
 .
 ├── flake.nix
 ├── configuration.nix
-├── hosts/grajpap/
+├── hosts/
+│   ├── grajpap/
+│   └── lenovo/
+├── fleet/
 ├── system/
 ├── home/
 ├── apps/

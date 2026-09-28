@@ -1,0 +1,9 @@
+# Nix build artefacts
+result
+result-*
+*.qcow2
+
+# Local editor / OS noise
+.DS_Store
+*.swp
+*~

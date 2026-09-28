@@ -1,7 +1,8 @@
 {
-  description = "grajpap.nix";
+  description = "fleet: grajpap + lenovo";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11";
     stylix = {
       url = "github:danth/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -28,7 +29,11 @@
     };
   };
 
-  outputs = {nixpkgs, ...} @ inputs: let
+  outputs = {
+    nixpkgs,
+    nixpkgs-stable,
+    ...
+  } @ inputs: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {
       inherit system;
@@ -50,6 +55,13 @@
       };
   in {
     nixosConfigurations.grajpap = mkHost [];
+    nixosConfigurations.lenovo = nixpkgs-stable.lib.nixosSystem {
+      specialArgs = {
+        inherit inputs;
+        unstablePkgs = pkgs;
+      };
+      modules = [./hosts/lenovo/configuration.nix];
+    };
     formatter.${system} = pkgs.alejandra;
     checks.${system} = {
       formatting = pkgs.runCommand "check-alejandra" {nativeBuildInputs = [pkgs.alejandra];} ''
@@ -67,6 +79,7 @@
       shellcheck = pkgs.runCommand "check-shell-scripts" {nativeBuildInputs = [pkgs.shellcheck];} ''
         shellcheck \
           ${inputs.self}/rebuild.sh \
+          ${inputs.self}/fleet/status.sh \
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \
           ${inputs.self}/apps/spark-corrector/test.sh \

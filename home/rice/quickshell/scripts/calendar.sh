@@ -14,7 +14,7 @@ if True:
       from os import environ
       from pathlib import Path
       from urllib.error import HTTPError, URLError
-      from urllib.parse import quote, urljoin
+      from urllib.parse import quote, urljoin, urlsplit
       from urllib.request import Request, urlopen
       from xml.etree import ElementTree as ET
       from xml.sax.saxutils import escape as escape_xml
@@ -23,9 +23,22 @@ if True:
       import recurring_ical_events
 
       USER = environ.get("USER", "grajpap")
-      BASE_URL = "http://127.0.0.1:18080"
-      CALENDAR_HOME = f"/remote.php/dav/calendars/{USER}/"
-      PASSWORD_FILE = Path.home() / ".config/quickshell/nextcloud-app-password"
+      # Nextcloud runs on lenovo so the widget works while this machine sleeps.
+      # It is served under /nextcloud there because tailscale serve already
+      # owns the root path for HomeNest.
+      BASE_URL = "https://lenovo.tail138448.ts.net/nextcloud"
+      # urljoin() throws away any path in BASE_URL when handed an absolute one,
+      # so every path built here has to carry the prefix itself. The hrefs DAV
+      # returns already contain it, which is why only the literals below needed
+      # changing.
+      WEBROOT = urlsplit(BASE_URL).path.rstrip("/")
+      CALENDAR_HOME = f"{WEBROOT}/remote.php/dav/calendars/{USER}/"
+      NOTES_API = f"{WEBROOT}/index.php/apps/notes/api/v1/notes"
+      # Deliberately not "nextcloud-app-password": that path is owned by the
+      # nextcloud-quickshell-token service in system/sync/default.nix, which
+      # mints a token against the Nextcloud still running on this machine and
+      # would silently break this widget. This one is issued by lenovo.
+      PASSWORD_FILE = Path.home() / ".config/quickshell/nextcloud-lenovo-app-password"
       UNDO_FILE = Path.home() / ".cache/quickshell/calendar-undo.json"
       EVENTS_FOLDER = Path.home() / "Nextcloud/Notes/obsidian/Events"
       OBSIDIAN_INDEX_FILE = EVENTS_FOLDER.parent / ".tocano-index.json"
@@ -231,7 +244,7 @@ if True:
           return date.today().isoformat()
 
       def nextcloud_notes():
-          notes = request_json("GET", "/index.php/apps/notes/api/v1/notes", ok=(200,))
+          notes = request_json("GET", NOTES_API, ok=(200,))
           events = []
           for note in notes or []:
               item_date = note_date(note)
@@ -1054,7 +1067,7 @@ if True:
               f"# {title}",
               "",
           ])
-          request_json("POST", "/index.php/apps/notes/api/v1/notes", {
+          request_json("POST", NOTES_API, {
               "content": content,
               "category": "Calendar",
           }, ok=(200, 201))
@@ -1064,7 +1077,7 @@ if True:
           if len(args) != 1 or not str(args[0]).strip():
               raise RuntimeError("Usage: quickshell-calendar open-note note-id")
           note_id = quote(str(args[0]).strip(), safe="")
-          url = urljoin(BASE_URL, f"/index.php/apps/notes/#/notes/{note_id}")
+          url = urljoin(BASE_URL, f"{WEBROOT}/index.php/apps/notes/#/notes/{note_id}")
           subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
           print(json.dumps({"ok": True, "type": "note", "opened": True}))
 
