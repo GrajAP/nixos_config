@@ -163,6 +163,7 @@ in {
   };
 
   boot = {
+    resumeDevice = "/dev/disk/by-uuid/03bff03d-086e-42ea-89a8-f921c2eabcd1";
     kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
     kernelModules = ["acpi_call"];
     extraModulePackages = with config.boot.kernelPackages;

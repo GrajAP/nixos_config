@@ -1,8 +1,10 @@
 # nixos_config
 
-One NixOS flake for the whole fleet: host `grajpap` (PC, unstable) and host
-`lenovo` (24/7 laptop server, 25.11 stable), plus device inventory docs under
-`fleet/`. The PC has home-manager, Hyprland, Quickshell and Stylix theme
+One NixOS flake for the whole fleet: host `grajpap` (PC, unstable, desktop +
+heavy extras + hosting), host `lenovo` (24/7 headless laptop server, 25.11
+stable) and — pending — host `dell` (day-to-day uni laptop, same desktop as
+the PC minus heavy stuff). Device inventory docs live under `fleet/`.
+The PC has home-manager, Hyprland, Quickshell and Stylix theme
 modules; the laptop is headless.
 
 ## Daily workflow

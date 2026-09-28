@@ -1,24 +1,36 @@
 ---
 name: fleet
-description: Use when working in this NixOS fleet repo - questions about devices (grajpap PC, lenovo laptop, POCO/Pixel phones), rebuilds, SSH access, tailscale, host-specific config, or which flake attribute to build.
+description: Use when working in this NixOS fleet repo - questions about devices (grajpap PC, lenovo server, dell laptop, POCO/Pixel phones), rebuilds, SSH access, tailscale, host-specific config, desktop profiles, or which flake attribute to build.
 ---
 
 # Fleet
 
-This repo is one flake for the whole fleet: `grajpap` (PC) and `lenovo`
-(24/7 laptop server), plus two Android phones configured around them.
+This repo is one flake for the whole fleet: `grajpap` (PC), `lenovo`
+(24/7 headless server), `dell` (day-to-day uni laptop, pending), plus two
+Android phones configured around them.
 
 ## Devices
 
 | Name | What | Access |
 | --- | --- | --- |
-| `grajpap` | PC, main desktop | this checkout, local shell |
-| `lenovo` | laptop server (HomeNest, Nextcloud) | `ssh lenovo-user` / `ssh lenovo-user-ts`, `sudo -i` NOPASSWD |
+| `grajpap` | PC, desktop + heavy extras + hosting | this checkout, local shell |
+| `lenovo` | headless laptop server (HomeNest, Nextcloud) | `ssh lenovo-user` / `ssh lenovo-user-ts`, `sudo -i` NOPASSWD |
+| `dell` (`dellap`) | uni laptop, desktop minus heavy | offline; tailscale `dellap` — `fleet/dell.md` |
 | `poco-x4-pro-5g` | test phone, USB to lenovo | `adb devices` on lenovo |
 | `grajpap-9a` | Pixel 9a | `adb devices` on the host it is docked to |
 
 Root SSH on lenovo is disabled; the `Host lenovo`/`lenovo-ts` aliases
 (`User root`) are dead — use `lenovo-user*`.
+
+## Desktop profiles
+
+Both desktop hosts share `system/wayland`, `system/core`, `theme/` and all
+of `home/` (same binds/shell/env). Divergence:
+
+- `fleet.heavy.enable = true` (only in `hosts/grajpap/default.nix`) pulls in
+  gaming, Android Studio/SDK, Nextcloud hosting, restic backups, health
+  reporting and the PC data disks.
+- `lenovo` never touches the desktop stack — headless on purpose.
 
 ## Rules
 

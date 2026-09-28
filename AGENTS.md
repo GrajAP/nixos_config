@@ -5,13 +5,17 @@ and `lenovo` (24/7 laptop server). Follow these rules strictly when working here
 
 ## Fleet
 
-One flake, two `nixosConfigurations`:
+One flake, three hosts:
 
-| Host | Flake attr | nixpkgs |
-| --- | --- | --- |
-| PC | `grajpap` | unstable (`nixpkgs`) |
-| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` |
+| Host | Flake attr | nixpkgs | Profile |
+| --- | --- | --- | --- |
+| PC | `grajpap` | unstable (`nixpkgs`) | desktop + `fleet.heavy.enable` (games, Android Studio, hosting) |
+| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` | headless server — no desktop |
+| Dell laptop | `dell` (pending, offline) | unstable (same as PC) | desktop minus heavy — 1:1 with PC |
 
+- Desktop hosts share `system/wayland`, `system/core`, `theme/` and `home/`;
+  PC-only extras are gated by `fleet.heavy.enable` and host imports in
+  `hosts/grajpap/default.nix`.
 - `rebuild` switches `#$(hostname)` — on each host it picks the right attribute.
 - Access lenovo with `ssh lenovo-user` (LAN) / `ssh lenovo-user-ts` (tailnet),
   user `grajpap` + NOPASSWD sudo. Root SSH is disabled; the old
