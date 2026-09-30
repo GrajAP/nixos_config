@@ -88,8 +88,10 @@ unpushed_commits() {
 
 # `path:` rather than a bare `$repo#attr` on purpose: this run may be acting on
 # edits that are not committed yet, and a git flake ref would evaluate HEAD.
+# The attribute is bare: nixos-rebuild appends .config.system.build.nixos-rebuild
+# to whatever comes after the #.
 flake_ref() {
-  printf 'path:%s#nixosConfigurations.%s' "$repo" "$host"
+  printf 'path:%s#%s' "$repo" "$host"
 }
 
 pull_changes() {
