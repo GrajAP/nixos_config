@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Launch the herdr terminal session, recovering from a stale server.
+#
+# The failure this exists for: `herdr server` is a long-lived process that is
+# not restarted when nixpkgs moves herdr forward. After a rebuild the new client
+# talks a newer protocol than the running server and every command fails with
+# `protocol_mismatch`, which the plain keybind silently swallows -- foot opens
+# and exits, and the terminal looks simply broken.
+#
+# Detecting that requires distinguishing "no such session" from "session is
+# running but incompatible". `session list` answers both questions from the
+# registry, so read the status instead of inferring it from a failed command.
+
+set -uo pipefail
+
+session="${HERDR_SESSION:-main}"
+
+# Stop a server that is up but incompatible, then let the normal path below
+# start a fresh one. Panes in the old session are lost, which is the documented
+# cost of the upgrade; `session stop` is the only supported way to do this.
+if ! herdr session list 2>/dev/null | awk -v s="$session" '$1 == s && $2 == "running" { found = 1 } END { exit !found }'; then
+  :
+elif ! herdr tab list --session "$session" >/dev/null 2>&1; then
+  herdr session stop "$session" >/dev/null 2>&1 || true
+  notify-send "Herdr" "Restarting a stale herdr server" --urgency=normal || true
+fi
+
+# Open a tab in the running session, or let `herdr` boot the session if this is
+# the first launch after a stop.
+if herdr tab list --session "$session" >/dev/null 2>&1; then
+  herdr tab create --session "$session" --cwd "$HOME" --focus >/dev/null 2>&1 || true
+fi
+
+exec herdr --session "$session"
