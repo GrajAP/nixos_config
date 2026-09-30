@@ -159,21 +159,24 @@ fi
 
 if ((has_origin)); then
   commit="$(git rev-parse HEAD)"
-  push_unit="rebuild-git-push-${commit:0:12}-$$"
-
-  systemd-run --user --collect --quiet \
-    --unit="$push_unit" \
-    --description="Push NixOS rebuild to GitHub" \
-    --working-directory="$repo" \
-    --property=Type=exec \
-    git -c "remote.origin.pushurl=$push_url" \
-    push origin "${commit}:refs/heads/$branch"
 
   if ((committed == 1)); then
-    printf '✓ System switched and committed, GitHub push is running in background\n'
+    printf '✓ System switched and committed\n'
   else
-    printf '✓ System switched, %s local commit(s) are being pushed in background\n' \
+    printf '✓ System switched, %s local commit(s) to publish\n' \
       "$(git rev-list --count '@{upstream}..HEAD')"
+  fi
+
+  # In the foreground, with prompting off. This used to run through
+  # `systemd-run --user`, which inherited a PATH without gh: the credential
+  # helper failed and the push died with status 128 inside a unit nobody was
+  # watching, so the commits silently stayed local.
+  if GIT_TERMINAL_PROMPT=0 git -c "remote.origin.pushurl=$push_url" \
+    push origin "${commit}:refs/heads/$branch"; then
+    printf '✓ Pushed to %s\n' "$push_url"
+  else
+    printf '⚠ push failed; those commits are local only. Run: git push origin %s\n' \
+      "$branch" >&2
   fi
 else
   printf '✓ System switched and committed (no GitHub origin; push skipped)\n'
