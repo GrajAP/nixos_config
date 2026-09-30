@@ -31,7 +31,14 @@
     config = {
       # Desktop applications and proprietary firmware require unfree packages.
       allowUnfree = true;
-      rocmSupport = true;
+      # 2026-09-30: rocmSupport stays off. This is a Polaris card (gfx803) and
+      # current ROCm dropped Polaris, so the flag bought nothing. It cost a
+      # great deal: with it on, python3.torch is no longer a cache.nixos.org
+      # build, so it compiles locally, takes the ROCm/CK path, and dies in
+      # aten/.../ck/add_make_kernel_pt.sh with "/bin/bash: bad interpreter".
+      # ctranslate2 pulls torch in as a test dependency, so that one failure
+      # took down faster-whisper, whisprflow and the whole home-manager
+      # closure. Re-enable only for a GPU ROCm still supports (gfx90a+).
     };
 
     overlays = [
@@ -164,7 +171,9 @@
 
     # Keep legacy NIX_PATH evaluation pinned to the flake input.
     #nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
-    nixPath = ["nixpkgs=${inputs.nixpkgs}"];
+    # nix.nixPath was renamed to nix.settings.nix-path; the freeform string list
+    # is unchanged.
+    settings.nix-path = ["nixpkgs=${inputs.nixpkgs}"];
 
     # Keep enough headroom for large builds without repeatedly collecting freshly
     # fetched flake inputs when the live system cannot reach max-free.
