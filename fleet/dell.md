@@ -37,6 +37,10 @@ git clone https://github.com/GrajAP/nixos_config.git /tmp/fleet
 sudo /tmp/fleet/fleet/dell-bootstrap.sh
 ```
 
+The clone needs GitHub credentials, because the repository is private. If
+that is inconvenient on the dell, skip it entirely and paste the inline block
+below -- that is the only part that matters and it needs no repository.
+
 `fleet/dell-bootstrap.sh` is idempotent and touches nothing but the user
 account, `authorized_keys`, and the sshd unit. It creates `grajpap` if
 missing, adds lenovo's fleet public key, and grants NOPASSWD sudo (root SSH
@@ -92,8 +96,10 @@ would rather not paste a block into the dell terminal, the whole of
 ```sh
 sudo bash -c '
 set -e
-id grajpap >/dev/null 2>&1 || useradd -m -s /bin/bash -c "fleet user" grajpap
-usermod -aG wheel,sudo grajpap
+id grajpap >/dev/null 2>&1 || useradd -m -s "$(command -v bash || command -v sh)" -c "fleet user" grajpap
+for g in wheel sudo docker systemd-journal audio plugdev storage video input networkmanager; do
+  getent group "$g" >/dev/null 2>&1 && usermod -aG "$g" grajpap || true
+done
 echo "grajpap ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/grajpap
 chmod 0440 /etc/sudoers.d/grajpap
 h=$(getent passwd grajpap | cut -d: -f6)
@@ -102,10 +108,24 @@ touch "$h/.ssh/authorized_keys"
 grep -qF "lenovo-fleet-to-dell" "$h/.ssh/authorized_keys" || printf "%s\n" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBnc4+4bYtx2q/y/f2k6BAh3aXyMV4m8c/V1wtprDa1p lenovo-fleet-to-dell" >> "$h/.ssh/authorized_keys"
 chown grajpap:grajpap "$h/.ssh/authorized_keys"
 chmod 0600 "$h/.ssh/authorized_keys"
-systemctl enable --now "$(command -v sshd >/dev/null 2>&1 && echo sshd || echo ssh)" || true
+u=$(systemctl list-unit-files 2>/dev/null | grep -oE "^sshd?\.service" | head -1); systemctl enable --now "${u:-sshd.service}" || true
 echo "OK: $h/.ssh/authorized_keys ready"
 '
 ```
 
-Cloning (or `curl`ing `fleet/dell-bootstrap.sh` from GitHub) only matters if
-you would rather review the file first -- both do exactly the same thing.
+Cloning only matters if you would rather review the file first. Note that
+`curl`ing the script from `raw.githubusercontent.com` does **not** work: the
+repository is private, so raw fetches are unauthenticated and return 404.
+Use the inline block above, or clone with credentials.
+
+## Is the SSH key in this script a leak?
+
+No. `fleet_pubkey` is the **public** half of the lenovo -> dell keypair.
+Publishing a public key is the entire point: it is what goes into
+`authorized_keys`, and it is designed to be handed out. It cannot be used to
+authenticate -- anyone holding it still needs the private key, which stays in
+`~/.ssh/id_ed25519_lenovo_fleet` on lenovo and is never committed (only the
+`.pub` file exists in the repo, and the repo is private anyway).
+
+The key is also not fleet-wide: it is a single-purpose keypair generated for
+lenovo -> dell, and it is used by nothing else.
