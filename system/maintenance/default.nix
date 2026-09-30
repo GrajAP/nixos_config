@@ -143,6 +143,10 @@ in {
                 bash
                 coreutils
                 gawk
+                # gh is not a NixOS dependency of git: the credential helper in
+                # ~/.gitconfig is `!gh auth git-credential`, and without gh on
+                # PATH the push asks for a username on a machine with no tty.
+                gh
                 git
                 inetutils
                 systemd

@@ -158,8 +158,10 @@ publish_local_commits() {
     return 0
   fi
   log "pushing $(wc -l <<<"$pending") local commit(s) to $(git remote get-url origin)"
+  # Loud on failure: the system is already updated at this point, so a silent
+  # warning here is how unpushed work disappears for a week.
   git push origin "${branch}:refs/heads/${branch}" ||
-    log "WARNING: git push failed, run 'git push' by hand"
+    die "git push failed; the system is updated but these commits are local only"
 }
 
 main() {
