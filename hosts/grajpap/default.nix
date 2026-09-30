@@ -50,6 +50,8 @@ in {
     ../../system/monitoring
   ];
 
+  # PC dual-boots Windows; see system/core/bootloader.nix.
+  fleet.dualBoot = true;
   fleet.heavy.enable = true;
   environment.systemPackages = with pkgs; [
     acpi

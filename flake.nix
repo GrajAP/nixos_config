@@ -1,5 +1,5 @@
 {
-  description = "fleet: grajpap + lenovo";
+  description = "fleet: grajpap + lenovo + dell";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-25.11";
@@ -54,13 +54,20 @@
         modules = [hostModule] ++ sharedModules;
       };
   in {
-    nixosConfigurations.grajpap = mkHost ./hosts/grajpap;
-    nixosConfigurations.lenovo = nixpkgs-stable.lib.nixosSystem {
-      specialArgs = {
-        inherit inputs;
-        unstablePkgs = pkgs;
+    nixosConfigurations = {
+      # grajpap: desktop + heavy extras + dual-boot Windows.
+      grajpap = mkHost ./hosts/grajpap;
+      # dell: same desktop as grajpap minus fleet.heavy, battery-first,
+      # single-boot. (hardware-configuration.nix arrives with the machine.)
+      dell = mkHost ./hosts/dell;
+      # lenovo: headless server, pinned to 25.11 stable.
+      lenovo = nixpkgs-stable.lib.nixosSystem {
+        specialArgs = {
+          inherit inputs;
+          unstablePkgs = pkgs;
+        };
+        modules = [./hosts/lenovo/configuration.nix];
       };
-      modules = [./hosts/lenovo/configuration.nix];
     };
     formatter.${system} = pkgs.alejandra;
     checks.${system} = {
@@ -80,6 +87,7 @@
         shellcheck \
           ${inputs.self}/rebuild.sh \
           ${inputs.self}/fleet/status.sh \
+          ${inputs.self}/fleet/dell-bootstrap.sh \
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \
           ${inputs.self}/apps/spark-corrector/test.sh \
