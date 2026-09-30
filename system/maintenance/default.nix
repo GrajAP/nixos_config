@@ -124,16 +124,20 @@ in {
       # A system service gets a bare PATH that has no bash on NixOS, which is
       # why `#!/usr/bin/env bash` alone is not enough here. Listing the
       # dependencies also documents what the script is allowed to call.
+      #
+      # The two absolute paths at the end are not in the store on purpose: sudo
+      # has to be the setuid wrapper (a store copy is refused) and nixos-rebuild
+      # only exists in the running system profile.
       path = with pkgs; [
         bash
         coreutils
         gawk
         git
         inetutils
-        nix
-        sudo
         systemd
         util-linux
+        "/run/wrappers/bin"
+        "/run/current-system/sw/bin"
       ];
 
       serviceConfig = {

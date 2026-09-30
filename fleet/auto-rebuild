@@ -49,6 +49,16 @@ die() {
   exit 1
 }
 
+# The systemd unit spells booleans the Nix way ("true"/"false"); a hand-run
+# from a shell is more likely to say 1. Accept both rather than have one of them
+# silently mean the opposite of what it says.
+truthy() {
+  case "${1,,}" in
+    1 | true | yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Anything a `loginctl`-capable machine could be using. A timer that skips a
 # desktop mid-session avoids switching a live compositor's world out from under
 # it; on a headless box no such session exists and the check never fires.
@@ -162,17 +172,17 @@ main() {
     exit 0
   fi
 
-  if [[ $skip_when_busy == 1 ]] && graphical_session_active; then
+  if truthy "$skip_when_busy" && graphical_session_active; then
     log "a graphical session is active, leaving this host alone"
     exit 0
   fi
 
   log "starting at $(git log -1 --oneline)"
 
-  if [[ $pull_enabled == 1 ]]; then
+  if truthy "$pull_enabled"; then
     pull_changes
   else
-    log "pull disabled (AUTO_REBUILD_PULL=0)"
+    log "pull disabled (AUTO_REBUILD_PULL=$pull_enabled)"
   fi
 
   lint
