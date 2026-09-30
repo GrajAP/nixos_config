@@ -146,6 +146,9 @@ in {
 
     nextcloud-quickshell-token = {
       description = "Create the Nextcloud app password used by the desktop calendar widget";
+      # Same limited-command-mode race as nextcloud-storage-mounts: after a
+      # package bump, user:auth-tokens is unavailable until `occ upgrade` in
+      # nextcloud-setup.service has finished. See the comment there.
       after = ["nextcloud-setup.service"];
       wantedBy = [];
       path = [
@@ -160,6 +163,19 @@ in {
         RestartSec = "2min";
       };
       script = ''
+        for _ in $(seq 1 60); do
+          if nextcloud-occ status >/dev/null 2>&1; then
+            break
+          fi
+          echo "Nextcloud is still upgrading; waiting"
+          sleep 10
+        done
+
+        if ! nextcloud-occ status >/dev/null 2>&1; then
+          echo "Nextcloud did not finish upgrading within 10 minutes"
+          exit 1
+        fi
+
         token_file=/home/grajpap/.config/quickshell/nextcloud-app-password
         token_dir="$(dirname "$token_file")"
 
@@ -186,6 +202,22 @@ in {
       script = ''
         set -euo pipefail
 
+        # Same limited-command-mode race as nextcloud-storage-mounts. This one
+        # is a timer rather than a boot unit, so it usually lands after the
+        # upgrade; the wait is cheap when there is nothing to wait for.
+        for _ in $(seq 1 60); do
+          if nextcloud-occ status >/dev/null 2>&1; then
+            break
+          fi
+          echo "Nextcloud is still upgrading; waiting"
+          sleep 10
+        done
+
+        if ! nextcloud-occ status >/dev/null 2>&1; then
+          echo "Nextcloud did not finish upgrading within 10 minutes"
+          exit 1
+        fi
+
         token_file=/home/grajpap/.config/quickshell/nextcloud-app-password
         token_dir="$(dirname "$token_file")"
         old_ids="$(nextcloud-occ user:auth-tokens:list grajpap --output=json | jq -r '.[] | select(.name == "quickshell-calendar") | .id')"
@@ -204,6 +236,13 @@ in {
 
     nextcloud-storage-mounts = {
       description = "Configure local external storage mounts for Nextcloud";
+      # `after` alone does not order this against the upgrade. nextcloud-setup
+      # is Type=oneshot + RemainAfterExit, so it is already "active" from the
+      # previous boot and the ordering constraint resolves instantly. When a
+      # rebuild bumps services.nextcloud.package, that service is restarted and
+      # spends a while inside `occ upgrade`, and until it finishes occ answers
+      # in limited-command mode: files_external is not defined and the calls
+      # below fail. So wait on the upgrade itself, not on the unit.
       after = [
         "nextcloud-setup.service"
         "mnt-Storage.automount"
@@ -223,6 +262,25 @@ in {
         RestartSec = "2min";
       };
       script = ''
+        # Block until occ leaves limited-command mode. This is the difference
+        # between a rebuild that switches cleanly and one that reports
+        # nextcloud-storage-mounts.service as failed and leaves rebuild.sh
+        # exiting non-zero. `occ status` is one of the few commands that still
+        # answers during an upgrade, and it succeeds only once the upgrade is
+        # done, which makes it a usable readiness probe.
+        for _ in $(seq 1 60); do
+          if nextcloud-occ status >/dev/null 2>&1; then
+            break
+          fi
+          echo "Nextcloud is still upgrading; waiting"
+          sleep 10
+        done
+
+        if ! nextcloud-occ status >/dev/null 2>&1; then
+          echo "Nextcloud did not finish upgrading within 10 minutes"
+          exit 1
+        fi
+
         # Trigger the automount before asking Nextcloud to verify the local backend.
         ls /mnt/Storage >/dev/null
 
