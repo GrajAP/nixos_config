@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
   cfg = config.fleet.autoRebuild;
@@ -129,14 +130,30 @@ in {
         # same place. A system service has no XDG_RUNTIME_DIR of its own.
         RuntimeDirectory = "auto-rebuild";
         RuntimeDirectoryMode = "0700";
+        # A system service gets a bare PATH that has no bash on NixOS, which is
+        # why `#!/usr/bin/env bash` alone is not enough here. Listing the
+        # dependencies also documents what the script is allowed to call.
+        path = with pkgs; [
+          bash
+          coreutils
+          gawk
+          git
+          inetutils
+          nix
+          sudo
+          systemd
+          util-linux
+        ];
         Environment = [
           "XDG_RUNTIME_DIR=/run/auto-rebuild"
           "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
           "AUTO_REBUILD_MODE=${cfg.mode}"
           "AUTO_REBUILD_SKIP_WHEN_USER_SESSION=${lib.boolToString cfg.skipWhenUserSessionActive}"
-          "AUTO_REBUILD_CRITICAL_UNITS=${lib.concatStringsSep " " cfg.criticalUnits}"
+          # Quoted, or systemd splits the list of units into separate (invalid)
+          # environment assignments.
+          "AUTO_REBUILD_CRITICAL_UNITS=\"${lib.concatStringsSep " " cfg.criticalUnits}\""
         ];
-        ExecStart = "${repo}/fleet/auto-rebuild";
+        ExecStart = "${pkgs.bash}/bin/bash ${repo}/fleet/auto-rebuild";
         WorkingDirectory = repo;
         # Updating is maintenance, not the machine's actual job.
         Nice = 10;
