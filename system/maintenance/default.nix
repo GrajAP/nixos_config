@@ -121,6 +121,21 @@ in {
       ];
       wants = ["network-online.target"];
 
+      # A system service gets a bare PATH that has no bash on NixOS, which is
+      # why `#!/usr/bin/env bash` alone is not enough here. Listing the
+      # dependencies also documents what the script is allowed to call.
+      path = with pkgs; [
+        bash
+        coreutils
+        gawk
+        git
+        inetutils
+        nix
+        sudo
+        systemd
+        util-linux
+      ];
+
       serviceConfig = {
         Type = "oneshot";
         # A rebuild is slow by nature; a timeout would kill it mid-build.
@@ -130,20 +145,6 @@ in {
         # same place. A system service has no XDG_RUNTIME_DIR of its own.
         RuntimeDirectory = "auto-rebuild";
         RuntimeDirectoryMode = "0700";
-        # A system service gets a bare PATH that has no bash on NixOS, which is
-        # why `#!/usr/bin/env bash` alone is not enough here. Listing the
-        # dependencies also documents what the script is allowed to call.
-        path = with pkgs; [
-          bash
-          coreutils
-          gawk
-          git
-          inetutils
-          nix
-          sudo
-          systemd
-          util-linux
-        ];
         Environment = [
           "XDG_RUNTIME_DIR=/run/auto-rebuild"
           "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
