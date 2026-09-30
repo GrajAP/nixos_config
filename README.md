@@ -67,6 +67,39 @@ Do not merge a branch into `main` until checks, build and the root-owned switch
 service pass. This keeps the active system and `main` aligned. `rebuild` does
 not format files, update flake inputs or clean generations.
 
+## Unattended updates
+
+Each host also updates itself once a day from the same repo, driven by
+`auto-rebuild.timer` → `fleet/auto-rebuild`:
+
+| Host | Time | Behaviour |
+| --- | --- | --- |
+| `lenovo` | 04:40 + up to 20 min | `switch` — activates immediately |
+| `grajpap` | 05:20 + up to 2 h | `switch`, but skipped while a graphical session is logged in |
+
+The run pulls `main`, runs the lint checks, commits anything authored locally,
+switches, checks that `tailscaled` (plus `sshd` and `caddy` on `lenovo`) came
+back, and only then publishes:
+
+- changes that arrived from GitHub are **not** pushed back — otherwise every
+  host re-pushes the others' commits at each other;
+- commits this host authored **are** pushed, including ones you made by hand.
+
+If a critical unit is not active after the switch, the run rolls the system
+back by itself. A failing check warns instead of aborting, so an unformatted
+file on `main` cannot silently freeze a host's updates; a broken configuration
+is still refused by the evaluator. Watch it with:
+
+```bash
+journalctl -u auto-rebuild.service -e
+systemctl list-timers auto-rebuild.timer
+```
+
+Local edits are committed *before* the switch and the flake is referenced as
+`path:/etc/nixos`, so the generation that goes live always matches the commit.
+An interactive `rebuild` still switches first and commits after, so an
+uncommitted edit only becomes live on the second run.
+
 ## Required validation
 
 `rebuild --check` is the local read-only validation command. It runs:
