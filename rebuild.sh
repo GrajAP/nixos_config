@@ -112,8 +112,15 @@ if ((has_origin && tree_clean)); then
 fi
 
 git add -A
-nix flake check --log-format internal-json -v 2>&1 | nom --json
-sudo nixos-rebuild switch --flake "$repo#$(hostname)"
+# path:, not a bare "$repo#attr". A flake that resolves to a git repository is
+# evaluated from HEAD, which means a staged or edited file is invisible to both
+# the checks and the switch: the build would describe yesterday's config, and
+# only the commit below would carry the edit. `path:` evaluates the working
+# tree, untracked files included, so what gets built is what gets committed.
+# (fleet/auto-rebuild does the same, and commits before switching for the same
+# reason.)
+nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
+sudo nixos-rebuild switch --flake "path:$repo#$(hostname)"
 
 profile_system="$(readlink -f /nix/var/nix/profiles/system)"
 live_system="$(readlink -f /run/current-system)"
@@ -130,12 +137,25 @@ if ! git diff --quiet \
   exit 1
 fi
 
-if git diff --cached --quiet; then
+unpushed=0
+committed=0
+if ! git diff --cached --quiet; then
+  git commit -m "chore(nixos): rebuild $(date '+%Y-%m-%d %H:%M')" >/dev/null
+  unpushed=1
+  committed=1
+elif git rev-parse --quiet --verify '@{upstream}' >/dev/null \
+  && [[ -n "$(git log --oneline '@{upstream}..HEAD')" ]]; then
+  # Commits made by hand since the last run. Work authored here is published;
+  # work that only arrived from origin is not pushed back, or every host in the
+  # fleet would re-push the others' commits at each other. Same rule as
+  # fleet/auto-rebuild.
+  unpushed=1
+fi
+
+if ((unpushed == 0)); then
   printf '✓ System switched, Git is already clean\n'
   exit 0
 fi
-
-git commit -m "chore(nixos): rebuild $(date '+%Y-%m-%d %H:%M')" >/dev/null
 
 if ((has_origin)); then
   commit="$(git rev-parse HEAD)"
@@ -149,7 +169,12 @@ if ((has_origin)); then
     git -c "remote.origin.pushurl=$push_url" \
     push origin "${commit}:refs/heads/$branch"
 
-  printf '✓ System switched and committed, GitHub push is running in background\n'
+  if ((committed == 1)); then
+    printf '✓ System switched and committed, GitHub push is running in background\n'
+  else
+    printf '✓ System switched, %s local commit(s) are being pushed in background\n' \
+      "$(git rev-list --count '@{upstream}..HEAD')"
+  fi
 else
   printf '✓ System switched and committed (no GitHub origin; push skipped)\n'
 fi

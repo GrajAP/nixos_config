@@ -48,9 +48,10 @@ To validate and build the system without switching (rootless):
 rebuild --build
 ```
 
-The full mode stages the current tree before validation so newly added files
-are part of the flake. If the working tree changes while a rebuild is running,
-the switch may finish but the commit and push are skipped until the next run.
+The full mode stages the current tree before validation, and validates the flake
+as `path:$repo`, so newly added files are part of both the checks and the
+switch. If the working tree changes while a rebuild is running, the switch may
+finish but the commit and push are skipped until the next run.
 
 Agents and scoped manual work should still review and commit only the intended
 files after the active generation has been verified:
@@ -95,10 +96,13 @@ journalctl -u auto-rebuild.service -e
 systemctl list-timers auto-rebuild.timer
 ```
 
-Local edits are committed *before* the switch and the flake is referenced as
-`path:/etc/nixos`, so the generation that goes live always matches the commit.
-An interactive `rebuild` still switches first and commits after, so an
-uncommitted edit only becomes live on the second run.
+Both the unattended run and an interactive `rebuild` build the flake as
+`path:/etc/nixos`, so an edit is validated and switched in on the run that made
+it. A bare `$repo#attr` reference resolves to a git repository, which nix
+evaluates from `HEAD` -- a staged or edited file would be invisible to both the
+checks and the switch. The unattended run commits *before* switching so the
+generation that goes live and the commit that may be pushed describe the same
+tree; an interactive `rebuild` commits straight after a clean switch.
 
 ## Required validation
 
