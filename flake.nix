@@ -79,6 +79,7 @@
       shellcheck = pkgs.runCommand "check-shell-scripts" {nativeBuildInputs = [pkgs.shellcheck];} ''
         shellcheck \
           ${inputs.self}/rebuild.sh \
+          ${inputs.self}/fleet/auto-rebuild \
           ${inputs.self}/fleet/status.sh \
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \

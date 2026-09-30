@@ -94,11 +94,14 @@ in {
 
   services = {
     dbus.enable = true;
-    journald.extraConfig = ''
-      SystemMaxUse=250M
-      RuntimeMaxUse=50M
-      MaxRetentionSec=7day
-    '';
+    # services.journald.extraConfig lost its effect in nixpkgs-unstable and now
+    # asserts, which broke every build of this host. settings.Journal is the
+    # supported spelling and takes the same key = value pairs.
+    journald.settings.Journal = {
+      SystemMaxUse = "250M";
+      RuntimeMaxUse = "50M";
+      MaxRetentionSec = "7day";
+    };
     psd = {
       enable = true;
       resyncTimer = "10m";

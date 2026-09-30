@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# Unattended fleet update, one machine at a time, once a day.
+#
+#   pull -> lint -> commit (local work only) -> switch -> verify -> push
+#
+# The fleet shares one branch, so the push rule is the whole point of this
+# script: a host whose only changes arrived by `git pull` publishes nothing and
+# never answers for another machine's commit. A host with edits of its own
+# commits and pushes them, exactly like an interactive `rebuild` would.
+#
+# Ordering is deliberate. Local edits are committed *before* the switch, so the
+# generation that goes live and the commit that may get pushed describe the same
+# tree. (An interactive `rebuild` switches first and commits afterwards, so an
+# edit made there only becomes live on the second run. That is a separate
+# question; do not "simplify" this script into that order.)
+#
+# Lint failures warn instead of aborting. A host that refuses to update because
+# a cosmetically unformatted file landed on main is a worse outcome than a
+# slightly untidy repo, and a broken configuration is refused by the evaluator
+# anyway.
+#
+# Tunables, all environment variables so the systemd unit stays declarative:
+#   AUTO_REBUILD_PULL=0                     skip the pull, rebuild what is here
+#   AUTO_REBUILD_MODE=boot|build|switch     what nixos-rebuild does (switch)
+#   AUTO_REBUILD_SKIP_WHEN_USER_SESSION=1   leave a logged-in desktop alone
+#   AUTO_REBUILD_CRITICAL_UNITS="a b"       roll back if these are not active
+#   AUTO_REBUILD_LINT_CHECKS="a b"          which flake checks to run
+set -euo pipefail
+
+readonly repo=/etc/nixos
+host="$(hostname)"
+readonly host
+readonly pull_enabled="${AUTO_REBUILD_PULL:-1}"
+readonly rebuild_mode="${AUTO_REBUILD_MODE:-switch}"
+readonly skip_when_busy="${AUTO_REBUILD_SKIP_WHEN_USER_SESSION:-0}"
+readonly critical_units="${AUTO_REBUILD_CRITICAL_UNITS:-tailscaled}"
+readonly lint_checks="${AUTO_REBUILD_LINT_CHECKS:-formatting statix deadnix shellcheck}"
+readonly runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+# rebuild.sh takes its own lock from here too, so both live in one directory.
+export XDG_RUNTIME_DIR="$runtime_dir"
+
+log() {
+  printf '%s auto-rebuild[%s]: %s\n' "$(date -Is)" "$host" "$*"
+}
+
+die() {
+  log "ERROR: $*" >&2
+  exit 1
+}
+
+# Anything a `loginctl`-capable machine could be using. A timer that skips a
+# desktop mid-session avoids switching a live compositor's world out from under
+# it; on a headless box no such session exists and the check never fires.
+graphical_session_active() {
+  local session state type
+  while read -r session; do
+    state="$(loginctl show-session "$session" -p Active --value 2>/dev/null || true)"
+    [[ $state == yes ]] || continue
+    type="$(loginctl show-session "$session" -p Type --value 2>/dev/null || true)"
+    case $type in
+      x11 | wayland | mir) return 0 ;;
+    esac
+  done < <(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}')
+  return 1
+}
+
+tree_clean() {
+  git diff --quiet &&
+    git diff --cached --quiet &&
+    [[ -z "$(git ls-files --others --exclude-standard)" ]]
+}
+
+unpushed_commits() {
+  git rev-parse --quiet --verify '@{upstream}' >/dev/null || return 0
+  git log --oneline '@{upstream}..HEAD'
+}
+
+# `path:` rather than a bare `$repo#attr` on purpose: this run may be acting on
+# edits that are not committed yet, and a git flake ref would evaluate HEAD.
+flake_ref() {
+  printf 'path:%s#nixosConfigurations.%s' "$repo" "$host"
+}
+
+pull_changes() {
+  if ! tree_clean; then
+    log "working tree has local changes, not pulling"
+    return 0
+  fi
+  git pull --ff-only ||
+    die "git pull --ff-only failed; resolve it by hand, nothing was touched"
+}
+
+lint() {
+  local arch check
+  arch="$(nix eval --raw --impure --expr builtins.currentSystem)"
+  for check in $lint_checks; do
+    if ! nix build --no-link "path:$repo#checks.$arch.$check"; then
+      log "WARNING: check '$check' failed; continuing, the evaluator still guards the switch"
+    fi
+  done
+}
+
+commit_local_changes() {
+  if tree_clean; then
+    return 1
+  fi
+  git add -A
+  git commit -q -m "chore(${host}): auto-rebuild $(date '+%Y-%m-%d %H:%M')"
+  log "committed local changes as $(git rev-parse --short HEAD)"
+  return 0
+}
+
+switch_system() {
+  sudo nixos-rebuild "$rebuild_mode" --flake "$(flake_ref)" ||
+    die "nixos-rebuild $rebuild_mode failed; the running system was not changed"
+  if [[ "$(readlink -f /nix/var/nix/profiles/system)" != "$(readlink -f /run/current-system)" ]]; then
+    die "generation is not live; run: sudo nixos-rebuild switch --profile /nix/var/nix/profiles/system"
+  fi
+}
+
+# The switch has already returned, so a unit it broke is visible now, while this
+# script is still running locally. Undo the change instead of waiting for a
+# human who is not at the machine.
+verify_critical_units() {
+  local unit
+  for unit in $critical_units; do
+    systemctl is-active --quiet "$unit" && continue
+    log "ERROR: $unit is not active after the switch, rolling back"
+    if sudo nixos-rebuild switch --rollback; then
+      log "rolled back to $(readlink -f /run/current-system)"
+    else
+      log "ERROR: rollback failed, this host needs hands on" >&2
+    fi
+    die "$unit did not come back up"
+  done
+}
+
+publish_local_commits() {
+  local branch pending
+  branch="$(git symbolic-ref --quiet --short HEAD)" ||
+    die "detached HEAD, not pushing"
+  pending="$(unpushed_commits)"
+  if [[ -z $pending ]]; then
+    log "nothing new authored here, not pushing"
+    return 0
+  fi
+  log "pushing $(wc -l <<<"$pending") local commit(s) to $(git remote get-url origin)"
+  git push origin "${branch}:refs/heads/${branch}" ||
+    log "WARNING: git push failed, run 'git push' by hand"
+}
+
+main() {
+  local lock="$runtime_dir/auto-rebuild.lock"
+
+  cd "$repo"
+
+  install -d -m 0700 "$runtime_dir"
+  exec 9>"$lock"
+  if ! flock -n 9; then
+    log "another auto-rebuild holds $lock, skipping"
+    exit 0
+  fi
+
+  if [[ $skip_when_busy == 1 ]] && graphical_session_active; then
+    log "a graphical session is active, leaving this host alone"
+    exit 0
+  fi
+
+  log "starting at $(git log -1 --oneline)"
+
+  if [[ $pull_enabled == 1 ]]; then
+    pull_changes
+  else
+    log "pull disabled (AUTO_REBUILD_PULL=0)"
+  fi
+
+  lint
+
+  commit_local_changes || true
+
+  switch_system
+  verify_critical_units
+  publish_local_commits
+
+  log "done, live system is $(readlink -f /run/current-system)"
+}
+
+main "$@"
