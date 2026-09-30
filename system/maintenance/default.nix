@@ -121,25 +121,6 @@ in {
       ];
       wants = ["network-online.target"];
 
-      # A system service gets a bare PATH that has no bash on NixOS, which is
-      # why `#!/usr/bin/env bash` alone is not enough here. Listing the
-      # dependencies also documents what the script is allowed to call.
-      #
-      # The two absolute paths at the end are not in the store on purpose: sudo
-      # has to be the setuid wrapper (a store copy is refused) and nixos-rebuild
-      # only exists in the running system profile.
-      path = with pkgs; [
-        bash
-        coreutils
-        gawk
-        git
-        inetutils
-        systemd
-        util-linux
-        "/run/wrappers/bin"
-        "/run/current-system/sw/bin"
-      ];
-
       serviceConfig = {
         Type = "oneshot";
         # A rebuild is slow by nature; a timeout would kill it mid-build.
@@ -150,6 +131,25 @@ in {
         RuntimeDirectory = "auto-rebuild";
         RuntimeDirectoryMode = "0700";
         Environment = [
+          # A system service's PATH has no bash on NixOS, so
+          # `#!/usr/bin/env bash` alone is not enough, and the script's
+          # dependencies have to be spelled out: that is also the list of things
+          # it is allowed to call. Built by hand rather than with
+          # systemd.services.<name>.path, because that option appends /bin to
+          # every entry and cannot express a plain directory.
+          "PATH=${
+            lib.makeBinPath (
+              with pkgs; [
+                bash
+                coreutils
+                gawk
+                git
+                inetutils
+                systemd
+                util-linux
+              ]
+            )
+          }:/run/wrappers/bin:/run/current-system/sw/bin"
           "XDG_RUNTIME_DIR=/run/auto-rebuild"
           "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
           "AUTO_REBUILD_MODE=${cfg.mode}"
@@ -158,6 +158,8 @@ in {
           # environment assignments.
           "AUTO_REBUILD_CRITICAL_UNITS=\"${lib.concatStringsSep " " cfg.criticalUnits}\""
         ];
+        # sudo has to be the setuid wrapper and nixos-rebuild only exists in the
+        # running system profile, hence the two absolute PATH entries above.
         ExecStart = "${pkgs.bash}/bin/bash ${repo}/fleet/auto-rebuild";
         WorkingDirectory = repo;
         # Updating is maintenance, not the machine's actual job.
