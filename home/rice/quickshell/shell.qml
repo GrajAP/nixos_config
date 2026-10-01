@@ -616,8 +616,14 @@ ShellRoot {
     const title = String((client && client.title) || "").toLowerCase();
     return className.includes("t3code") || title.includes("t3code") || title.includes("t3 code");
   }
+  function isCs2Client(client) {
+    const className = String((client && client.className) || "").toLowerCase();
+    const title = String((client && client.title) || "").toLowerCase();
+    return className === "cs2" || className.startsWith("cs2:") || title.includes("counter-strike");
+  }
   function appIconForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (root.isCs2Client(client)) return "";
     if (value.includes("firefox")) return "󰈹";
     if (value.includes("chromium") || value.includes("chrome") || value.includes("brave")) return "";
     if (value.includes("helium")) return "";
@@ -635,6 +641,7 @@ ShellRoot {
   }
   function appThemeIconForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (root.isCs2Client(client)) return "steam_icon_730";
     if (value.includes("firefox")) return "firefox";
     if (value.includes("chromium")) return "chromium";
     if (value.includes("chrome")) return "google-chrome";
@@ -661,10 +668,6 @@ ShellRoot {
     return "application-x-executable";
   }
   function appIconSourceForClient(client) {
-    const value = String((client && (client.className || client.title)) || "").toLowerCase();
-    if (root.isT3CodeClient(client)) return "file:///etc/profiles/per-user/grajpap/share/icons/t3code.png";
-    if (value.includes("helium")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/256x256/apps/helium.png";
-    if (value.includes("nemo")) return "file:///etc/profiles/per-user/grajpap/share/icons/hicolor/scalable/apps/nemo.svg";
     return Quickshell.iconPath(root.appThemeIconForClient(client), "application-x-executable");
   }
   function appIconSizeForClient(client, normalSize) {
@@ -674,6 +677,7 @@ ShellRoot {
   }
   function appColorForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
+    if (root.isCs2Client(client)) return "#f59e0b";
     if (value.includes("firefox")) return "#f97316";
     if (value.includes("chromium") || value.includes("chrome") || value.includes("brave") || value.includes("helium")) return "#60a5fa";
     if (value.includes("spotify")) return "#22c55e";
