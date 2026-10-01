@@ -86,7 +86,7 @@ json_status() {
   if [[ -r "$break_duration_file" ]]; then
     break_duration_min="$(head -n1 "$break_duration_file")"
   fi
-  break_repeat=1
+  break_repeat=0
   if [[ -r "$break_repeat_file" ]]; then
     break_repeat="$(head -n1 "$break_repeat_file")"
   fi
@@ -106,7 +106,7 @@ json_status() {
   printf '{\"custom\":\"\",\"pending\":\"%s\",\"deadline\":%s,\"remaining\":%s,\"alarmPending\":\"%s\",\"alarmDeadline\":%s,\"alarmRemaining\":%s,\"alarmRinging\":%s,\"breakPending\":\"%s\",\"breakDeadline\":%s,\"breakRemaining\":%s,\"breakPhase\":\"%s\",\"breakWorkMin\":%s,\"breakDurationMin\":%s,\"breakRepeat\":%s,\"cancel\":false}\n' \
     "$pending" "${deadline:-0}" "$remaining" \
     "$alarm_pending" "${alarm_deadline:-0}" "$alarm_remaining" "$alarm_ringing" \
-    "$break_pending" "${break_deadline:-0}" "$break_remaining" "$break_phase" "${break_work_min:-30}" "${break_duration_min:-5}" "${break_repeat:-1}"
+    "$break_pending" "${break_deadline:-0}" "$break_remaining" "$break_phase" "${break_work_min:-30}" "${break_duration_min:-5}" "${break_repeat:-0}"
 }
 
 stop_alarm_unit() {
@@ -245,7 +245,7 @@ case "$action" in
   schedule-break-in)
     work_target="${2:-30}"
     break_target="${3:-5}"
-    repeat_flag="${4:-1}"
+    repeat_flag="${4:-0}"
     if ! [[ "$work_target" =~ ^[0-9]+$ ]] || (( work_target < 1 || work_target > 720 )); then
       echo "Invalid break work delay minutes: $work_target" >&2
       exit 2
@@ -307,7 +307,7 @@ case "$action" in
       if [[ -r "$break_duration_file" ]]; then
         break_duration_min="$(head -n1 "$break_duration_file")"
       fi
-      break_repeat=1
+      break_repeat=0
       if [[ -r "$break_repeat_file" ]]; then
         break_repeat="$(head -n1 "$break_repeat_file")"
       fi

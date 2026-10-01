@@ -88,8 +88,7 @@ ShellRoot {
   property bool alarmRinging: false
   property int breakWorkMinutes: 30
   property int breakDurationMinutes: 5
-  property bool breakAutoRepeat: true
-  property bool breakInitialized: false
+  property bool breakAutoRepeat: false
   property string breakPendingTarget: ""
   property int breakRemaining: 0
   property string breakPhase: ""
@@ -1075,15 +1074,7 @@ ShellRoot {
       if (payload.breakRepeat !== undefined)
         root.breakAutoRepeat = Boolean(Number(payload.breakRepeat));
       else
-        root.breakAutoRepeat = true;
-
-      if (!root.breakInitialized) {
-        root.breakInitialized = true;
-        const breakRunning = (root.breakPendingTarget.length > 0 || root.breakPhase.length > 0);
-        if (!breakRunning) {
-          root.scheduleBreak();
-        }
-      }
+        root.breakAutoRepeat = false;
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
       else if (root.alarmRinging)
