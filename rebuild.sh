@@ -25,6 +25,27 @@ usage() {
   printf '  --build      check and build the system without switching or touching Git (rootless)\n'
 }
 
+# Scans the working tree, which is what `git add -A` below would commit and the
+# push at the end would publish. This runs before `nix flake check` so a secret
+# is never evaluated, committed or pushed, whatever the mode. The config lives in
+# .gitleaks.toml next to the script; --redact keeps the secret out of the
+# terminal and out of the log.
+leak_scan() {
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    printf '⚠ gitleaks not found; skipping the secret scan\n' >&2
+    return 0
+  fi
+
+  if gitleaks dir "$repo" --no-banner --redact --verbose; then
+    printf '✓ No secrets found\n'
+    return 0
+  fi
+
+  printf '✗ gitleaks found secrets; nothing was built, committed or pushed.\n' >&2
+  printf '  Move them out of the repo, or allowlist them in .gitleaks.toml if public.\n' >&2
+  return 1
+}
+
 mode="switch"
 case "${1:-}" in
   "")
@@ -60,6 +81,8 @@ fi
 if [[ -t 1 || -t 2 ]]; then
   unset NO_COLOR
 fi
+
+leak_scan || exit 1
 
 if [[ "$mode" == "check" ]]; then
   nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json

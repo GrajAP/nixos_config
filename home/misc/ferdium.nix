@@ -1,4 +1,9 @@
-{lib, ...}: let
+{
+  lib,
+  pkgs,
+  ...
+}: let
+  jq = "${pkgs.jq}/bin/jq";
   discordDarkmodeCss = ./ferdium-discord-darkmode.css;
   discordWebviewJs = ./ferdium-discord-webview.js;
   discordIndexJs = ./ferdium-discord-index.js;
@@ -109,5 +114,27 @@ in {
             sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$fb_dir/package.json"
           fi
         done
+
+        # 7. Pin the theme settings Ferdium keeps in its own JSON, which nothing
+        # else in this config touches. A fresh profile (the dell) comes up with
+        # universalDarkMode on, adaptableDarkMode on, no grayscale and the stock
+        # purple accent, so the Catppuccin CSS lands on a UI that is still asking
+        # for light mode and tinting the ribbon #7367F0. Merged key by key rather
+        # than written wholesale: Ferdium owns this file and rewrites it whenever
+        # a setting is toggled in the UI, so replacing it would drop every other
+        # preference it has accumulated.
+        settings="$HOME/.config/Ferdium/config/settings.json"
+        if [ -f "$settings" ]; then
+          ${jq} '
+            .darkMode = true
+            | .universalDarkMode = false
+            | .adaptableDarkMode = false
+            | .accentColor = "#89b4fa"
+            | .progressbarAccentColor = "#89b4fa"
+            | .useGrayscaleServices = true
+            | .grayscaleServicesDim = 50
+            | .useSelfSignedCertificates = true
+          ' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+        fi
   '';
 }

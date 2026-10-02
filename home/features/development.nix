@@ -2,9 +2,7 @@
   pkgs,
   config,
   ...
-}: let
-  t3code = pkgs.callPackage ../../apps/t3code/package.nix {};
-in {
+}: {
   home = {
     packages = with pkgs; [
       electron
@@ -15,8 +13,6 @@ in {
       pnpm
       bun
       antigravity-ide
-      t3code.desktop
-      t3code.notify
       opencode
       # Local inference, for working with no network at all. t3code and
       # opencode are already pointed at an [model_providers.ollama] block in
@@ -53,35 +49,16 @@ in {
     sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
   };
 
-  systemd.user = {
-    services.ollama = {
-      Unit.Description = "Local LLM server (Ollama)";
-      Service = {
-        ExecStart = "${pkgs.ollama}/bin/ollama serve";
-        # Loopback only. Its API is unauthenticated by design, so it must not
-        # be reachable from the tailnet without a proxy in front of it.
-        Environment = "OLLAMA_HOST=127.0.0.1:11434";
-        Restart = "on-failure";
-        RestartSec = 3;
-      };
-      Install.WantedBy = ["default.target"];
+  systemd.user.services.ollama = {
+    Unit.Description = "Local LLM server (Ollama)";
+    Service = {
+      ExecStart = "${pkgs.ollama}/bin/ollama serve";
+      # Loopback only. Its API is unauthenticated by design, so it must not
+      # be reachable from the tailnet without a proxy in front of it.
+      Environment = "OLLAMA_HOST=127.0.0.1:11434";
+      Restart = "on-failure";
+      RestartSec = 3;
     };
-
-    services.t3code-update = {
-      Unit.Description = "Download the newest preview T3 Code desktop build";
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${t3code.update}/bin/t3code-update";
-      };
-    };
-    timers.t3code-update = {
-      Unit.Description = "Keep T3 Code on the latest preview release";
-      Timer = {
-        OnStartupSec = "2min";
-        OnUnitActiveSec = "30min";
-        Persistent = true;
-      };
-      Install.WantedBy = ["timers.target"];
-    };
+    Install.WantedBy = ["default.target"];
   };
 }

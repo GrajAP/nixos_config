@@ -21,10 +21,18 @@
     ./modules/mobile.nix # adb + udev for the POCO test phone
     ./modules/packages.nix # system + per-user package sets
     ./modules/shell.nix # zsh, starship, aliases
+
+    # Shared with grajpap: t3 CLI, T3 Connect environment, theme publishing
+    ../../apps/t3code/modules/nixos.nix
   ];
 
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
+
+  # Headless T3 Code host: `t3 serve`, `t3 theme` and `t3 connect` for T3
+  # Connect, plus the drop-in that gives the `t3 service install` unit a Nix
+  # PATH, nix-ld and a CA bundle.
+  t3code.enable = true;
 
   # Daily git pull + rebuild. Headless, so there is nobody's session to protect
   # and the update is switched in rather than left for the next boot.
