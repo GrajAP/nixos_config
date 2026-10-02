@@ -108,7 +108,15 @@ if ! git diff --quiet || ! git diff --cached --quiet \
 fi
 
 if ((has_origin && tree_clean)); then
-  git pull --ff-only || printf '⚠ git pull --ff-only failed; continuing with the local tree\n' >&2
+  # Never let git open an interactive credential prompt here. On a host with no
+  # usable GitHub credentials, `git pull` blocks forever on a username prompt
+  # (it reads /dev/tty, not stdin), so the whole rebuild appears to hang while
+  # holding the lock and every later run reports "Another rebuild is already
+  # running". GIT_TERMINAL_PROMPT=0 turns that into an immediate, reportable
+  # failure, which the || below already treats as non-fatal.
+  if ! GIT_TERMINAL_PROMPT=0 git pull --ff-only; then
+    printf '⚠ git pull --ff-only failed (no usable credentials?); continuing with the local tree\n' >&2
+  fi
 fi
 
 git add -A
@@ -146,6 +154,7 @@ if ((has_origin)); then
     --description="Push NixOS rebuild to GitHub" \
     --working-directory="$repo" \
     --property=Type=exec \
+    --setenv=GIT_TERMINAL_PROMPT=0 \
     git -c "remote.origin.pushurl=$push_url" \
     push origin "${commit}:refs/heads/$branch"
 
