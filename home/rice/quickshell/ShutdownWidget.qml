@@ -57,7 +57,7 @@ ScrollView {
             icon: "\udb80\udd76",
             label: "Break timer"
           }
-        ]
+        ].filter((entry) => entry.key !== "break" || shell.breaksEnabled)
 
         delegate: Rectangle {
           required property var modelData

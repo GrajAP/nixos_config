@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  config,
   inputs,
   ...
 }: let
@@ -206,7 +207,9 @@ in {
       "getty@tty7".enable = false;
       "autovt@tty7".enable = false;
     };
-    user = {
+    # mkIf, so a host that turns psd off (TLP owns power there) does not keep a
+    # timer firing at a unit that no longer exists.
+    user = lib.mkIf config.services.psd.enable {
       services.psd.wantedBy = lib.mkForce [];
       timers.psd-delayed-start = {
         description = "Start profile-sync-daemon after session startup";

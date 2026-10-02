@@ -116,6 +116,7 @@ ShellRoot {
   }
   property int shutdownDelayMinutes: 30
   property string shutdownTimerMode: "shutdown"
+  readonly property bool breaksEnabled: @breaksEnabled@
   property string shutdownCustomTarget: ""
   property string shutdownPendingTarget: ""
   property int shutdownRemaining: 0
@@ -1181,6 +1182,8 @@ ShellRoot {
     root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes)]);
   }
   function scheduleBreak() {
+    if (!root.breaksEnabled)
+      return;
     root.runShutdownTimer(["schedule-break-in", String(root.breakWorkMinutes), String(root.breakDurationMinutes), root.breakAutoRepeat ? "1" : "0"]);
   }
   function scheduleSelectedTimer() {

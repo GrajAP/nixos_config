@@ -11,6 +11,19 @@
 
   options.fleet.heavy.enable = lib.mkEnableOption "PC-only heavy extras (gaming, Android Studio, hosting)";
 
+  options.fleet.breaks = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Whether the quickshell break timer runs and is offered in the shutdown
+      widget.
+
+      On by default: the timer arms itself on every shell start and rings a
+      notification every 30 minutes. That is fine on a gaming PC and nagging on
+      a laptop, so dell turns it off.
+    '';
+  };
+
   options.fleet.displayScale = lib.mkOption {
     type = lib.types.ints.unsigned;
     default = 100;
@@ -36,6 +49,7 @@
         # home-manager modules cannot read NixOS options directly, so the
         # per-host fallback scale is passed in the same way `heavy` is.
         displayScale = config.fleet.displayScale;
+        breaks = config.fleet.breaks;
       };
       useGlobalPkgs = true;
       useUserPackages = true;

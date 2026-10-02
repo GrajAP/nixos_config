@@ -15,6 +15,10 @@
     dualBoot = false;
     bootloader = "systemd-boot";
     heavy.enable = false;
+    # The break timer nags every 30 minutes and offers no value on a laptop you
+    # close and carry around, so the entry is dropped from the widget entirely
+    # instead of merely defaulting to off.
+    breaks = false;
     # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
     # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
     # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal
@@ -66,6 +70,13 @@
     power-profiles-daemon.enable = false;
     thermald.enable = true;
 
+    # profile-sync-daemon is a third power daemon and fights TLP over the same
+    # knobs, so it goes the way power-profiles-daemon does. It was not merely
+    # redundant here: its 10-minute resync failed for the whole uptime with
+    # "cannot create directory /var/empty/.config", logging an error every ten
+    # minutes.
+    psd.enable = false;
+
     # Suspend on lid close. The shared desktop config already sets
     # HandleLidSwitch = "suspend"; only LidSwitchDocked is added here. lenovo
     # masks the sleep targets entirely -- the opposite case, this is a portable
@@ -76,6 +87,52 @@
     upower.enable = true;
 
     fprintd.enable = true;
+
+    # Same home-row-mod layout as the PC, so the keybind (mod+Q) and the bar
+    # widget behave identically. The keyboard name has to stay
+    # `internalKeyboard`: quickshell watches the systemd D-Bus path for
+    # kanata_2dinternalKeyboard_2eservice, and home/scripts/katana-switch
+    # drives kanata-internalKeyboard.service by name.
+    #
+    # There is no /dev/input/by-id on this machine. udev only creates by-id
+    # links for devices with a persistent ID, and an i8042/PS/2 keyboard has
+    # none -- which is why the PC's by-id path cannot be copied here. The
+    # by-path name below is what that same keyboard resolves to.
+    kanata = {
+      enable = true;
+      keyboards.internalKeyboard = {
+        devices = ["/dev/input/by-path/platform-i8042-serio-0-event-kbd"];
+        extraArgs = ["--nodelay"];
+        extraDefCfg = "process-unmapped-keys yes";
+        config = ''
+
+          (defsrc
+            caps a s d f j k l ; rmet
+          )
+          (defvar
+            tap-time 200
+            hold-time 200
+          )
+
+          (defalias
+            escctrl (tap-hold $tap-time $hold-time esc lctl)
+            a (tap-hold $tap-time $hold-time a lalt)
+            s (tap-hold $tap-time $hold-time s ralt)
+            d (tap-hold $tap-time $hold-time d lsft)
+            f (tap-hold $tap-time $hold-time f lctl)
+            j (tap-hold $tap-time $hold-time j lctl)
+            k (tap-hold $tap-time $hold-time k lsft)
+            l (tap-hold $tap-time $hold-time l ralt)
+            ; (tap-hold $tap-time $hold-time ; lalt)
+          )
+
+          (deflayer base
+            @escctrl @a @s @d @f @j @k @l @; lalt
+          )
+
+        '';
+      };
+    };
   };
 
   hardware = {

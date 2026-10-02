@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  breaks,
   ...
 }: let
   calendarPython = pkgs.python3.withPackages (pythonPackages: [
@@ -218,6 +219,10 @@
     screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
     voiceTool = "${voiceTool}/bin/quickshell-voice";
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
+    breaksEnabled =
+      if breaks
+      then "true"
+      else "false";
     keybindHelp = builtins.toJSON keybinds.help;
   };
   launcherWindowConfig = pkgs.replaceVars ./LauncherWindow.qml {
