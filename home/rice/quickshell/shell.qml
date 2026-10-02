@@ -2620,7 +2620,7 @@ ShellRoot {
         RowLayout {
           Layout.fillWidth: true
           Text {
-            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
+            text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", battery: "Battery", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
