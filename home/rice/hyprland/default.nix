@@ -359,8 +359,9 @@ in {
     brightnessctl
     pamixer
     # Tray applet for NetworkManager: scanning, joining and editing wifi
-    # connections without dropping to a TUI.
-    network-manager-applet
+    # connections without dropping to a TUI. Qualified with pkgs because the
+    # `with inputs.hyprcontrib...` above shadows it for the rest of this list.
+    pkgs.networkmanagerapplet
     slurp
     grim
     wl-clip-persist
@@ -627,7 +628,7 @@ in {
       # NetworkManager tray applet: the only GUI for picking a wifi network,
       # which matters on dell where the link drops and needs reconnecting by
       # hand. Renders through StatusNotifier, so Quickshell's tray picks it up.
-      autostart-nm-applet = graphicalAutostartService (lib.getExe pkgs.network-manager-applet);
+      autostart-nm-applet = graphicalAutostartService (lib.getExe pkgs.networkmanagerapplet);
     };
     timers = {
       autostart-kdeconnect = graphicalAutostartTimer "autostart-kdeconnect" 2;
