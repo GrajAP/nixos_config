@@ -278,6 +278,7 @@
     singleton Theme 1.0 Theme.qml
     singleton WorkspaceState 1.0 WorkspaceState.qml
     BarWorkspaceList 1.0 BarWorkspaceList.qml
+    BatteryWidget 1.0 BatteryWidget.qml
     ClipboardWidget 1.0 ClipboardWidget.qml
     CodexUsageWindow 1.0 CodexUsageWindow.qml
     KeybindHelpWindow 1.0 KeybindHelpWindow.qml
@@ -324,6 +325,10 @@
     {
       name = "BarWorkspaceList.qml";
       path = ./BarWorkspaceList.qml;
+    }
+    {
+      name = "BatteryWidget.qml";
+      path = ./BatteryWidget.qml;
     }
     {
       name = "ClipboardWidget.qml";
@@ -407,6 +412,7 @@ in {
     "quickshell/shell.qml".source = shellConfig;
     "quickshell/Theme.qml".source = themeConfig;
     "quickshell/BarWorkspaceList.qml".source = ./BarWorkspaceList.qml;
+    "quickshell/BatteryWidget.qml".source = ./BatteryWidget.qml;
     "quickshell/ClipboardWidget.qml".source = ./ClipboardWidget.qml;
     "quickshell/CodexUsageWindow.qml".source = ./CodexUsageWindow.qml;
     "quickshell/KeybindHelpWindow.qml".source = ./KeybindHelpWindow.qml;

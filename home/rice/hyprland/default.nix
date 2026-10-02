@@ -358,6 +358,9 @@ in {
 
     brightnessctl
     pamixer
+    # Tray applet for NetworkManager: scanning, joining and editing wifi
+    # connections without dropping to a TUI.
+    network-manager-applet
     slurp
     grim
     wl-clip-persist
@@ -621,6 +624,10 @@ in {
       autostart-ferdium = graphicalAutostartService (lib.getExe' pkgs.ferdium "ferdium");
       autostart-t3code = graphicalAutostartService "${config.home.profileDirectory}/bin/t3code-desktop";
       autostart-helium = graphicalAutostartService heliumAutostart;
+      # NetworkManager tray applet: the only GUI for picking a wifi network,
+      # which matters on dell where the link drops and needs reconnecting by
+      # hand. Renders through StatusNotifier, so Quickshell's tray picks it up.
+      autostart-nm-applet = graphicalAutostartService (lib.getExe pkgs.network-manager-applet);
     };
     timers = {
       autostart-kdeconnect = graphicalAutostartTimer "autostart-kdeconnect" 2;
@@ -628,6 +635,7 @@ in {
       autostart-ferdium = graphicalAutostartTimer "autostart-ferdium" 6;
       autostart-t3code = graphicalAutostartTimer "autostart-t3code" 8;
       autostart-helium = graphicalAutostartTimer "autostart-helium" 10;
+      autostart-nm-applet = graphicalAutostartTimer "autostart-nm-applet" 3;
     };
     # Some tray applications still wait for this compatibility target.
     targets.tray.Unit = {

@@ -230,6 +230,11 @@ if True:
           if current == payload:
               return
           temporary = OBSIDIAN_INDEX_FILE.with_suffix(".json.tmp")
+          # The vault is a Nextcloud sync directory, so it only exists once the
+          # desktop client has synced it. dell has no synced vault at all, and
+          # an unwritable parent here made the whole widget fail with
+          # "No such file or directory" instead of just reporting no birthdays.
+          temporary.parent.mkdir(parents=True, exist_ok=True)
           temporary.write_text(payload, encoding="utf-8")
           temporary.replace(OBSIDIAN_INDEX_FILE)
 

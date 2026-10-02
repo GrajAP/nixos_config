@@ -9,6 +9,7 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
+import Quickshell.Services.SystemPower
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -65,6 +66,22 @@ ShellRoot {
   readonly property bool weatherLoading: weatherQuery.running
   readonly property color secondaryText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.72)
   readonly property color faintText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.48)
+
+  // Shared by the bar battery glyph and BatteryWidget so the level reads the
+  // same in both. Green on AC, then amber, then red as the pack drains.
+  readonly property color batteryBarColor: {
+    if (!SystemPower.hasBattery)
+      return Theme.muted;
+    if (SystemPower.acAvailable)
+      return Theme.success;
+    if (SystemPower.batteryCapacity === undefined)
+      return Theme.accent;
+    if (SystemPower.batteryCapacity <= 15)
+      return Theme.danger;
+    if (SystemPower.batteryCapacity <= 30)
+      return Theme.warning;
+    return Theme.accent;
+  }
   readonly property color elevatedSurface: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
   readonly property color hoverSurface: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
   readonly property color translucentPanel: Qt.rgba(Theme.panel.r, Theme.panel.g, Theme.panel.b, 0.97)
@@ -2100,6 +2117,68 @@ ShellRoot {
 
         Item {
           Layout.alignment: Qt.AlignHCenter
+          id: batteryButton
+          // Only on machines that actually have a pack: grajpap is a desktop and
+          // a permanent "no battery" glyph there would just be noise.
+          visible: SystemPower.hasBattery
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          implicitWidth: 34
+          implicitHeight: 34
+          ToolTip.visible: false
+          Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: root.barWidgetBackground("battery")
+            border.color: root.barWidgetBorder("battery")
+            border.width: 1
+          }
+          // Cell outline plus a fill bar whose width tracks the charge, so the
+          // level is readable at a glance without opening the panel.
+          Item {
+            anchors.centerIn: parent
+            width: 18
+            height: 12
+            Rectangle {
+              id: batteryGlyphCell
+              anchors.verticalCenter: parent.verticalCenter
+              width: 16
+              height: 10
+              radius: 2.5
+              color: "transparent"
+              border.color: Theme.border
+              border.width: 1.2
+              Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1.5
+                radius: 1.5
+                color: root.batteryBarColor
+                width: Math.max(0, (parent.width - 3) * Math.min(1, SystemPower.batteryCapacity / 100))
+              }
+            }
+            Rectangle {
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.left: batteryGlyphCell.right
+              anchors.leftMargin: 1
+              width: 1.5
+              height: 5
+              radius: 0.75
+              color: Theme.border
+            }
+          }
+          MouseArea {
+            id: batteryMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onEntered: root.showHoverWidget("battery")
+            onExited: root.leaveHoverWidgetButton("battery")
+            onClicked: root.showHoverWidget("battery", false)
+          }
+        }
+
+        Item {
+          Layout.alignment: Qt.AlignHCenter
           id: mediaButton
           Layout.preferredWidth: 34
           Layout.preferredHeight: 34
@@ -2682,6 +2761,14 @@ ShellRoot {
           Layout.fillWidth: true
           Layout.fillHeight: true
           sourceComponent: Component { CodexUsageWindow { shell: root } }
+        }
+
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "battery"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { BatteryWidget { shell: root } }
         }
 
         Loader {
