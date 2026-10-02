@@ -310,6 +310,12 @@
         }
         {
           match = {
+            class = "com.t3tools.T3Code";
+          };
+          workspace = "1";
+        }
+        {
+          match = {
             class = "helium";
           };
           workspace = "2";
