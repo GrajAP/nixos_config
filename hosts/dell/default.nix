@@ -4,10 +4,18 @@
   networking.hostName = "dell";
 
   # Same desktop as the PC (system/wayland, system/core, theme/, all of home/),
-  # minus everything behind fleet.heavy.enable. Single-boot, so no Windows
-  # kernel parameters and no ntfs -- see system/core/bootloader.nix.
-  fleet.dualBoot = false;
-  fleet.heavy.enable = false;
+  # minus everything behind fleet.heavy.enable.
+  #
+  # The PC dual-boots Windows on GRUB; dell has no dual-boot and was installed
+  # with systemd-boot (there is a /boot/loader plus systemd-bootx64.efi on its
+  # ESP). Both facts have to be declared, because bootloader.nix otherwise
+  # assumes the PC's arrangement -- and swapping a live machine's bootloader is
+  # not something a rebuild can undo.
+  fleet = {
+    dualBoot = false;
+    bootloader = "systemd-boot";
+    heavy.enable = false;
+  };
 
   powerManagement = {
     enable = true;
