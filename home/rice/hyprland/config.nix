@@ -242,6 +242,15 @@
             right = 0;
           };
         }
+        # Catch-all for anything not named above. On the PC every output is
+        # explicit, so this only matters for dell, whose panel is eDP-1 and
+        # would otherwise land at scale 1 on a 141 PPI screen. Keeping it last
+        # means an explicit rule always wins.
+        {
+          output = "";
+          mode = "preferred";
+          scale = config.fleet.displayScale / 100;
+        }
       ];
       workspace_rule = [
         {

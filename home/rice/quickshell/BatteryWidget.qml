@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Services.SystemPower
 import qs
 
 // Battery and power state for laptops. Shows charge, whether the pack is
@@ -18,21 +17,11 @@ PanelWindow {
   implicitWidth: 460
   implicitHeight: 340
 
-  // Colour ramp driven purely by charge level and AC state, so the same
-  // widget reads sensibly on a desktop (no pack) and a laptop.
-  readonly property color accentColor: {
-    if (!SystemPower.hasBattery)
-      return Theme.muted;
-    if (SystemPower.acAvailable)
-      return Theme.success;
-    if (SystemPower.batteryCapacity === undefined)
-      return Theme.accent;
-    if (SystemPower.batteryCapacity <= 15)
-      return Theme.danger;
-    if (SystemPower.batteryCapacity <= 30)
-      return Theme.warning;
-    return Theme.accent;
-  }
+  // Battery state is read by the shell (sysfs, via FileView -- quickshell 0.3.0
+  // has no SystemPower service) and consumed here so both the panel and the bar
+  // glyph agree.
+  readonly property color accentColor: root.batteryBarColor
+  readonly property int capacity: root.batteryCapacity
 
   Rectangle {
     id: card
@@ -74,7 +63,9 @@ PanelWindow {
               anchors.margins: 2
               radius: 1.5
               color: batteryPanel.accentColor
-              width: Math.max(0, (parent.width - 4) * Math.min(1, SystemPower.batteryCapacity / 100))
+              width: batteryPanel.capacity < 0
+                ? 0
+                : Math.max(0, (parent.width - 4) * Math.min(1, batteryPanel.capacity / 100))
             }
           }
 
@@ -90,11 +81,7 @@ PanelWindow {
         }
 
         Text {
-          text: {
-            if (SystemPower.batteryCapacity === undefined)
-              return "--";
-            return SystemPower.batteryCapacity + "%";
-          }
+          text: batteryPanel.capacity < 0 ? "--" : batteryPanel.capacity + "%"
           color: Theme.text
           font.family: Theme.fontSans
           font.pixelSize: 26
@@ -104,18 +91,18 @@ PanelWindow {
         Text {
           Layout.fillWidth: true
           text: {
-            if (!SystemPower.hasBattery)
+            if (!root.batteryHasPack)
               return "No battery";
-            if (SystemPower.acAvailable)
-              return SystemPower.charging ? "Charging" : "On AC";
+            if (root.acOnline)
+              return root.batteryCharging ? "Charging" : "On AC";
             return "On battery";
           }
           color: {
-            if (!SystemPower.hasBattery)
+            if (!root.batteryHasPack)
               return Theme.muted;
-            if (SystemPower.acAvailable)
+            if (root.acOnline)
               return Theme.success;
-            if (SystemPower.batteryCapacity !== undefined && SystemPower.batteryCapacity <= 15)
+            if (root.batteryCapacity >= 0 && root.batteryCapacity <= 15)
               return Theme.danger;
             return Theme.warning;
           }
@@ -146,18 +133,7 @@ PanelWindow {
         }
         Text {
           Layout.fillWidth: true
-          text: {
-            if (!SystemPower.hasBattery || SystemPower.acAvailable || SystemPower.timeRemaining === undefined)
-              return "--";
-            const total = SystemPower.timeRemaining;
-            if (total <= 0)
-              return "--";
-            const hours = Math.floor(total / 60);
-            const minutes = Math.floor(total % 60);
-            if (hours <= 0)
-              return minutes + " min";
-            return hours + " h " + minutes + " min";
-          }
+          text: "not reported"
           color: Theme.text
           font.family: Theme.fontMono
           font.pixelSize: 12
@@ -172,13 +148,9 @@ PanelWindow {
         }
         Text {
           Layout.fillWidth: true
-          text: {
-            // power-profiles-daemon is disabled fleet-wide (TLP owns power),
-            // so report TLP's active mode instead of a PPD profile name.
-            if (SystemPower.hasBattery && !SystemPower.acAvailable)
-              return "Battery saver (TLP)";
-            return "Balanced (TLP)";
-          }
+          // power-profiles-daemon is disabled fleet-wide, so this is TLP's
+          // domain rather than a PPD profile name.
+          text: root.acOnline ? "Balanced (TLP)" : "Battery saver (TLP)"
           color: Theme.text
           font.family: Theme.fontMono
           font.pixelSize: 12
@@ -191,10 +163,10 @@ PanelWindow {
       Text {
         Layout.fillWidth: true
         text: {
-          if (!SystemPower.hasBattery)
+          if (!root.batteryHasPack)
             return "This machine has no battery pack.";
-          if (SystemPower.acAvailable)
-            return "TLP is charging to 80% and resuming at 40% while on AC.";
+          if (root.acOnline)
+            return "TLP charges to 80% and resumes at 40% while on AC.";
           return "Deep sleep is trimmed at 5% max_cstate to keep the pack alive.";
         }
         color: Theme.muted

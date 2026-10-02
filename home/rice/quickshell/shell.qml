@@ -9,7 +9,6 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
-import Quickshell.Services.SystemPower
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -67,18 +66,38 @@ ShellRoot {
   readonly property color secondaryText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.72)
   readonly property color faintText: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.48)
 
-  // Shared by the bar battery glyph and BatteryWidget so the level reads the
-  // same in both. Green on AC, then amber, then red as the pack drains.
+  // Battery state read straight from sysfs.
+  //
+  // quickshell 0.3.0 has no battery service: Quickshell.Services.SystemPower
+  // does not exist -- importing it makes the whole shell fail to load -- and
+  // Services.UPower covers power-profiles, which this fleet leaves to TLP.
+  // FileView over sysfs is the supported route, and Io was already imported.
+  readonly property string batteryPath:
+    batteryProbe.status === FileView.Ready ? batteryProbe.path : ""
+  readonly property bool batteryHasPack: batteryPath !== ""
+  readonly property int batteryCapacity: {
+    if (!batteryHasPack || batteryCapacityView.status !== FileView.Ready)
+      return -1;
+    const raw = parseInt(batteryCapacityView.text().trim(), 10);
+    return isNaN(raw) ? -1 : raw;
+  }
+  readonly property bool batteryCharging:
+    batteryStatusView.status === FileView.Ready
+    && batteryStatusView.text().trim().indexOf("Charging") === 0
+  readonly property bool acOnline:
+    acOnlineView.status === FileView.Ready && acOnlineView.text().trim() === "1";
+
+  // Shared by the bar glyph and BatteryWidget so both read the same.
   readonly property color batteryBarColor: {
-    if (!SystemPower.hasBattery)
+    if (!batteryHasPack)
       return Theme.muted;
-    if (SystemPower.acAvailable)
+    if (acOnline)
       return Theme.success;
-    if (SystemPower.batteryCapacity === undefined)
+    if (batteryCapacity < 0)
       return Theme.accent;
-    if (SystemPower.batteryCapacity <= 15)
+    if (batteryCapacity <= 15)
       return Theme.danger;
-    if (SystemPower.batteryCapacity <= 30)
+    if (batteryCapacity <= 30)
       return Theme.warning;
     return Theme.accent;
   }
@@ -175,6 +194,42 @@ ShellRoot {
   ]
   readonly property var mouseBindKeys: ["Mouse Left", "Mouse Right", "Wheel Up", "Wheel Down"]
   SystemClock { id: clock; precision: SystemClock.Seconds }
+
+  // Battery readers.
+  //
+  // Power supplies are numbered (BAT0, BAT1...) with no stable symlink, so the
+  // pack is resolved by probing BAT0 and falling back to BAT1. Reading it back
+  // off the probe's own path keeps the id and the reader in sync, and the
+  // remaining readers follow whatever it settled on.
+  FileView {
+    id: batteryProbe
+    path: "/sys/class/power_supply/BAT0/capacity"
+    printErrors: false
+    onFileChanged: {
+      if (status === FileView.Error && path.endsWith("/BAT0/capacity"))
+        path = "/sys/class/power_supply/BAT1/capacity";
+    }
+  }
+
+  FileView {
+    id: batteryCapacityView
+    path: root.batteryPath
+    printErrors: false
+  }
+
+  FileView {
+    id: batteryStatusView
+    path: root.batteryPath !== ""
+      ? root.batteryPath.replace(/\/capacity$/, "/status")
+      : ""
+    printErrors: false
+  }
+
+  FileView {
+    id: acOnlineView
+    path: "/sys/class/power_supply/AC/online"
+    printErrors: false
+  }
 
   GlobalShortcut {
     name: "launcher"
@@ -2120,7 +2175,7 @@ ShellRoot {
           id: batteryButton
           // Only on machines that actually have a pack: grajpap is a desktop and
           // a permanent "no battery" glyph there would just be noise.
-          visible: SystemPower.hasBattery
+          visible: root.batteryHasPack
           Layout.preferredWidth: 34
           Layout.preferredHeight: 34
           implicitWidth: 34
@@ -2153,7 +2208,9 @@ ShellRoot {
                 anchors.margins: 1.5
                 radius: 1.5
                 color: root.batteryBarColor
-                width: Math.max(0, (parent.width - 3) * Math.min(1, SystemPower.batteryCapacity / 100))
+                width: root.batteryCapacity < 0
+                  ? 0
+                  : Math.max(0, (parent.width - 3) * Math.min(1, root.batteryCapacity / 100))
               }
             }
             Rectangle {

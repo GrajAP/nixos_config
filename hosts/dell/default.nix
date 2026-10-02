@@ -15,6 +15,11 @@
     dualBoot = false;
     bootloader = "systemd-boot";
     heavy.enable = false;
+    # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
+    # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
+    # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal
+    # laptop reading size and still leaves a usable 1536x864 of logical space.
+    displayScale = 125;
   };
 
   powerManagement = {
