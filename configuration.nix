@@ -49,9 +49,9 @@
         inherit inputs;
         heavy = config.fleet.heavy.enable;
         # home-manager modules cannot read NixOS options directly, so the
-        # per-host fallback scale is passed in the same way `heavy` is.
-        displayScale = config.fleet.displayScale;
-        breaks = config.fleet.breaks;
+        # per-host fallback scale and break-timer switch are passed in the same
+        # way `heavy` is.
+        inherit (config.fleet) displayScale breaks;
       };
       useGlobalPkgs = true;
       useUserPackages = true;
