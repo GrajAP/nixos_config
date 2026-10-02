@@ -26,7 +26,11 @@
 
   entries =
     [
-      (binding "bind" "Launchers" "${mod}, RETURN" ''exec, foot${lib.optionalString config.programs.foot.server.enable "client"} -e sh -c 'if herdr tab list --session main >/dev/null 2>&1; then herdr tab create --session main --cwd "$HOME" --focus >/dev/null 2>&1; fi; exec herdr --session main' '' "Open terminal")
+      # herdr-launch, not the inline sequence this replaced: a `herdr server`
+      # left running from before a rebuild speaks an older protocol than the
+      # new client, every herdr command fails, and the terminal never opens.
+      # The script stops a stale-but-running server and starts a fresh one.
+      (binding "bind" "Launchers" "${mod}, RETURN" ''exec, foot${lib.optionalString config.programs.foot.server.enable "client"} -e herdr-launch'' "Open terminal")
       (binding "bind" "Launchers" "${mod}, SPACE" "global, quickshell:launcher" "Toggle application launcher")
       (binding "bind" "Launchers" "${mod}, F" "exec, helium" "Open Helium browser")
       (binding "bind" "Launchers" "${mod}, D" "exec, ferdium" "Open Ferdium")

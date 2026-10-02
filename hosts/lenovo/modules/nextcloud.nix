@@ -125,8 +125,28 @@ in {
     #
     # A site block keyed on the exact hostname outranks the `http://` catch-all
     # that already exists in modules/network.nix, so HomeNest is untouched.
+    #
+    # The well-known block has to come first and has to be answered here rather
+    # than by Nextcloud. CalDAV clients probe /.well-known/caldav, but
+    # Nextcloud builds that redirect out of overwritehost alone and drops the
+    # /nextcloud webroot, so it sends the client to
+    # https://<host>/remote.php/dav/ -- which lands on the HomeNest catch-all
+    # and returns HTML instead of a DAV collection. DAVx5 fails discovery with
+    # "HTTP 404 Not Found" on exactly this. Redirecting here keeps the prefix.
     # ---------------------------------------------------------------------------
     caddy.virtualHosts."http://${nextcloudHost}".extraConfig = ''
+      @dav_discovery path /.well-known/caldav /.well-known/carddav /nextcloud/.well-known/*
+
+      handle @dav_discovery {
+        # `redir /nextcloud/remote.php/dav/ 301` does NOT work here. Caddy's redir
+        # takes an optional leading matcher, and it claims the path as one: the
+        # request then only matches clients literally asking for
+        # /nextcloud/remote.php/dav/, and the Location header ends up as "301".
+        # Setting the header and the status separately is unambiguous.
+        header Location /nextcloud/remote.php/dav/
+        respond 301
+      }
+
       handle_path /nextcloud* {
         reverse_proxy 127.0.0.1:${toString backendPort}
       }

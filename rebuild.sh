@@ -120,8 +120,15 @@ if ((has_origin && tree_clean)); then
 fi
 
 git add -A
-nix flake check --log-format internal-json -v 2>&1 | nom --json
-sudo nixos-rebuild switch --flake "$repo#$(hostname)"
+# path:, not a bare "$repo#attr". A flake that resolves to a git repository is
+# evaluated from HEAD, which means a staged or edited file is invisible to both
+# the checks and the switch: the build would describe yesterday's config, and
+# only the commit below would carry the edit. `path:` evaluates the working
+# tree, untracked files included, so what gets built is what gets committed.
+# (fleet/auto-rebuild does the same, and commits before switching for the same
+# reason.)
+nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
+sudo nixos-rebuild switch --flake "path:$repo#$(hostname)"
 
 profile_system="$(readlink -f /nix/var/nix/profiles/system)"
 live_system="$(readlink -f /run/current-system)"
@@ -138,27 +145,47 @@ if ! git diff --quiet \
   exit 1
 fi
 
-if git diff --cached --quiet; then
+unpushed=0
+committed=0
+if ! git diff --cached --quiet; then
+  git commit -m "chore(nixos): rebuild $(date '+%Y-%m-%d %H:%M')" >/dev/null
+  unpushed=1
+  committed=1
+elif git rev-parse --quiet --verify '@{upstream}' >/dev/null \
+  && [[ -n "$(git log --oneline '@{upstream}..HEAD')" ]]; then
+  # Commits made by hand since the last run. Work authored here is published;
+  # work that only arrived from origin is not pushed back, or every host in the
+  # fleet would re-push the others' commits at each other. Same rule as
+  # fleet/auto-rebuild.
+  unpushed=1
+fi
+
+if ((unpushed == 0)); then
   printf '✓ System switched, Git is already clean\n'
   exit 0
 fi
 
-git commit -m "chore(nixos): rebuild $(date '+%Y-%m-%d %H:%M')" >/dev/null
-
 if ((has_origin)); then
   commit="$(git rev-parse HEAD)"
-  push_unit="rebuild-git-push-${commit:0:12}-$$"
 
-  systemd-run --user --collect --quiet \
-    --unit="$push_unit" \
-    --description="Push NixOS rebuild to GitHub" \
-    --working-directory="$repo" \
-    --property=Type=exec \
-    --setenv=GIT_TERMINAL_PROMPT=0 \
-    git -c "remote.origin.pushurl=$push_url" \
-    push origin "${commit}:refs/heads/$branch"
+  if ((committed == 1)); then
+    printf '✓ System switched and committed\n'
+  else
+    printf '✓ System switched, %s local commit(s) to publish\n' \
+      "$(git rev-list --count '@{upstream}..HEAD')"
+  fi
 
-  printf '✓ System switched and committed, GitHub push is running in background\n'
+  # In the foreground, with prompting off. This used to run through
+  # `systemd-run --user`, which inherited a PATH without gh: the credential
+  # helper failed and the push died with status 128 inside a unit nobody was
+  # watching, so the commits silently stayed local.
+  if GIT_TERMINAL_PROMPT=0 git -c "remote.origin.pushurl=$push_url" \
+    push origin "${commit}:refs/heads/$branch"; then
+    printf '✓ Pushed to %s\n' "$push_url"
+  else
+    printf '⚠ push failed; those commits are local only. Run: git push origin %s\n' \
+      "$branch" >&2
+  fi
 else
   printf '✓ System switched and committed (no GitHub origin; push skipped)\n'
 fi

@@ -2,6 +2,10 @@
   imports = [
     ./hardware-configuration.nix
 
+    # Shared with grajpap, unlike everything else in here: the unattended fleet
+    # update has to be the same code on every host or the two drift.
+    ../../system/maintenance
+
     # One concern per file, so a rebuild diff is reviewable at a glance.
     ./modules/boot.nix # kernel, swap, zram, loader, locale
     ./modules/server.nix # headless baseline, journald, oomd
@@ -21,6 +25,22 @@
 
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
+
+  # Daily git pull + rebuild. Headless, so there is nobody's session to protect
+  # and the update is switched in rather than left for the next boot.
+  fleet.autoRebuild = {
+    enable = true;
+    onCalendar = "*-*-* 04:40:00";
+    randomizedDelaySec = "20min";
+    mode = "switch";
+    # This box is the tailnet's only always-on path to the others. If tailscaled
+    # is not back after a switch, the run rolls the switch back by itself.
+    criticalUnits = [
+      "tailscaled"
+      "sshd"
+      "caddy"
+    ];
+  };
 
   # Keep this in sync with `nixos-version`. Bump on every release, never before.
   system.stateVersion = "25.11";

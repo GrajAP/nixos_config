@@ -54,6 +54,22 @@ in {
   # See system/core/bootloader.nix.
   fleet.dualBoot = true;
   fleet.heavy.enable = true;
+  fleet.autoRebuild = {
+    enable = true;
+    # The PC sleeps, so the wall clock is a suggestion: Persistent=true below
+    # catches the run on the next boot if it was missed.
+    onCalendar = "*-*-* 05:20:00";
+    randomizedDelaySec = "2h";
+    # Nobody is usually logged in at 05:20, and switching the system under a
+    # running compositor restarts user services out from under it.
+    skipWhenUserSessionActive = true;
+    # A desktop is not a server: the nightly update is a convenience, so a
+    # failed switch is rolled back and the previous system is left running.
+    criticalUnits = [
+      "tailscaled"
+      "sshd"
+    ];
+  };
   environment.systemPackages = with pkgs; [
     acpi
     powertop

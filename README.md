@@ -48,9 +48,10 @@ To validate and build the system without switching (rootless):
 rebuild --build
 ```
 
-The full mode stages the current tree before validation so newly added files
-are part of the flake. If the working tree changes while a rebuild is running,
-the switch may finish but the commit and push are skipped until the next run.
+The full mode stages the current tree before validation, and validates the flake
+as `path:$repo`, so newly added files are part of both the checks and the
+switch. If the working tree changes while a rebuild is running, the switch may
+finish but the commit and push are skipped until the next run.
 
 Agents and scoped manual work should still review and commit only the intended
 files after the active generation has been verified:
@@ -66,6 +67,42 @@ git push origin main
 Do not merge a branch into `main` until checks, build and the root-owned switch
 service pass. This keeps the active system and `main` aligned. `rebuild` does
 not format files, update flake inputs or clean generations.
+
+## Unattended updates
+
+Each host also updates itself once a day from the same repo, driven by
+`auto-rebuild.timer` → `fleet/auto-rebuild`:
+
+| Host | Time | Behaviour |
+| --- | --- | --- |
+| `lenovo` | 04:40 + up to 20 min | `switch` — activates immediately |
+| `grajpap` | 05:20 + up to 2 h | `switch`, but skipped while a graphical session is logged in |
+
+The run pulls `main`, runs the lint checks, commits anything authored locally,
+switches, checks that `tailscaled` (plus `sshd` and `caddy` on `lenovo`) came
+back, and only then publishes:
+
+- changes that arrived from GitHub are **not** pushed back — otherwise every
+  host re-pushes the others' commits at each other;
+- commits this host authored **are** pushed, including ones you made by hand.
+
+If a critical unit is not active after the switch, the run rolls the system
+back by itself. A failing check warns instead of aborting, so an unformatted
+file on `main` cannot silently freeze a host's updates; a broken configuration
+is still refused by the evaluator. Watch it with:
+
+```bash
+journalctl -u auto-rebuild.service -e
+systemctl list-timers auto-rebuild.timer
+```
+
+Both the unattended run and an interactive `rebuild` build the flake as
+`path:/etc/nixos`, so an edit is validated and switched in on the run that made
+it. A bare `$repo#attr` reference resolves to a git repository, which nix
+evaluates from `HEAD` -- a staged or edited file would be invisible to both the
+checks and the switch. The unattended run commits *before* switching so the
+generation that goes live and the commit that may be pushed describe the same
+tree; an interactive `rebuild` commits straight after a clean switch.
 
 ## Required validation
 

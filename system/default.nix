@@ -3,5 +3,6 @@
   imports = [
     ./wayland
     ./core
+    ./maintenance
   ];
 }

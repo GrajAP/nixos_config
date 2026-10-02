@@ -9,12 +9,12 @@ in {
     packages = with pkgs; [
       electron
       postman
-      libreoffice-fresh
+      libreoffice-stable
       nextcloud-client
       rnote
       pnpm
       bun
-      antigravity
+      antigravity-ide
       t3code.desktop
       t3code.notify
       opencode

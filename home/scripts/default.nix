@@ -16,5 +16,10 @@
       text = builtins.readFile ./update-userstyles;
     })
     (pkgs.writeShellScriptBin "katana-switch" (builtins.readFile ./katana-switch))
+    (pkgs.writeShellApplication {
+      name = "herdr-launch";
+      runtimeInputs = with pkgs; [coreutils gnugrep herdr libnotify];
+      text = builtins.readFile ./herdr-launch;
+    })
   ];
 }
