@@ -1,6 +1,7 @@
 {
   lib,
   config,
+  displayScale,
   ...
 }: {
   wayland.windowManager.hyprland = {
@@ -249,7 +250,7 @@
         {
           output = "";
           mode = "preferred";
-          scale = config.fleet.displayScale / 100;
+          scale = displayScale / 100;
         }
       ];
       workspace_rule = [

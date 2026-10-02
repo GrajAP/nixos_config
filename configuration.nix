@@ -33,6 +33,9 @@
       extraSpecialArgs = {
         inherit inputs;
         heavy = config.fleet.heavy.enable;
+        # home-manager modules cannot read NixOS options directly, so the
+        # per-host fallback scale is passed in the same way `heavy` is.
+        displayScale = config.fleet.displayScale;
       };
       useGlobalPkgs = true;
       useUserPackages = true;
