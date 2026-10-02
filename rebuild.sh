@@ -137,8 +137,14 @@ if ((has_origin && tree_clean)); then
   # holding the lock and every later run reports "Another rebuild is already
   # running". GIT_TERMINAL_PROMPT=0 turns that into an immediate, reportable
   # failure, which the || below already treats as non-fatal.
+  #
+  # This is a fast-forward only, and only ever a convenience: it picks up
+  # another host's commits *before* the build so the generation that goes live
+  # is built from them. It cannot be relied on to make the push at the end
+  # succeed, because it refuses as soon as this branch has commits of its own.
+  # integrate_origin below is what actually guarantees the push.
   if ! GIT_TERMINAL_PROMPT=0 git pull --ff-only; then
-    printf '⚠ git pull --ff-only failed (no usable credentials?); continuing with the local tree\n' >&2
+    printf '⚠ could not fast-forward from origin (no credentials, or the branch has diverged); continuing with the local tree\n' >&2
   fi
 fi
 
@@ -188,8 +194,70 @@ if ((unpushed == 0)); then
   exit 0
 fi
 
-if ((has_origin)); then
+# Fold in whatever another host pushed while this run was building and
+# switching, so the push below is a fast-forward instead of a rejection.
+#
+# A rebuild takes minutes, and every host in the fleet pushes to the same
+# branch, so origin routinely moves underneath a run. `git pull --ff-only`
+# earlier cannot cover this: it is skipped entirely when the tree is dirty,
+# and it refuses outright once the local branch has commits of its own, which
+# is precisely the case that needs publishing. The result was a push rejected
+# as non-fast-forward and a run's worth of work left stranded on the host.
+#
+# Runs after the switch and the commit, so the tree is clean and there is
+# nothing to lose: a merge conflict aborts, is reported, and leaves both sides
+# intact for a human. Only a fast-forward or a clean merge is accepted.
+integrate_origin() {
+  local upstream
+  upstream="$(git rev-parse --quiet --verify '@{upstream}' 2>/dev/null)" || return 0
+
+  GIT_TERMINAL_PROMPT=0 git fetch --quiet origin "$branch" 2>/dev/null || {
+    printf '⚠ git fetch failed; the push below may be rejected\n' >&2
+    return 0
+  }
+
+  git merge-base --is-ancestor "$upstream" HEAD && return 0
+
+  printf 'Merging origin/%s into %s before pushing\n' "$branch" "$branch"
+  if GIT_TERMINAL_PROMPT=0 GIT_MERGE_AUTOEDIT=no git merge --no-edit "$upstream"; then
+    return 0
+  fi
+
+  git merge --abort 2>/dev/null || true
+  printf '✗ could not merge origin/%s cleanly; merge aborted, nothing was pushed\n' \
+    "$branch" >&2
+  printf '  Resolve by hand: git fetch origin && git merge origin/%s\n' "$branch" >&2
+  return 1
+}
+
+push_branch() {
+  local commit attempt
   commit="$(git rev-parse HEAD)"
+
+  # One retry after integrating, because another host can push in the gap
+  # between the fetch and this push. Two attempts is enough: if origin is still
+  # moving that fast, a human should finish it, and saying so beats a silent
+  # retry loop.
+  for attempt in 1 2; do
+    if GIT_TERMINAL_PROMPT=0 git -c "remote.origin.pushurl=$push_url" \
+      push origin "${commit}:refs/heads/$branch"; then
+      printf '✓ Pushed to %s\n' "$push_url"
+      return 0
+    fi
+
+    if ((attempt == 1)); then
+      printf '⚠ push rejected; integrating origin and retrying once\n' >&2
+      # A merge makes a new commit to push, so re-read HEAD.
+      integrate_origin && commit="$(git rev-parse HEAD)"
+      continue
+    fi
+
+    return 1
+  done
+}
+
+if ((has_origin)); then
+  integrate_origin || true
 
   if ((committed == 1)); then
     printf '✓ System switched and committed\n'
@@ -202,12 +270,14 @@ if ((has_origin)); then
   # `systemd-run --user`, which inherited a PATH without gh: the credential
   # helper failed and the push died with status 128 inside a unit nobody was
   # watching, so the commits silently stayed local.
-  if GIT_TERMINAL_PROMPT=0 git -c "remote.origin.pushurl=$push_url" \
-    push origin "${commit}:refs/heads/$branch"; then
-    printf '✓ Pushed to %s\n' "$push_url"
-  else
-    printf '⚠ push failed; those commits are local only. Run: git push origin %s\n' \
-      "$branch" >&2
+  #
+  # A rejected push used to be a warning, so the run reported success while its
+  # work stayed on the host and the next run pushed it again. It is fatal now:
+  # the system *is* updated, so say so loudly rather than looking done.
+  if ! push_branch; then
+    printf '✗ push failed; the system is updated but these commits are local only.\n' >&2
+    printf '  Run: git push origin %s\n' "$branch" >&2
+    exit 1
   fi
 else
   printf '✓ System switched and committed (no GitHub origin; push skipped)\n'

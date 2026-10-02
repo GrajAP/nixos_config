@@ -94,13 +94,58 @@ flake_ref() {
   printf 'path:%s#%s' "$repo" "$host"
 }
 
+# Fold in what other hosts pushed, so the push at the end is a fast-forward.
+#
+# This started life as a plain `git pull --ff-only`, which cannot do this job:
+# it is skipped when the tree is dirty, and it *fails* as soon as the local
+# branch has commits of its own, which is exactly the case that needs
+# publishing. On a fleet that shares one branch, every host with local work hit
+# that failure, and because this runs unattended nobody saw it: the push was
+# rejected and the work stayed on the host until a human noticed.
+#
+# Called with a dirty tree the merge cannot run, so the caller skips it and the
+# push below handles the rejection instead.
+integrate_origin() {
+  local branch upstream
+  branch="$(git symbolic-ref --quiet --short HEAD)" ||
+    die "detached HEAD, cannot integrate"
+
+  if ! tree_clean; then
+    log "working tree is dirty, leaving origin alone"
+    return 0
+  fi
+
+  if ! git fetch --quiet origin "$branch"; then
+    log "git fetch failed; the push may be rejected"
+    return 0
+  fi
+
+  upstream="$(git rev-parse --quiet --verify '@{upstream}' 2>/dev/null)" || return 0
+  git merge-base --is-ancestor "$upstream" HEAD && return 0
+
+  log "merging origin/$branch into $branch"
+  if GIT_MERGE_AUTOEDIT=no git merge --no-edit "$upstream"; then
+    return 0
+  fi
+
+  # A conflict leaves both sides intact and touches nothing: the tree is clean,
+  # the merge is aborted, and the host keeps the commits it authored. The push
+  # then fails loudly, which is the correct outcome for a conflict.
+  git merge --abort 2>/dev/null || true
+  log "ERROR: could not merge origin/$branch cleanly; aborted, nothing pushed"
+  return 1
+}
+
 pull_changes() {
   if ! tree_clean; then
     log "working tree has local changes, not pulling"
     return 0
   fi
-  git pull --ff-only ||
-    die "git pull --ff-only failed; resolve it by hand, nothing was touched"
+  # Best effort only. A divergent branch is not an error here: integrate_origin
+  # deals with it, and it runs after the commit, when the tree is clean.
+  if ! git pull --ff-only; then
+    log "could not fast-forward from origin; continuing with the local tree"
+  fi
 }
 
 lint() {
@@ -149,7 +194,7 @@ verify_critical_units() {
 }
 
 publish_local_commits() {
-  local branch pending
+  local branch pending attempt
   branch="$(git symbolic-ref --quiet --short HEAD)" ||
     die "detached HEAD, not pushing"
   pending="$(unpushed_commits)"
@@ -158,10 +203,22 @@ publish_local_commits() {
     return 0
   fi
   log "pushing $(wc -l <<<"$pending") local commit(s) to $(git remote get-url origin)"
+
+  # Retry once after integrating: another host can push in the gap between this
+  # host's fetch and its push, and a plain rejection used to strand the work.
+  for attempt in 1 2; do
+    if git push origin "${branch}:refs/heads/${branch}"; then
+      return 0
+    fi
+    if ((attempt == 1)); then
+      log "push rejected; integrating origin and retrying once"
+      integrate_origin || true
+    fi
+  done
+
   # Loud on failure: the system is already updated at this point, so a silent
   # warning here is how unpushed work disappears for a week.
-  git push origin "${branch}:refs/heads/${branch}" ||
-    die "git push failed; the system is updated but these commits are local only"
+  die "git push failed after retrying; the system is updated but these commits are local only"
 }
 
 main() {
@@ -192,6 +249,11 @@ main() {
   lint
 
   commit_local_changes || true
+
+  # After the commit and before the switch, so the tree is clean and the
+  # generation that goes live is built from the merged result rather than from a
+  # branch the push is about to be rejected for.
+  integrate_origin || true
 
   switch_system
   verify_critical_units
