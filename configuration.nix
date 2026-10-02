@@ -9,33 +9,35 @@
     ./theme
   ];
 
-  options.fleet.heavy.enable = lib.mkEnableOption "PC-only heavy extras (gaming, Android Studio, hosting)";
+  options.fleet = {
+    heavy.enable = lib.mkEnableOption "PC-only heavy extras (gaming, Android Studio, hosting)";
 
-  options.fleet.breaks = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = ''
-      Whether the quickshell break timer runs and is offered in the shutdown
-      widget.
+    breaks = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether the quickshell break timer runs and is offered in the shutdown
+        widget.
 
-      On by default: the timer arms itself on every shell start and rings a
-      notification every 30 minutes. That is fine on a gaming PC and nagging on
-      a laptop, so dell turns it off.
-    '';
-  };
+        On by default: the timer arms itself on every shell start and rings a
+        notification every 30 minutes. That is fine on a gaming PC and nagging on
+        a laptop, so dell turns it off.
+      '';
+    };
 
-  options.fleet.displayScale = lib.mkOption {
-    type = lib.types.ints.unsigned;
-    default = 100;
-    description = ''
-      Hyprland scale for outputs not matched by an explicit monitor rule,
-      as a percentage.
+    displayScale = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 100;
+      description = ''
+        Hyprland scale for outputs not matched by an explicit monitor rule,
+        as a percentage.
 
-      The PC keeps its two 2560x1440 panels at scale 100 and names them
-      explicitly, so this only governs the catch-all fallback. A 14" 1920x1080
-      laptop panel is about 141 PPI at scale 100, which is far too dense to
-      read, so dell sets a higher value.
-    '';
+        The PC keeps its two 2560x1440 panels at scale 100 and names them
+        explicitly, so this only governs the catch-all fallback. A 14" 1920x1080
+        laptop panel is about 141 PPI at scale 100, which is far too dense to
+        read, so dell sets a higher value.
+      '';
+    };
   };
 
   config = {

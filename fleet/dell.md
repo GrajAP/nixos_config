@@ -2,8 +2,11 @@
 
 Dell laptop, NixOS, the machine you actually sit in front of: same desktop as
 `grajpap` (Hyprland, Quickshell, binds, shell, theme) but without the heavy
-PC-only extras — no Android Studio/SDK, no games, no server/hosting — and
-tuned for battery life first.
+PC-only extras — no games, no server/hosting — and tuned for battery life
+first. Android tooling is the one mobile thing it does get: `adb`,
+platform-tools, the Android SDK and the native build deps are imported, so
+React Native works against a real USB phone. Android Studio and the emulator
+stay behind `fleet.heavy.enable`.
 
 - **Flake attr**: `nixosConfigurations.dell` via the shared `mkHost` path
   (`hosts/dell/`)
@@ -68,8 +71,12 @@ Then, still from lenovo:
 
 ## Design notes
 
-- `fleet.heavy.enable = false` — no gaming, Android Studio, Nextcloud
-  hosting, restic, health reporting or PC data disks.
+- `fleet.heavy.enable = false` — no gaming, Nextcloud hosting, restic, health
+  reporting or PC data disks, and no Android Studio or emulator. It does import
+  `system/mobile`, which is split by cost: adb, platform-tools, the SDK and the
+  native build deps are unconditional; only the emulator, its system images and
+  the IDE are gated on `heavy`. `grajpap` sets `heavy = true`, so the PC's
+  configuration is byte-for-byte the same list as before.
 - `fleet.dualBoot = false` — new option in `system/core/bootloader.nix`. It
   gates the hand-written "Windows Boot Manager" GRUB entry, GRUB's `default`
   index, `boot.supportedFilesystems = ["ntfs"]`, and four kernel parameters

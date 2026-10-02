@@ -1,5 +1,11 @@
-{...}: {
-  imports = [./hardware-configuration.nix];
+{lib, ...}: {
+  imports = [
+    ./hardware-configuration.nix
+    # adb, platform-tools, the Android SDK and the native build deps, so
+    # React Native works against a real USB device here. Android Studio and
+    # the emulator stay behind fleet.heavy.enable.
+    ../../system/mobile
+  ];
 
   networking.hostName = "dell";
 
@@ -75,7 +81,7 @@
     # redundant here: its 10-minute resync failed for the whole uptime with
     # "cannot create directory /var/empty/.config", logging an error every ten
     # minutes.
-    psd.enable = false;
+    psd.enable = lib.mkForce false;
 
     # Suspend on lid close. The shared desktop config already sets
     # HandleLidSwitch = "suspend"; only LidSwitchDocked is added here. lenovo
