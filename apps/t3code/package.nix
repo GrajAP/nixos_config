@@ -1,6 +1,10 @@
 {
   lib,
   pkgs,
+  # Which `t3` the non-desktop commands drive. Defaults to the nixpkgs build with
+  # the full provider toolchain, which is what a desktop wants. A headless host
+  # passes `cli.nix` instead, to avoid a 3.2 GB Electron closure for a CLI.
+  cli ? null,
 }: let
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
@@ -325,6 +329,69 @@
     '';
   };
 
+  # Headless hosts have no reason to carry a 3.2 GB Electron closure for a
+  # command line client; see cli.nix for the runtime-resolving `t3` they use
+  # instead.
+  runtimeCli = pkgs.callPackage ./cli.nix {};
+
+  # `t3` on its own, carrying the same relay, cloudflared and CA bundle
+  # environment the desktop app gets. Desktop hosts already receive it through
+  # `desktop`; headless hosts need it for `t3 serve`, `t3 theme` and
+  # `t3 connect`, which is the whole point of running T3 Connect on lenovo.
+  t3cli =
+    if cli == null
+    then t3codeFallback
+    else cli;
+
+  # Environment themes live in ~/.t3/userdata/themes and are looked up by id, so
+  # there is no store path to symlink and nothing to install -- only a command.
+  # `publish` is the declarative half (copy a JSON file where T3 looks for it),
+  # the rest just forwards to the CLI so every host reaches the same binary.
+  theme = pkgs.writeShellApplication {
+    name = "t3code-theme";
+    runtimeInputs = [pkgs.coreutils];
+    text = ''
+      set -euo pipefail
+      themes_dir="''${T3CODE_HOME:-$HOME/.t3}/userdata/themes"
+
+      case "''${1-}" in
+        ""|show)
+          exec ${t3cli}/bin/t3 theme show
+          ;;
+        publish)
+          shift
+          if [[ $# -lt 1 ]]; then
+            echo "usage: t3code-theme publish <theme.json> [theme-id]" >&2
+            exit 2
+          fi
+          mkdir -p "$themes_dir"
+          id="''${2-$(basename "$1" .json)}"
+          install -m 644 "$1" "$themes_dir/$id.json"
+          echo "Published theme $id into $themes_dir"
+          ;;
+        set|clear)
+          exec ${t3cli}/bin/t3 theme "$@"
+          ;;
+        *)
+          echo "usage: t3code-theme {show|publish <file.json> [id]|set <theme>|clear}" >&2
+          exit 2
+          ;;
+      esac
+    '';
+  };
+
+  # T3 Connect is the relay tunnel that makes this machine reachable from the
+  # phone and the other desktops without router forwarding. Authorization is an
+  # interactive Clerk OAuth flow and the credential lands in ~/.t3, so it cannot
+  # be declarative -- what the flake owns is the binary, cloudflared and the CA
+  # bundle the relay client needs, all of which the wrapper already carries.
+  connect = pkgs.writeShellApplication {
+    name = "t3connect";
+    text = ''
+      exec ${t3cli}/bin/t3 connect "$@"
+    '';
+  };
+
   notify = pkgs.writeShellApplication {
     name = "t3code-notify";
     runtimeInputs = with pkgs; [
@@ -388,5 +455,5 @@
     '';
   };
 in {
-  inherit desktop notify update;
+  inherit connect desktop notify runtimeCli theme update;
 }

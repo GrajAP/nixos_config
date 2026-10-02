@@ -1,0 +1,21 @@
+title = "nixos-fleet"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public material in this repo that trips the default rules"
+# Default is "secret"; the patterns below name the variable they guard.
+regexTarget = "match"
+paths = [
+  # catppuccin/userstyles pins each style by commit SHA, which looks like a
+  # sourcegraph access token.
+  '''home/misc/catppuccin-userstyles\.json''',
+]
+regexes = [
+  # dnscrypt-resolvers minisign key: a public key, fetched and verified openly.
+  '''minisign_key\s*=\s*"''',
+  # Clerk publishable key, OAuth client id and JWT template are public by
+  # design: they ship inside the browser bundle.
+  '''T3CODE_CLERK_(CLI_OAUTH_CLIENT_ID|PUBLISHABLE_KEY|JWT_TEMPLATE)=''',
+]
