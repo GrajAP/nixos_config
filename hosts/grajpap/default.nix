@@ -4,6 +4,35 @@
   lib,
   ...
 }: let
+  # Intel LAN1, the port with S5/PME wake support on the X570 AORUS MASTER.
+  wakeOnLanMac = "18:c0:4d:ea:ca:09";
+
+  armWakeOnLan = pkgs.writeShellApplication {
+    name = "arm-wake-on-lan";
+    runtimeInputs = with pkgs; [
+      coreutils
+      ethtool
+    ];
+    text = ''
+      mac="${wakeOnLanMac}"
+      iface=""
+      for path in /sys/class/net/*; do
+        [[ -r "$path/address" ]] || continue
+        if [[ "$(<"$path/address")" == "$mac" ]]; then
+          iface="${path##*/}"
+          break
+        fi
+      done
+
+      if [[ -z "$iface" ]]; then
+        echo "wake-on-lan: no interface with MAC $mac" >&2
+        exit 0
+      fi
+
+      ethtool -s "$iface" wol g
+    '';
+  };
+
   kanataCs2Guard = pkgs.writeShellApplication {
     name = "kanata-cs2-guard";
     runtimeInputs = with pkgs; [coreutils procps systemd];
@@ -98,6 +127,17 @@ in {
         RestartSec = 1;
         RuntimeDirectory = "kanata-cs2-guard";
         RuntimeDirectoryPreserve = "yes";
+      };
+    };
+
+    services.arm-wake-on-lan = {
+      description = "Keep the wired NIC armed so a magic packet can power the PC on from S5";
+      wantedBy = ["multi-user.target"];
+      after = ["network-online.target"];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = lib.getExe armWakeOnLan;
       };
     };
 
