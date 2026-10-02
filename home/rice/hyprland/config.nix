@@ -250,7 +250,9 @@
         {
           output = "";
           mode = "preferred";
-          scale = displayScale / 100;
+          # Nix's `/` is integer division on two ints, so 125 / 100 silently
+          # yields 1. The 100.0 forces a float.
+          scale = displayScale / 100.0;
         }
       ];
       workspace_rule = [
