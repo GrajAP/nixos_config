@@ -2744,7 +2744,6 @@ ShellRoot {
       border.width: root.widgetPage === "calendar" ? 0 : 1
       clip: true
       focus: root.widgetVisible
-      Keys.onEscapePressed: root.closeWidget()
       opacity: root.widgetVisible ? 1 : 0
       scale: root.widgetVisible ? 1 : 0.96
       transformOrigin: Item.BottomRight
