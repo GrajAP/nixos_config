@@ -3609,7 +3609,11 @@ ShellRoot {
                 // actually fits, so the sixth week row is not cut off.
                 readonly property int rows: Math.ceil(root.monthCells().length / 7)
                 readonly property int cellSize: {
-                  const share = Math.max(520, Math.min(1700, calendarMonthRow.width - spacing - calendarMonthRow.agendaWidth));
+                  // Off the panel, not off calendarMonthRow: the row's width
+                  // depends on the grid's implicit width, which is seven cells,
+                  // so reading it here makes the layout rearrange itself.
+                  const rowWidth = widgetPanel.width - 56;
+                  const share = Math.max(520, Math.min(1700, rowWidth - calendarMonthRow.spacing - calendarMonthRow.agendaWidth));
                   const widthFit = Math.floor((share - columnSpacing * 6) / 7);
                   const header = 22 + rowSpacing;
                   const heightFit = Math.floor((calendarMonthColumn.height - header - calendarMonthColumn.spacing - rowSpacing * (rows - 1)) / rows);
