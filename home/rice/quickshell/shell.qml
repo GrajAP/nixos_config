@@ -99,9 +99,11 @@ ShellRoot {
   readonly property int batteryVoltage: batteryReadNumber(batteryVoltageView)
   readonly property real batteryWatts:
     batteryCurrent > 0 && batteryVoltage > 0 ? batteryCurrent * batteryVoltage / 1000000000000 : -1;
+  // Percent of the pack per hour: current_now / charge_full is already a
+  // fraction per hour, so it only needs the percent factor -- no 3600.
   readonly property real batteryChargeRate:
     batteryCharging && batteryChargeFull > 0
-      ? batteryCurrent / batteryChargeFull * 100 * 3600
+      ? batteryCurrent / batteryChargeFull * 100
       : -1;
   readonly property string batteryTimeRemaining: {
     if (!batteryHasPack)
