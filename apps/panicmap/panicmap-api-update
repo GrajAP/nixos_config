@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# Bring the running PanicMap API in line with its checkout.
+#
+#   [git fetch + fast-forward] -> fingerprint -> restart if it moved
+#
+# Two systemd timers run this, with --sources-only from the fast one:
+#
+#   panicmap-api-update.timer   fetch the checkout every few minutes
+#   panicmap-api-reload.timer   notice a local edit, every minute
+#
+# The fingerprint is the whole design. Both timers fire unconditionally, the
+# checkout is dirty most of the time, and an editor writes several files per
+# save; without a "did anything actually change" test the API would restart
+# every minute and, on a pull, restart twice.
+#
+# The pull is refused on a dirty tree rather than merged into one. The Node
+# backend this serves is uncommitted work on branch `init`, and a pull that
+# stopped halfway would leave the public API serving neither the old tree nor
+# the new one.
+#
+# Environment, all set by the unit in modules/nixos.nix:
+#   PANICMAP_SOURCE     checkout to watch
+#   PANICMAP_BACKEND    the backend/ directory inside it
+#   PANICMAP_PORT       port the health check probes
+#   PANICMAP_PULL       yes to fetch and fast-forward, no to only look at sources
+#   PANICMAP_UNITS      units to restart, space separated
+set -euo pipefail
+
+source="${PANICMAP_SOURCE:?PANICMAP_SOURCE is required}"
+backend="${PANICMAP_BACKEND:-${source}/backend}"
+port="${PANICMAP_PORT:-8000}"
+pull="${PANICMAP_PULL:-1}"
+units="${PANICMAP_UNITS:-panicmap-api.service panicmap-worker.service}"
+state_dir="/var/lib/panicmap"
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+log() {
+  printf '%s panicmap-update: %s\n' "$(date -Is)" "$*"
+}
+
+die() {
+  log "ERROR: $*" >&2
+  exit 1
+}
+
+# The unit spells booleans the Nix way ("true"/"false"); a run by hand from a
+# shell is more likely to say 1. Accept both rather than have one of them
+# silently mean the opposite of what it says.
+truthy() {
+  case "${1,,}" in
+    1 | true | yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+if [[ ${1:-} == "--sources-only" ]]; then
+  pull=false
+fi
+
+# git merge, npm and systemctl all fail the same way when two runs overlap: the
+# second one works from a tree the first one is halfway through rewriting. One
+# run at a time, and a run that loses the lock is not an error -- the winner is
+# looking at the same files.
+exec 9>"${runtime_dir}/panicmap-update.lock"
+if ! flock -n 9; then
+  log "another run holds the lock, skipping"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# git
+# ---------------------------------------------------------------------------
+if truthy "$pull"; then
+  cd "$source"
+
+  if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+    log "working tree has local changes, not pulling"
+  elif ! git rev-parse --verify '@{upstream}' >/dev/null 2>&1; then
+    log "no upstream branch, not pulling"
+  else
+    before="$(git rev-parse --short HEAD)"
+    if git fetch --quiet --prune origin; then
+      upstream="$(git rev-parse --abbrev-ref '@{upstream}')"
+      if ! git merge-base --is-ancestor HEAD "$upstream"; then
+        if git merge --ff-only "$upstream"; then
+          log "fast-forwarded ${before} -> $(git rev-parse --short HEAD)"
+        else
+          log "fast-forward refused, leaving the checkout alone"
+        fi
+      fi
+    else
+      log "fetch failed, serving what is on disk"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# fingerprint
+# ---------------------------------------------------------------------------
+# HEAD plus the size and mtime of every file the build reads. Not a content
+# hash: a pull that rewrites a file with identical contents still has to
+# restart nothing, and an mtime is what tsc itself looks at.
+fingerprint() {
+  {
+    git -C "$source" rev-parse --verify HEAD 2>/dev/null || echo "no-git"
+    find \
+      "$backend/src" \
+      "$backend/drizzle" \
+      "$backend/package.json" \
+      "$backend/package-lock.json" \
+      "$backend/tsconfig.json" \
+      "$backend/tsconfig.build.json" \
+      -type f -printf '%p %s %T@\n' 2>/dev/null | sort
+  } | sha256sum | cut -d' ' -f1
+}
+
+mkdir -p "$state_dir" 2>/dev/null || true
+# The unit's StateDirectory creates /var/lib/panicmap, which is where the
+# fingerprint belongs: it outlives a reboot, so a machine that comes up does not
+# restart an API that is already serving the right code. A run started by hand
+# before the unit has ever run has no such directory, and falls back to the
+# runtime directory rather than failing.
+stamp_dir="$state_dir"
+if [[ ! -w $stamp_dir ]]; then
+  stamp_dir="$runtime_dir"
+fi
+stamp="${stamp_dir}/fingerprint"
+current="$(fingerprint)"
+
+if [[ -f $stamp && $(<"$stamp") == "$current" ]]; then
+  log "sources unchanged since the last restart"
+  exit 0
+fi
+
+log "sources changed, restarting ${units}"
+
+# try-restart, not restart: on a machine that just booted, the units are on
+# their way up already and a restart would race multi-user.target for the port.
+# shellcheck disable=SC2086 # units is a deliberately word-split list
+if ! sudo systemctl try-restart $units; then
+  # The fingerprint is written only once the restart was accepted, so a run that
+  # could not restart tries again on the next tick instead of leaving the public
+  # API on code nobody deployed.
+  die "could not restart ${units}, will retry"
+fi
+
+printf '%s\n' "$current" >"$stamp"
+
+# Best effort, and never fatal: the restart is already done, and a failed health
+# probe must not turn into a failed unit in the journal.
+for _ in $(seq 1 15); do
+  if curl --silent --fail --max-time 2 "http://127.0.0.1:${port}/healthz" >/dev/null; then
+    log "API is answering on :${port}"
+    exit 0
+  fi
+  sleep 2
+done
+
+log "API did not answer on :${port} within 30s, see: journalctl -u ${units%% *}"

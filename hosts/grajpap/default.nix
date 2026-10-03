@@ -48,9 +48,21 @@ in {
     ../../system/sync
     ../../system/backup
     ../../system/monitoring
+
+    # The public PanicMap API. This machine is the backend for hy.be-spotted.org.
+    ../../apps/panicmap/modules/nixos.nix
   ];
 
   fleet.heavy.enable = true;
+
+  # Serves hy.be-spotted.org out of /mnt/SSD2/dev/hackyeah2026 and keeps itself
+  # in step with that checkout: the reload timer for a local edit, the update
+  # timer for a pushed commit.
+  panicmap = {
+    enable = true;
+    autoUpdate.enable = true;
+  };
+
   fleet.autoRebuild = {
     enable = true;
     # The PC sleeps, so the wall clock is a suggestion: Persistent=true below
@@ -65,6 +77,7 @@ in {
     criticalUnits = [
       "tailscaled"
       "sshd"
+      "panicmap-api.service"
     ];
   };
   environment.systemPackages = with pkgs; [
