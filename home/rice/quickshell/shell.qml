@@ -928,7 +928,7 @@ ShellRoot {
     return 1;
   }
   function isSmallWidget(page) {
-    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown" || page === "tray";
+    return page === "audio" || page === "media" || page === "weather" || page === "codex" || page === "shutdown" || page === "tray" || page === "battery";
   }
   function widgetPreferredWidth() {
     if (widgetPage === "screenshot") return 940;
@@ -2202,13 +2202,15 @@ ShellRoot {
               border.color: Theme.border
               border.width: 1.2
               Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1.5
+                x: 1.5
+                y: 1.5
+                height: parent.height - 3
                 radius: 1.5
                 color: root.batteryBarColor
                 width: root.batteryCapacity < 0
                   ? 0
                   : Math.max(0, (parent.width - 3) * Math.min(1, root.batteryCapacity / 100))
+                Behavior on width { NumberAnimation { duration: Theme.motionFast; easing.type: Easing.OutCubic } }
               }
             }
             Rectangle {
