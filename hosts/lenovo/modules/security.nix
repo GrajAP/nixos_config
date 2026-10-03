@@ -14,11 +14,13 @@
         # docker  - container engine socket
         # homenest- write access to /opt/homenest/data alongside the app's own user,
         #           so APK builds and manual sqlite work still function
+        # adbusers- USB access to the tethered POCO (system/mobile/adb.nix)
         extraGroups = [
           "networkmanager"
           "wheel"
           "docker"
           "homenest"
+          "adbusers"
         ];
 
         openssh.authorizedKeys.keys = [

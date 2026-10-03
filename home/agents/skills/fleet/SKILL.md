@@ -6,7 +6,7 @@ description: Use when working in this NixOS fleet repo - questions about devices
 # Fleet
 
 This repo is one flake for the whole fleet: `grajpap` (PC), `lenovo`
-(24/7 headless server), `dell` (day-to-day uni laptop, pending), plus two
+(24/7 headless server), `dell` (day-to-day uni laptop), plus two
 Android phones configured around them.
 
 ## Devices
@@ -15,7 +15,7 @@ Android phones configured around them.
 | --- | --- | --- |
 | `grajpap` | PC, desktop + heavy extras + hosting | this checkout, local shell |
 | `lenovo` | headless laptop server (HomeNest, Nextcloud) | `ssh lenovo-user` / `ssh lenovo-user-ts`, `sudo -i` NOPASSWD |
-| `dell` (`dellap`) | uni laptop, desktop minus heavy | offline; tailscale `dellap` — `fleet/dell.md` |
+| `dell` (`dellap`) | uni laptop, desktop minus heavy | `ssh dell` / `dell-lan` — `fleet/dell.md` |
 | `poco-x4-pro-5g` | test phone, USB to lenovo | `adb devices` on lenovo |
 | `grajpap-9a` | Pixel 9a | `adb devices` on the host it is docked to |
 
@@ -31,6 +31,10 @@ of `home/` (same binds/shell/env). Divergence:
   gaming, Android Studio/SDK, Nextcloud hosting, restic backups, health
   reporting and the PC data disks.
 - `lenovo` never touches the desktop stack — headless on purpose.
+- `system/mobile/adb.nix` is fleet-wide, not heavy: adb, scrcpy and the
+  phone udev rules (Xiaomi 2717, Google 18d1) are on every host.
+  `programs.adb.enable` does not exist in nixpkgs >= 26.05, so use
+  `pkgs.android-tools` in any shared module.
 
 ## Rules
 

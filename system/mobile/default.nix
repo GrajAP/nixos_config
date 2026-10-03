@@ -15,10 +15,10 @@
 in {
   nixpkgs.config.android_sdk.accept_license = true;
 
+  # Fleet-wide adb/scrcpy live in ./adb.nix; only the SDK/emulator stack is PC-only.
   home-manager.users.grajpap = {
     home.packages = with pkgs; [
       android-studio
-      scrcpy
     ];
 
     home.sessionVariables = {
@@ -29,7 +29,6 @@ in {
 
   environment = {
     systemPackages = with pkgs; [
-      android-tools
       cmake
       gcc
       gnumake

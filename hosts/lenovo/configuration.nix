@@ -2,9 +2,10 @@
   imports = [
     ./hardware-configuration.nix
 
-    # Shared with grajpap, unlike everything else in here: the unattended fleet
-    # update has to be the same code on every host or the two drift.
+    # Shared with the desktops, unlike everything else in here: the unattended
+    # fleet update has to be the same code on every host or they drift.
     ../../system/maintenance
+    ../../system/mobile/adb.nix # adb + udev for the POCO test phone
 
     # One concern per file, so a rebuild diff is reviewable at a glance.
     ./modules/boot.nix # kernel, swap, zram, loader, locale
@@ -18,7 +19,7 @@
     ./modules/backup.nix # restic + sqlite-safe snapshotting
     ./modules/monitoring.nix # smartd, alerting
     ./modules/maintenance.nix # nix GC, patch awareness
-    ./modules/mobile.nix # adb + udev for the POCO test phone
+
     ./modules/packages.nix # system + per-user package sets
     ./modules/shell.nix # zsh, starship, aliases
   ];
