@@ -31,6 +31,12 @@ backend="${PANICMAP_BACKEND:-${source}/backend}"
 port="${PANICMAP_PORT:-8000}"
 pull="${PANICMAP_PULL:-1}"
 units="${PANICMAP_UNITS:-panicmap-api.service panicmap-worker.service}"
+# Absolute, and not bare `systemctl`: sudo matches a sudoers entry against the
+# command exactly as it was given, and the NOPASSWD rule in
+# system/core/system.nix names /run/current-system/sw/bin/systemctl -- not the
+# /run/wrappers/bin/systemctl that sudo's secure_path finds first. Ask for a
+# password here and the whole update run dies of "a terminal is required".
+systemctl_bin="${PANICMAP_SYSTEMCTL:-/run/current-system/sw/bin/systemctl}"
 state_dir="/var/lib/panicmap"
 runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
@@ -137,7 +143,7 @@ log "sources changed, restarting ${units}"
 # try-restart, not restart: on a machine that just booted, the units are on
 # their way up already and a restart would race multi-user.target for the port.
 # shellcheck disable=SC2086 # units is a deliberately word-split list
-if ! sudo systemctl try-restart $units; then
+if ! sudo "$systemctl_bin" try-restart $units; then
   # The fingerprint is written only once the restart was accepted, so a run that
   # could not restart tries again on the next tick instead of leaving the public
   # API on code nobody deployed.
