@@ -69,7 +69,10 @@
         # Preserve a full charge for a portable machine: only top up to 80%
         # while plugged in. A laptop that spends the day in a bag otherwise
         # sits at 100% SoC, which is the worst case for cell ageing.
-        START_CHARGE_THRESH_BAT0 = 40;
+        # 50, not 40: TLP rejects a start threshold below 50 and then skips the
+        # whole battery, which leaves both thresholds unset without an error the
+        # user would notice.
+        START_CHARGE_THRESH_BAT0 = 50;
         STOP_CHARGE_THRESH_BAT0 = 80;
       };
     };

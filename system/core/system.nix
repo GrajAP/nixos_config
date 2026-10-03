@@ -45,6 +45,9 @@ in {
             "/run/current-system/sw/bin/systemctl"
             "/run/current-system/sw/bin/shutdown"
             "/run/current-system/sw/bin/nh"
+            # The battery widget switches TLP's AC/BAT mode; without this it
+            # would have to go through sudo interactively.
+            "/run/current-system/sw/bin/tlp"
             "/nix/var/nix/profiles/system/bin/switch-to-configuration"
           ];
       }

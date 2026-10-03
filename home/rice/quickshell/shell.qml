@@ -86,6 +86,36 @@ ShellRoot {
     && batteryStatusView.text().trim().indexOf("Charging") === 0
   readonly property bool acOnline:
     acOnlineView.status === FileView.Ready && acOnlineView.text().trim() === "1";
+  readonly property string batteryStatus:
+    batteryStatusView.status === FileView.Ready ? batteryStatusView.text().trim() : "";
+  // TLP pauses charging at its thresholds instead of reporting "Charging".
+  readonly property bool batteryPaused: batteryStatus === "Not charging";
+  // This pack reports charge_now in uAh and has no energy_now, so watt-hours
+  // come from charge_now * voltage_now and the ETA is charge_now / current_now
+  // -- the voltage cancels out of both.
+  readonly property int batteryChargeNow: batteryReadNumber(batteryChargeNowView)
+  readonly property int batteryChargeFull: batteryReadNumber(batteryChargeFullView)
+  readonly property int batteryCurrent: Math.abs(batteryReadNumber(batteryCurrentView))
+  readonly property int batteryVoltage: batteryReadNumber(batteryVoltageView)
+  readonly property real batteryWatts:
+    batteryCurrent > 0 && batteryVoltage > 0 ? batteryCurrent * batteryVoltage / 1000000000000 : -1;
+  readonly property real batteryChargeRate:
+    batteryCharging && batteryChargeFull > 0
+      ? batteryCurrent / batteryChargeFull * 100 * 3600
+      : -1;
+  readonly property string batteryTimeRemaining: {
+    if (!batteryHasPack)
+      return "--";
+    if (batteryStatus === "Full" || (acOnline && batteryCapacity >= 100))
+      return "full";
+    if (batteryPaused)
+      return "paused (TLP)";
+    if (batteryCurrent <= 0)
+      return "--";
+    if (batteryCharging)
+      return root.formatBatteryHours((batteryChargeFull - batteryChargeNow) / batteryCurrent) + " to full";
+    return root.formatBatteryHours(batteryChargeNow / batteryCurrent) + " left";
+  }
 
   // Shared by the bar glyph and BatteryWidget so both read the same.
   readonly property color batteryBarColor: {
@@ -101,6 +131,11 @@ ShellRoot {
       return Theme.warning;
     return Theme.accent;
   }
+
+  // TLP is the fleet's only power daemon, so the profile the widget switches is
+  // TLP's AC/BAT mode: "ac" or "bat" forces it, "start" hands the choice back to
+  // the power source. tlp-stat prints "<profile>/<mode>".
+  property string batteryPowerMode: ""
   readonly property color elevatedSurface: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
   readonly property color hoverSurface: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
   readonly property color translucentPanel: Qt.rgba(Theme.panel.r, Theme.panel.g, Theme.panel.b, 0.97)
@@ -229,6 +264,74 @@ ShellRoot {
     id: acOnlineView
     path: "/sys/class/power_supply/AC/online"
     printErrors: false
+  }
+
+  FileView {
+    id: batteryChargeNowView
+    path: root.batterySibling("charge_now")
+    printErrors: false
+  }
+
+  FileView {
+    id: batteryChargeFullView
+    path: root.batterySibling("charge_full")
+    printErrors: false
+  }
+
+  FileView {
+    id: batteryCurrentView
+    path: root.batterySibling("current_now")
+    printErrors: false
+  }
+
+  FileView {
+    id: batteryVoltageView
+    path: root.batterySibling("voltage_now")
+    printErrors: false
+  }
+
+  // sysfs power_supply attributes do not emit inotify events when their
+  // contents change: the kernel notifies the *device* on power_supply_changed,
+  // not the attribute file a FileView has open. Without a poll the widget keeps
+  // whatever it read at shell start, so plugging the charger in left it saying
+  // "On battery" for the rest of the session.
+  Timer {
+    id: batteryPollTimer
+    interval: 5000
+    repeat: true
+    running: root.batteryHasPack
+    onTriggered: {
+      batteryCapacityView.reload();
+      batteryStatusView.reload();
+      acOnlineView.reload();
+      batteryChargeNowView.reload();
+      batteryChargeFullView.reload();
+      batteryCurrentView.reload();
+      batteryVoltageView.reload();
+    }
+  }
+
+  Process {
+    id: batteryPowerModeQuery
+    command: ["tlp-stat", "-s"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const match = /TLP profile\s*=\s*[^/]*\/(\w+)/.exec(text);
+        if (match)
+          root.batteryPowerMode = match[1].toUpperCase();
+      }
+    }
+  }
+  Process {
+    id: batteryPowerModeAction
+    command: ["sudo", "/run/current-system/sw/bin/tlp", "start"]
+    // TLP reapplies asynchronously, so give it a beat before reading the mode back.
+    onExited: batteryPowerModeRefresh.restart()
+  }
+  Timer {
+    id: batteryPowerModeRefresh
+    interval: 1500
+    onTriggered: if (!batteryPowerModeQuery.running) batteryPowerModeQuery.running = true
   }
 
   GlobalShortcut {
@@ -904,6 +1007,53 @@ ShellRoot {
         categories.push(entry.category);
     }
     return categories;
+  }
+  function batteryReadNumber(view) {
+    if (view.status !== FileView.Ready)
+      return -1;
+    const value = parseInt(view.text().trim(), 10);
+    return isNaN(value) ? -1 : value;
+  }
+  function batterySibling(name) {
+    return root.batteryPath !== "" ? root.batteryPath.replace(/\/capacity$/, "/" + name) : "";
+  }
+  function formatBatteryHours(hours) {
+    if (!isFinite(hours) || hours <= 0)
+      return "--";
+    const minutes = Math.round(hours * 60);
+    if (minutes < 60)
+      return minutes + "m";
+    const whole = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest === 0 ? whole + "h" : whole + "h " + rest + "m";
+  }
+  function refreshBatteryPowerMode() {
+    if (!batteryPowerModeQuery.running)
+      batteryPowerModeQuery.running = true;
+  }
+  function setBatteryPowerMode(mode) {
+    if (batteryPowerModeAction.running)
+      return;
+    batteryPowerModeAction.command = ["sudo", "/run/current-system/sw/bin/tlp", mode];
+    batteryPowerModeAction.running = true;
+  }
+  function batteryPowerModeText() {
+    if (!batteryHasPack)
+      return "No pack";
+    if (batteryPowerMode === "BAT" && acOnline)
+      return "Battery saver (forced)";
+    if (batteryPowerMode === "AC" && !acOnline)
+      return "Performance (forced)";
+    if (batteryPowerMode === "BAT")
+      return "Battery saver (TLP)";
+    if (batteryPowerMode === "AC")
+      return "Performance (TLP)";
+    return "reading TLP…";
+  }
+  function batteryPowerModeSelected(mode) {
+    if (mode === "auto")
+      return (acOnline && batteryPowerMode === "AC") || (!acOnline && batteryPowerMode === "BAT");
+    return batteryPowerMode === mode.toUpperCase();
   }
   function filteredKeybindsInCategory(category) {
     return root.filteredKeybindHelpEntries().filter(entry => entry.category === category);

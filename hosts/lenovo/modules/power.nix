@@ -128,8 +128,10 @@ in {
           WIFI_PWR_ON_AC = "on";
           USB_AUTOSUSPEND = 1;
 
-          # Keep the battery between 40% and 80% while plugged in 24/7.
-          START_CHARGE_THRESH_BAT0 = 40;
+          # Keep the battery between 50% and 80% while plugged in 24/7.
+          # 50 is the floor TLP accepts for a start threshold; anything lower
+          # makes it drop the battery and apply neither value.
+          START_CHARGE_THRESH_BAT0 = 50;
           STOP_CHARGE_THRESH_BAT0 = 80;
         };
       };
