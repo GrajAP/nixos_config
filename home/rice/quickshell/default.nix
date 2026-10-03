@@ -3,6 +3,7 @@
   lib,
   pkgs,
   breaks,
+  calendarHeader,
   ...
 }: let
   calendarPython = pkgs.python3.withPackages (pythonPackages: [
@@ -221,6 +222,10 @@
     shutdownTimerTool = "${shutdownTimerTool}/bin/quickshell-shutdown-timer";
     breaksEnabled =
       if breaks
+      then "true"
+      else "false";
+    calendarHeader =
+      if calendarHeader
       then "true"
       else "false";
     keybindHelp = builtins.toJSON keybinds.help;

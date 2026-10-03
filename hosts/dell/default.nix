@@ -25,6 +25,10 @@
     # close and carry around, so the entry is dropped from the widget entirely
     # instead of merely defaulting to off.
     breaks = false;
+    # 864 logical px of panel height: the calendar's title bar and date line
+    # cost the month grid two of its six rows, so both are dropped here and the
+    # page closes with Escape. The PC keeps them.
+    calendarHeader = false;
     # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
     # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
     # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal

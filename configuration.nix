@@ -25,6 +25,18 @@
       '';
     };
 
+    calendarHeader = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether the quickshell calendar page keeps its title bar and date line.
+
+        On by default. dell's panel is 864 logical px tall, where those two rows
+        come straight out of the month grid's height and the sixth week row ends
+        up below the panel edge.
+      '';
+    };
+
     displayScale = lib.mkOption {
       type = lib.types.ints.unsigned;
       default = 100;
@@ -49,9 +61,9 @@
         inherit inputs;
         heavy = config.fleet.heavy.enable;
         # home-manager modules cannot read NixOS options directly, so the
-        # per-host fallback scale and break-timer switch are passed in the same
-        # way `heavy` is.
-        inherit (config.fleet) displayScale breaks;
+        # per-host fallback scale, break-timer switch and calendar chrome are
+        # passed in the same way `heavy` is.
+        inherit (config.fleet) displayScale breaks calendarHeader;
       };
       useGlobalPkgs = true;
       useUserPackages = true;

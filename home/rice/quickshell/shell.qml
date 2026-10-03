@@ -88,6 +88,9 @@ ShellRoot {
     acOnlineView.status === FileView.Ready && acOnlineView.text().trim() === "1";
   readonly property string batteryStatus:
     batteryStatusView.status === FileView.Ready ? batteryStatusView.text().trim() : "";
+  // dell's panel is 864 logical px tall, where the calendar's title bar and date
+  // line cost two rows the month grid needs; the desktop keeps both.
+  readonly property bool calendarHeader: @calendarHeader@;
   // TLP pauses charging at its thresholds instead of reporting "Charging".
   readonly property bool batteryPaused: batteryStatus === "Not charging";
   // This pack reports charge_now in uAh and has no energy_now, so watt-hours
@@ -2741,6 +2744,7 @@ ShellRoot {
       border.width: root.widgetPage === "calendar" ? 0 : 1
       clip: true
       focus: root.widgetVisible
+      Keys.onEscapePressed: root.closeWidget()
       opacity: root.widgetVisible ? 1 : 0
       scale: root.widgetVisible ? 1 : 0.96
       transformOrigin: Item.BottomRight
@@ -2771,6 +2775,9 @@ ShellRoot {
         anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd
         RowLayout {
           Layout.fillWidth: true
+          // The calendar page fills the screen on dell, so it drops its title
+          // bar there; Escape closes the panel instead of the x button.
+          visible: root.widgetPage !== "calendar" || root.calendarHeader
           Text {
             text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", battery: "Battery", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
@@ -3260,11 +3267,16 @@ ShellRoot {
           Layout.fillHeight: true
           sourceComponent: Component {
             ColumnLayout {
-              Layout.fillWidth: true
-              Layout.fillHeight: true
+              // A Loader's item is not itself inside a Layout, so Layout.fill*
+              // here was a no-op and the page sized itself to its content: on a
+              // 864-tall panel that pushed the last week rows off the bottom.
+              // Anchoring to the Loader hands the month grid a real height
+              // budget to divide.
+              anchors.fill: parent
               spacing: 10
 	          RowLayout {
 	            Layout.fillWidth: true
+	            visible: root.calendarHeader
 	            Text {
 	              text: Qt.formatDateTime(new Date(root.calendarSelectedDate + "T00:00:00"), "dddd, d MMMM")
 	              color: Theme.muted
@@ -3509,14 +3521,27 @@ ShellRoot {
             }
           }
           RowLayout {
+            id: calendarMonthRow
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 12
+            // The month grid takes whatever the agenda column does not need,
+            // capped at the 1700 the desktop layout was drawn around, so a
+            // 1536-wide laptop shrinks the grid instead of pushing the agenda
+            // off the right edge.
+            readonly property int agendaWidth: 420
 	            ColumnLayout {
                   id: calendarMonthColumn
+                  Layout.fillWidth: true
                   Layout.preferredWidth: 1700
+                  Layout.minimumWidth: 520
                   Layout.maximumWidth: 1700
 	              Layout.fillHeight: true
+                  // Zero, not the computed minimum: the grid's minimum is six
+                  // rows of cellSize, and cellSize is derived from this column's
+                  // height, so leaving the default minimum in place makes the
+                  // layout inflate the column to fit the cells it just sized.
+	              Layout.minimumHeight: 0
 	              spacing: 10
 	              RowLayout {
 	                Layout.fillWidth: true
@@ -3579,7 +3604,24 @@ ShellRoot {
 	              }
 	              GridLayout {
                 id: calendarMonthGrid
-                readonly property int cellSize: 184
+                // 184 is the desktop cell: wherever 184 still fits, this stays
+                // 184 and the desktop layout is untouched. Short or narrow
+                // panels (a 1536x864 laptop at 125%) shrink the cell to what
+                // actually fits, so the sixth week row is not cut off.
+                readonly property int rows: Math.ceil(root.monthCells().length / 7)
+                readonly property int cellSize: {
+                  const share = Math.max(520, Math.min(1700, calendarMonthRow.width - spacing - calendarMonthRow.agendaWidth));
+                  const widthFit = Math.floor((share - columnSpacing * 6) / 7);
+                  const header = 22 + rowSpacing;
+                  const heightFit = Math.floor((calendarMonthColumn.height - header - calendarMonthColumn.spacing - rowSpacing * (rows - 1)) / rows);
+                  return Math.max(88, Math.min(184, widthFit, heightFit));
+                }
+                readonly property real cellScale: cellSize / 184
+                // Everything inside a day cell is sized off the cell, so a
+                // shrunken cell keeps the same proportions instead of clipping.
+                function px(value, min) {
+                  return Math.max(min, Math.round(value * cellScale));
+                }
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignHCenter
                 columns: 7; rowSpacing: 8; columnSpacing: 8
@@ -3591,9 +3633,9 @@ ShellRoot {
                 color: Theme.accent
                 font.family: Theme.fontSans
                 font.bold: true
-		                font.pixelSize: 14
+		                font.pixelSize: calendarMonthGrid.px(14, 11)
 	                Layout.preferredWidth: calendarMonthGrid.cellSize
-	                Layout.preferredHeight: 22
+	                Layout.preferredHeight: calendarMonthGrid.px(22, 16)
                 horizontalAlignment: Text.AlignHCenter
               }
             }
@@ -3613,12 +3655,12 @@ ShellRoot {
                 Text {
                   anchors.left: parent.left
                   anchors.top: parent.top
-	                  anchors.leftMargin: 13
-	                  anchors.topMargin: 10
+	                  anchors.leftMargin: calendarMonthGrid.px(13, 8)
+	                  anchors.topMargin: calendarMonthGrid.px(10, 6)
                   text: modelData.inMonth ? modelData.day : ""
                   color: modelData.isSelected ? Theme.background : Theme.text
                   font.family: Theme.fontSans
-		                  font.pixelSize: 22
+		                  font.pixelSize: calendarMonthGrid.px(22, 13)
                   font.bold: modelData.isToday || modelData.isSelected
                 }
                 Flickable {
@@ -3628,10 +3670,10 @@ ShellRoot {
                   anchors.right: parent.right
                   anchors.top: parent.top
                   anchors.bottom: parent.bottom
-                  anchors.topMargin: 44
-                  anchors.leftMargin: 12
-                  anchors.rightMargin: 8
-                  anchors.bottomMargin: 10
+                  anchors.topMargin: calendarMonthGrid.px(44, 26)
+                  anchors.leftMargin: calendarMonthGrid.px(12, 7)
+                  anchors.rightMargin: calendarMonthGrid.px(8, 5)
+                  anchors.bottomMargin: calendarMonthGrid.px(10, 6)
                   clip: true
                   boundsBehavior: Flickable.StopAtBounds
                   contentWidth: width
@@ -3639,24 +3681,24 @@ ShellRoot {
 
                   Column {
                     id: calendarDayEventColumn
-                    width: calendarDayScroll.width - (calendarDayScroll.contentHeight > calendarDayScroll.height ? 8 : 0)
-                    spacing: 5
+                    width: calendarDayScroll.width - (calendarDayScroll.contentHeight > calendarDayScroll.height ? calendarMonthGrid.px(8, 5) : 0)
+                    spacing: calendarMonthGrid.px(5, 2)
                     Repeater {
                       model: root.calendarDayItems(calendarDayCell.modelData.date)
                       Rectangle {
                         required property var modelData
                         width: parent.width
-                        height: 20
+                        height: calendarMonthGrid.px(20, 14)
                         radius: 5
                         color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
                         Text {
                           anchors.fill: parent
-                          anchors.leftMargin: 7
-                          anchors.rightMargin: 7
+                          anchors.leftMargin: calendarMonthGrid.px(7, 4)
+                          anchors.rightMargin: calendarMonthGrid.px(7, 4)
                           text: modelData.nowMarker ? "now " + modelData.title : ((modelData.birthday ? "✦ " : (modelData.note ? "≡ " : (modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")))) + modelData.title)
                           color: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
                           font.family: Theme.fontSans
-                          font.pixelSize: 12
+                          font.pixelSize: calendarMonthGrid.px(12, 9)
                           font.bold: Boolean(modelData.nowMarker)
                           font.strikeout: Boolean(modelData.completed)
                           elide: Text.ElideRight
@@ -3668,7 +3710,7 @@ ShellRoot {
 
                   ScrollBar.vertical: ScrollBar {
                     policy: calendarDayScroll.contentHeight > calendarDayScroll.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
-                    width: 4
+                    width: calendarMonthGrid.px(4, 3)
                     contentItem: Rectangle {
                       implicitWidth: 4
                       radius: 2
@@ -3691,6 +3733,8 @@ ShellRoot {
               }
             }
             Item {
+              Layout.preferredWidth: calendarMonthRow.agendaWidth
+              Layout.minimumWidth: 300
               Layout.fillWidth: true
               Layout.fillHeight: true
 
