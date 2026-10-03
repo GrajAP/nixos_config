@@ -3998,10 +3998,12 @@ ShellRoot {
                 }
 	                Text { text: modelData.title; color: modelData.completed ? Theme.muted : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; font.strikeout: Boolean(modelData.completed) }
 	                Text {
-	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? ((modelData.completed ? "done" : "task") + (modelData.source ? " · " + modelData.source : "")) : (modelData.allDay ? "all day" : (modelData.startTime || ""))))
+	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? (modelData.completed ? "done" : "task") : (modelData.allDay ? "all day" : (modelData.startTime || ""))))
 	                  color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10
+	                  Layout.maximumWidth: 110
+	                  elide: Text.ElideRight
                 }
                 Rectangle {
                   visible: calendarItemRow.noteOpenable
@@ -4545,11 +4547,15 @@ ShellRoot {
                   verticalAlignment: Text.AlignVCenter
                 }
                 Text {
-                  text: (modelData.source || "todo") + (modelData.date ? " · " + root.calendarDateLabel(modelData.date) : "")
+                  // Date only. The calendar name used to sit here too, and on a
+                  // narrow agenda column it left the title as "wher…": the event
+                  // is the useful half of the row, the source is not.
+                  text: modelData.date ? root.calendarDateLabel(modelData.date) : ""
+                  visible: text.length > 0
                   color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10
-                  Layout.maximumWidth: 150
+                  Layout.maximumWidth: 96
                   elide: Text.ElideRight
                 }
                 Rectangle {
