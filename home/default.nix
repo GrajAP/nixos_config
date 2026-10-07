@@ -41,6 +41,11 @@ in {
     name = lib.mkForce "catppuccin-mocha-blue-standard";
   };
   gtk.gtk4.theme.name = config.gtk.theme.name;
+
+  # Every desktop host gets T3 Code; the module only supplies packages and
+  # timers, the autostart stays with the compositor in home/rice/hyprland.
+  t3code.enable = true;
+
   imports = [
     # Core package surfaces shared across app, shell, and desktop config
     ./packages.nix
@@ -55,5 +60,7 @@ in {
     ./rice
     # Fleet-wide AI agent instructions and skills
     ./agents
+    # T3 Code desktop app, CLI, notify wrapper and AppImage update timer
+    ../apps/t3code/modules/home-manager.nix
   ];
 }

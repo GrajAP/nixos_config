@@ -2,9 +2,7 @@
   pkgs,
   config,
   ...
-}: let
-  t3code = pkgs.callPackage ../../apps/t3code/package.nix {};
-in {
+}: {
   home = {
     packages = with pkgs; [
       electron
@@ -15,8 +13,6 @@ in {
       pnpm
       bun
       antigravity-ide
-      t3code.desktop
-      t3code.notify
       opencode
       (pkgs.writeShellApplication {
         name = "install-js-clis";
@@ -38,24 +34,5 @@ in {
     sessionVariables.PATH = "${config.home.homeDirectory}/.bun-global/bin:$PATH";
 
     sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
-  };
-
-  systemd.user = {
-    services.t3code-update = {
-      Unit.Description = "Download the newest preview T3 Code desktop build";
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${t3code.update}/bin/t3code-update";
-      };
-    };
-    timers.t3code-update = {
-      Unit.Description = "Keep T3 Code on the latest preview release";
-      Timer = {
-        OnStartupSec = "2min";
-        OnUnitActiveSec = "30min";
-        Persistent = true;
-      };
-      Install.WantedBy = ["timers.target"];
-    };
   };
 }

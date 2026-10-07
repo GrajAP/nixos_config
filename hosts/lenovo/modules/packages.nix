@@ -87,14 +87,6 @@
 
     # homelab / t3 workspace
     nix-output-monitor
-
-    # shim for the t3 CLI, which lives outside Nix at /opt/t3. Not reproducible
-    # and it will break when /opt/t3 is reinstalled; kept because it is on the
-    # critical path for day-to-day work. bin/ is the npm-managed prefix entry
-    # point, which `npm install -g --prefix /opt/t3 t3@<tag>` keeps current.
-    (writeShellScriptBin "t3" ''
-      exec /opt/t3/bin/t3 "$@"
-    '')
   ];
 
   # Extras that are not worth putting in a system closure but are handy.
