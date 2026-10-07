@@ -37,6 +37,19 @@
       '';
     };
 
+    autostart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether the session autostarts any application.
+
+        The applications (signal, ferdium, helium, kdeconnect, t3code, the
+        NetworkManager applet) are delayed systemd user units wanted by
+        graphical-session.target. dell turns them all off and boots to a bare
+        session, where each app is started by hand.
+      '';
+    };
+
     displayScale = lib.mkOption {
       type = lib.types.ints.unsigned;
       default = 100;
@@ -61,9 +74,9 @@
         inherit inputs;
         heavy = config.fleet.heavy.enable;
         # home-manager modules cannot read NixOS options directly, so the
-        # per-host fallback scale, break-timer switch and calendar chrome are
-        # passed in the same way `heavy` is.
-        inherit (config.fleet) displayScale breaks calendarHeader;
+        # per-host fallback scale, break-timer switch, calendar chrome and
+        # autostart switch are passed in the same way `heavy` is.
+        inherit (config.fleet) displayScale breaks calendarHeader autostart;
       };
       useGlobalPkgs = true;
       useUserPackages = true;

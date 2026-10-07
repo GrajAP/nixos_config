@@ -3,6 +3,7 @@
   pkgs,
   lib,
   inputs,
+  autostart,
   ...
 }: let
   autoShutdown = pkgs.writeShellApplication {
@@ -620,23 +621,23 @@ in {
         };
         Install.WantedBy = ["graphical-session.target"];
       };
-      autostart-kdeconnect = graphicalAutostartService "${lib.getExe' pkgs.kdePackages.kdeconnect-kde "kdeconnect-indicator"}";
-      autostart-signal = graphicalAutostartService (lib.getExe pkgs.signal-desktop);
-      autostart-ferdium = graphicalAutostartService (lib.getExe' pkgs.ferdium "ferdium");
-      autostart-t3code = graphicalAutostartService "${config.home.profileDirectory}/bin/t3code-desktop";
-      autostart-helium = graphicalAutostartService heliumAutostart;
+      autostart-kdeconnect = lib.mkIf autostart (graphicalAutostartService "${lib.getExe' pkgs.kdePackages.kdeconnect-kde "kdeconnect-indicator"}");
+      autostart-signal = lib.mkIf autostart (graphicalAutostartService (lib.getExe pkgs.signal-desktop));
+      autostart-ferdium = lib.mkIf autostart (graphicalAutostartService (lib.getExe' pkgs.ferdium "ferdium"));
+      autostart-t3code = lib.mkIf autostart (graphicalAutostartService "${config.home.profileDirectory}/bin/t3code-desktop");
+      autostart-helium = lib.mkIf autostart (graphicalAutostartService heliumAutostart);
       # NetworkManager tray applet: the only GUI for picking a wifi network,
       # which matters on dell where the link drops and needs reconnecting by
       # hand. Renders through StatusNotifier, so Quickshell's tray picks it up.
-      autostart-nm-applet = graphicalAutostartService (lib.getExe pkgs.networkmanagerapplet);
+      autostart-nm-applet = lib.mkIf autostart (graphicalAutostartService (lib.getExe pkgs.networkmanagerapplet));
     };
     timers = {
-      autostart-kdeconnect = graphicalAutostartTimer "autostart-kdeconnect" 2;
-      autostart-signal = graphicalAutostartTimer "autostart-signal" 4;
-      autostart-ferdium = graphicalAutostartTimer "autostart-ferdium" 6;
-      autostart-t3code = graphicalAutostartTimer "autostart-t3code" 8;
-      autostart-helium = graphicalAutostartTimer "autostart-helium" 10;
-      autostart-nm-applet = graphicalAutostartTimer "autostart-nm-applet" 3;
+      autostart-kdeconnect = lib.mkIf autostart (graphicalAutostartTimer "autostart-kdeconnect" 2);
+      autostart-signal = lib.mkIf autostart (graphicalAutostartTimer "autostart-signal" 4);
+      autostart-ferdium = lib.mkIf autostart (graphicalAutostartTimer "autostart-ferdium" 6);
+      autostart-t3code = lib.mkIf autostart (graphicalAutostartTimer "autostart-t3code" 8);
+      autostart-helium = lib.mkIf autostart (graphicalAutostartTimer "autostart-helium" 10);
+      autostart-nm-applet = lib.mkIf autostart (graphicalAutostartTimer "autostart-nm-applet" 3);
     };
     # Some tray applications still wait for this compatibility target.
     targets.tray.Unit = {

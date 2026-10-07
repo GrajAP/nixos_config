@@ -29,6 +29,12 @@
     # cost the month grid two of its six rows, so both are dropped here and the
     # page closes with Escape. The PC keeps them.
     calendarHeader = false;
+    # Nothing at all is started with the session: no signal, ferdium, helium,
+    # t3code, kdeconnect or NetworkManager applet. The desktop boots to a bare
+    # session and everything is launched by hand, which on a machine that is
+    # carried around and lid-closed repeatedly is one less thing waking the
+    # screen.
+    autostart = false;
     # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
     # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
     # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal
