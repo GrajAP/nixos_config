@@ -22,7 +22,7 @@ return {
             {},
             vim.lsp.protocol.make_client_capabilities(),
             cmp_lsp.default_capabilities())
-        require("lspconfig").ts_ls.setup({
+        require("lspconfig").tsserver.setup({
             on_attach = on_attach,
             capabilities = capabilities
         })
@@ -42,7 +42,7 @@ return {
                         nixos = {
                             expr = '(builtins.getFlake "/etc/nixos").nixosConfigurations.grajpap.options',
                         },
-                        home-manager = {
+                        ["home-manager"] = {
                             expr = '(builtins.getFlake "/etc/nixos").nixosConfigurations.grajpap.options.home-manager.users.type.getSubOptions []',
                         },
                     },
@@ -51,7 +51,7 @@ return {
         })
         require("mason-lspconfig").setup({
             ensure_installed = {
-                "ts_ls",
+                "tsserver",
                 "html",
                 "cssls",
                 "lua_ls",
