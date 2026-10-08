@@ -31,6 +31,40 @@ be corrected to `User grajpap`.
   publishes HTTPS on the tailnet
 - **monitoring**: smartd + alerting; **TLP/thermald** power management
 
+## WiFi (PWr eduroam)
+
+The internal Broadcom BCM43142 (`pci 14e4:4365`) has no in-tree driver, so
+`hosts/lenovo/modules/wifi.nix` does three things: adds `broadcom-sta` (`wl`,
+unfree + insecure, gated by a targeted `nixpkgs.config.allowInsecurePredicate`),
+blacklists `b43`/`bcma`, and declares an NM `ensureProfiles` keyfile for
+eduroam — EAP-TTLS / phase2 PAP, anonymous identity `anonymous@pwr.edu.pl`,
+server `rad01.pwr.edu.pl`, CA chain in `modules/eduroam-ca.pem`
+(GEANT TLS RSA 1 + HARICA TLS RSA Root CA 2021).
+
+Credentials are **not** in the repo. As root, before the first trip to PWR:
+
+```bash
+sudo tee /var/lib/eduroam/eduroam.env >/dev/null <<'EOF'
+EDUROAM_IDENTITY=<login>@pwr.edu.pl
+EDUROAM_PASSWORD=<haslo>
+EOF
+sudo chmod 600 /var/lib/eduroam/eduroam.env
+sudo systemctl restart NetworkManager-ensure-profiles
+nmcli connection show eduroam
+```
+
+The empty placeholders are intentional: NetworkManager refuses the profile
+(`802-1x.identity: property is empty`) until both values are set, so nothing
+half-configured is ever loaded. The profile template and CA are in the system
+closure; the env file lives only in `/var/lib/eduroam/`.
+
+`wl` is built for the currently deployed kernel (6.12.93) while the box still
+runs 6.12.78 since its last boot, so **reboot once** (`sudo reboot`) after the
+switch — `systemd-modules-load` resolves modules through
+`/run/booted-system/kernel-modules/lib/modules/$(uname -r)`, which only
+contains `wl.ko` from the new generation onward. Then check
+`modinfo wl` and `nmcli device status` for the new wlan interface.
+
 ## Rebuild
 
 ```bash
