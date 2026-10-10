@@ -42,17 +42,30 @@ in {
   imports = [
     ./hardware-configuration.nix
 
-    # PC-only: data disks, Android dev, Nextcloud hosting, backups, health.
+    # PC-only: data disks, Android dev, backups, health, KDE Connect.
     ../../system/core/storage.nix
     ../../system/mobile
-    ../../system/sync
+    ../../system/desktop
     ../../system/backup
     ../../system/monitoring
+
+    # The public PanicMap API. This machine is the backend for hy.be-spotted.org.
+    ../../apps/panicmap/modules/nixos.nix
   ];
 
-  # The PC dual-boots Windows, and has always been on GRUB.
-  # See system/core/bootloader.nix.
+  # Serves hy.be-spotted.org out of /mnt/SSD2/dev/hackyeah2026 and keeps itself
+  # in step with that checkout: the reload timer for a local edit, the update
+  # timer for a pushed commit.
+  panicmap = {
+    enable = true;
+    autoUpdate.enable = true;
+  };
+
   fleet = {
+    # The PC dual-boots Windows and has always been on GRUB. The fleet-wide
+    # bootloader module defaults this to false, so without it here a switch
+    # would quietly drop the Windows entry and NTFS support on this machine.
+    # See system/core/bootloader.nix.
     dualBoot = true;
     heavy.enable = true;
     autoRebuild = {
@@ -69,9 +82,11 @@ in {
       criticalUnits = [
         "tailscaled"
         "sshd"
+        "panicmap-api.service"
       ];
     };
   };
+
   environment.systemPackages = with pkgs; [
     acpi
     powertop

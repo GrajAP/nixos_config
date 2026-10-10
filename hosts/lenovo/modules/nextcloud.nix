@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   unstablePkgs,
@@ -175,7 +176,13 @@ in {
           openssl
         ];
         script = ''
-          install -d -m 0750 -o nextcloud -g nextcloud /var/lib/nextcloud/secrets
+          # root:users, not nextcloud:nextcloud. The group exists so a desktop
+          # on the tailnet can pull nextcloud-quickshell-token-print out of
+          # this directory over ssh. Nothing changes for the admin password
+          # below, which stays 0400 and owner-only: the extra group bit on a
+          # directory only decides who may open the directory, and the file
+          # itself still refuses everyone else.
+          install -d -m 0750 -o root -g users /var/lib/nextcloud/secrets
 
           if [ ! -s /var/lib/nextcloud/secrets/admin-pass ]; then
             umask 077
@@ -198,6 +205,115 @@ in {
         requiredBy = lib.mkForce [];
         wantedBy = lib.mkForce [];
       };
+
+      # -----------------------------------------------------------------------
+      # Credentials for the desktop calendar widget
+      #
+      # home/rice/quickshell/scripts/calendar.sh reads an app password from
+      # ~/.config/quickshell/nextcloud-lenovo-app-password. Nothing used to
+      # write that file: the only service that minted a token lived in
+      # system/sync on grajpap, ran against the Nextcloud that used to be hosted
+      # there, and wrote it to a path without "-lenovo" in the name. So the
+      # widget on the PC had no password to read and rendered an empty calendar.
+      #
+      # occ is local-only, so the token has to be minted here and collected on
+      # the desktop. From any desktop, with the fleet key already in place:
+      #
+      #   ssh lenovo-user sudo nextcloud-quickshell-token-print \
+      #     > ~/.config/quickshell/nextcloud-lenovo-app-password
+      #
+      # The wrapper is the supported way to read it: the token file is
+      # root-owned 0640, so a desktop pulls it through its own passwordless
+      # sudo rather than reading the file off the disk.
+      # -----------------------------------------------------------------------
+      nextcloud-quickshell-token = {
+        description = "Mint the Nextcloud app password used by the desktop calendar widget";
+        after = ["nextcloud-setup.service"];
+        wantedBy = ["multi-user.target"];
+        path = [
+          config.services.nextcloud.occ
+          pkgs.coreutils
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = "2min";
+        };
+        script = ''
+          # After a package bump occ answers in limited-command mode until
+          # nextcloud-setup.service has finished `occ upgrade`, and
+          # user:auth-tokens is not one of the calls that still works there.
+          # `occ status` is the same readiness probe the other units in this
+          # file use.
+          for _ in $(seq 1 60); do
+            if nextcloud-occ status >/dev/null 2>&1; then
+              break
+            fi
+            echo "Nextcloud is still upgrading; waiting"
+            sleep 10
+          done
+
+          if ! nextcloud-occ status >/dev/null 2>&1; then
+            echo "Nextcloud did not finish upgrading within 10 minutes" >&2
+            exit 1
+          fi
+
+          install -d -m 0750 -o root -g users /var/lib/nextcloud/secrets
+
+          umask 077
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+          nextcloud-occ user:auth-tokens:add \
+            --no-interaction --name quickshell-calendar grajpap > "$tmp"
+          tail -n 1 "$tmp" | install \
+            -m 0640 -o root -g users /dev/stdin /var/lib/nextcloud/secrets/quickshell-token
+        '';
+      };
+
+      # Re-mint on a schedule so a token that leaked, or one a desktop cached
+      # months ago, eventually stops working instead of quietly authenticating
+      # a widget nobody re-collected the password for.
+      nextcloud-quickshell-token-rotate = {
+        description = "Rotate the calendar widget's Nextcloud app password";
+        after = [
+          "nextcloud-setup.service"
+          "nextcloud-quickshell-token.service"
+        ];
+        path = [
+          config.services.nextcloud.occ
+          pkgs.coreutils
+          pkgs.jq
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = "2min";
+        };
+        script = ''
+          for _ in $(seq 1 60); do
+            if nextcloud-occ status >/dev/null 2>&1; then
+              break
+            fi
+            sleep 10
+          done
+          nextcloud-occ status >/dev/null 2>&1 || exit 1
+
+          old_ids="$(nextcloud-occ user:auth-tokens:list grajpap --output=json \
+            | jq -r '.[] | select(.name == "quickshell-calendar") | .id')"
+
+          systemctl restart nextcloud-quickshell-token.service
+
+          # After the restart, not before: the new token has to exist before
+          # the old one stops working, or a rotation that fails halfway leaves
+          # every desktop with a password for nothing.
+          for token_id in $old_ids; do
+            nextcloud-occ user:auth-tokens:delete \
+              --no-interaction grajpap "$token_id" || true
+          done
+        '';
+      };
     };
 
     timers = {
@@ -216,6 +332,35 @@ in {
           Unit = "nextcloud-notify_push_setup.service";
         };
       };
+      nextcloud-quickshell-token-rotate = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "monthly";
+          Persistent = true;
+          RandomizedDelaySec = "6h";
+        };
+      };
     };
   };
+
+  # The wrapper the desktops call over ssh. The token file is root-owned 0640,
+  # so this is the supported way in rather than loosening the file itself.
+  environment.systemPackages = [
+    (pkgs.writeShellApplication {
+      name = "nextcloud-quickshell-token-print";
+      runtimeInputs = [pkgs.coreutils];
+      text = ''
+        set -eu
+        file=/var/lib/nextcloud/secrets/quickshell-token
+
+        if [ ! -s "$file" ]; then
+          echo "nextcloud-quickshell-token-print: no token minted yet." >&2
+          echo "On lenovo: sudo systemctl start nextcloud-quickshell-token.service" >&2
+          exit 1
+        fi
+
+        cat "$file"
+      '';
+    })
+  ];
 }

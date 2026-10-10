@@ -75,10 +75,7 @@ in {
 
       var agentUnits = [
         "collect-system-health.service",
-        "restic-backups-nextcloud.service",
-        "restic-backups-nextcloud-storage.service",
-        "restic-backups-nextcloud-ssd2-core.service",
-        "restic-nextcloud-restore-test.service",
+        "restic-backups-storage.service",
         "nix-gc.service",
         "ssd2-vdo-provision.service"
       ];

@@ -4,5 +4,6 @@
     ./wayland
     ./core
     ./maintenance
+    ./mobile/adb.nix
   ];
 }

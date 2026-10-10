@@ -93,7 +93,8 @@
           ${inputs.self}/home/scripts/herdr-launch \
           ${inputs.self}/apps/spark-corrector/spark-corrector \
           ${inputs.self}/apps/spark-corrector/test.sh \
-          ${inputs.self}/apps/whisprflow/whisprflow
+          ${inputs.self}/apps/whisprflow/whisprflow \
+          ${inputs.self}/apps/panicmap/panicmap-api-update
         shellcheck --shell=bash \
           ${inputs.self}/home/scripts/bcn \
           ${inputs.self}/home/scripts/eduroam \

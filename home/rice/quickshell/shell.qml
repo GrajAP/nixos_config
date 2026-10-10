@@ -1703,6 +1703,23 @@ ShellRoot {
       .length;
     return Math.max(0, count - (limit || 3));
   }
+  function calendarEventDurationMinutes(event) {
+    if (!event || !event.startTime || !event.endTime || event.allDay || event.task)
+      return 0;
+    const start = root.calendarMinutesFromClock(event.startTime, -1);
+    const end = root.calendarMinutesFromClock(event.endTime, -1);
+    if (start < 0 || end <= start) return 0;
+    return end - start;
+  }
+  function calendarEventTimeRange(event) {
+    if (!event || event.allDay || event.task || !event.startTime) return "";
+    return event.endTime ? event.startTime + "–" + event.endTime : event.startTime;
+  }
+  function calendarEventChipHeight(event) {
+    const minutes = root.calendarEventDurationMinutes(event);
+    if (minutes <= 0) return 20;
+    return Math.max(20, Math.min(64, Math.round(20 + (minutes - 30) * 0.25)));
+  }
   function calendarEventStartDate(event) {
     if (!event || !event.date || !event.startTime || event.allDay || event.task || event.completed)
       return null;
@@ -1804,6 +1821,7 @@ ShellRoot {
       return Math.floor(minutes / 60) + "h";
     }
     if (event.allDay) return root.agendaCompactDateLabel(event.date) || "today";
+    if (event.endTime) return "→ " + event.endTime;
     return event.startTime || root.agendaCompactDateLabel(event.date);
   }
   function agendaEventRelativeLabel(event) {
@@ -3689,23 +3707,40 @@ ShellRoot {
                     Repeater {
                       model: root.calendarDayItems(calendarDayCell.modelData.date)
                       Rectangle {
+                        id: calendarChip
                         required property var modelData
                         width: parent.width
-                        height: calendarMonthGrid.px(20, 14)
+                        readonly property bool twoLine: height >= 34
+                        height: root.calendarEventChipHeight(modelData)
                         radius: 5
                         color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
-                        Text {
+                        readonly property color textColor: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
+                        ColumnLayout {
                           anchors.fill: parent
-                          anchors.leftMargin: calendarMonthGrid.px(7, 4)
-                          anchors.rightMargin: calendarMonthGrid.px(7, 4)
-                          text: modelData.nowMarker ? "now " + modelData.title : ((modelData.birthday ? "✦ " : (modelData.note ? "≡ " : (modelData.task ? (modelData.completed ? "✓ " : "○ ") : (modelData.startTime ? modelData.startTime + " " : "")))) + modelData.title)
-                          color: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
-                          font.family: Theme.fontSans
-                          font.pixelSize: calendarMonthGrid.px(12, 9)
-                          font.bold: Boolean(modelData.nowMarker)
-                          font.strikeout: Boolean(modelData.completed)
-                          elide: Text.ElideRight
-                          verticalAlignment: Text.AlignVCenter
+                          anchors.leftMargin: 7
+                          anchors.rightMargin: 7
+                          spacing: 0
+                          Text {
+                            Layout.fillWidth: true
+                            visible: calendarChip.twoLine && !modelData.nowMarker
+                            text: root.calendarEventTimeRange(modelData)
+                            color: Qt.rgba(calendarChip.textColor.r, calendarChip.textColor.g, calendarChip.textColor.b, 0.75)
+                            font.family: Theme.fontSans
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                          }
+                          Text {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: !calendarChip.twoLine
+                            text: (modelData.nowMarker ? "now " : (calendarChip.twoLine ? "" : (root.calendarEventTimeRange(modelData) ? root.calendarEventTimeRange(modelData) + " " : ""))) + ((modelData.birthday ? "✦ " : (modelData.note ? "≡ " : (modelData.task ? (modelData.completed ? "✓ " : "○ ") : ""))) + modelData.title)
+                            color: calendarChip.textColor
+                            font.family: Theme.fontSans
+                            font.pixelSize: 12
+                            font.bold: Boolean(modelData.nowMarker)
+                            font.strikeout: Boolean(modelData.completed)
+                            elide: Text.ElideRight
+                            verticalAlignment: calendarChip.twoLine ? Text.AlignTop : Text.AlignVCenter
+                          }
                         }
                       }
                     }
@@ -4002,7 +4037,7 @@ ShellRoot {
                 }
 	                Text { text: modelData.title; color: modelData.completed ? Theme.muted : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; font.strikeout: Boolean(modelData.completed) }
 	                Text {
-	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? (modelData.completed ? "done" : "task") : (modelData.allDay ? "all day" : (modelData.startTime || ""))))
+	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? ((modelData.completed ? "done" : "task") + (modelData.source ? " · " + modelData.source : "")) : (modelData.allDay ? "all day" : (root.calendarEventTimeRange(modelData) || modelData.startTime || ""))))
 	                  color: Theme.muted
                   font.family: Theme.fontSans
                   font.pixelSize: 10

@@ -30,8 +30,15 @@ in {
       value="$2"
       if grep -q "^$key[[:space:]]*=" "$config"; then
         sed -i "s|^$key[[:space:]]*=.*$|$key = $value|" "$config"
-      else
+      elif [[ -s $config ]]; then
+        # Insert above every table header, so the key stays top level TOML.
         sed -i "1i$key = $value" "$config"
+      else
+        # GNU sed writes nothing at all when told to insert before line 1 of
+        # an empty file, so on a fresh ~/.codex/config.toml none of the
+        # defaults would ever land. There are no tables yet, so appending is
+        # the same as inserting at the top.
+        printf '%s = %s\n' "$key" "$value" >> "$config"
       fi
     }
 
