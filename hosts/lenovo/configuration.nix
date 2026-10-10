@@ -5,6 +5,7 @@
     # Shared with the desktops, unlike everything else in here: the unattended
     # fleet update has to be the same code on every host or they drift.
     ../../system/maintenance
+    ../../system/agents # agent instructions + skills, without home-manager
     ../../system/mobile/adb.nix # adb + udev for the POCO test phone
 
     # One concern per file, so a rebuild diff is reviewable at a glance.
@@ -30,6 +31,10 @@
 
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
+
+  # No home-manager here, so home/agents never gets deployed. Same skills, same
+  # AGENTS.md, linked into the home by a oneshot instead.
+  fleet.agents.enable = true;
 
   # Headless T3 Code host: `t3 serve`, `t3 theme` and `t3 connect` for T3
   # Connect. The service env comes from the drop-in `t3 service install` writes

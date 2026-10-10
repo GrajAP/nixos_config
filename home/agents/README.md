@@ -20,6 +20,22 @@ harness on every machine (opencode, claude code, codex, and the agent-agnostic
 Everything is a symlink into the Nix store: edit here, run `./rebuild.sh`, done.
 `~/.codex/AGENTS.md` is intentionally left alone because it already has local content.
 
+## Heads without home-manager
+
+`lenovo` is headless and has no home-manager, so `default.nix` above never runs
+there and it used to get nothing at all — the one gap that let a skill silently
+exist on two machines and not the others.
+
+`system/agents/default.nix` is the same deployment in system scope, reading the
+same `AGENTS.md` and `skills/`, installed by a oneshot into `/home/grajpap`. It
+is imported by lenovo and links exactly the same paths listed above.
+
+Both modules read the same directory, so a new skill folder reaches the desktops
+through home-manager and the headless hosts through the system module, with no
+second list to keep in step. Two mechanisms rather than one, because the store
+links home-manager makes are the right thing where they are available and simply
+do not exist without it.
+
 ## Adding a skill
 
 ```bash
