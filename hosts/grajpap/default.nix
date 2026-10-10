@@ -42,10 +42,10 @@ in {
   imports = [
     ./hardware-configuration.nix
 
-    # PC-only: data disks, Android dev, Nextcloud hosting, backups, health.
+    # PC-only: data disks, Android dev, backups, health, KDE Connect.
     ../../system/core/storage.nix
     ../../system/mobile
-    ../../system/sync
+    ../../system/desktop
     ../../system/backup
     ../../system/monitoring
 

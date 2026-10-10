@@ -96,10 +96,12 @@ in {
 
   users = {
     groups.storage-share.gid = 970;
-    users = {
-      grajpap.extraGroups = ["storage-share"];
-      nextcloud.extraGroups = ["storage-share"];
-    };
+    # Only grajpap is in this group now. The nextcloud user joined it so the
+    # instance that used to be hosted here could read the disk as an external
+    # storage mount; that instance is on lenovo, which does not mount this disk
+    # at all, and keeping the account would define a system user that no
+    # service ever creates.
+    users.grajpap.extraGroups = ["storage-share"];
   };
 
   fileSystems = {
