@@ -9,9 +9,9 @@ One flake, three hosts:
 
 | Host | Flake attr | nixpkgs | Profile |
 | --- | --- | --- | --- |
-| PC | `grajpap` | unstable (`nixpkgs`) | desktop + `fleet.heavy.enable` (games, Android Studio, hosting) |
-| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` | headless server — no desktop |
-| Dell laptop | `dell` (online, flake attr only on its own checkout) | unstable (same as PC) | desktop minus heavy — 1:1 with PC |
+| PC | `grajpap` | unstable (`nixpkgs`) | desktop + `fleet.heavy.enable` (games, Android Studio, data disks) |
+| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` | headless server — no desktop, hosts Nextcloud |
+| Dell laptop | `dell` | unstable (same as PC) | desktop minus heavy — 1:1 with PC |
 
 - Desktop hosts share `system/wayland`, `system/core`, `theme/` and `home/`;
   PC-only extras are gated by `fleet.heavy.enable` and host imports in
