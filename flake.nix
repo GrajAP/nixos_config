@@ -96,6 +96,7 @@
           ${inputs.self}/apps/whisprflow/whisprflow
         shellcheck --shell=bash \
           ${inputs.self}/home/scripts/bcn \
+          ${inputs.self}/home/scripts/eduroam \
           ${inputs.self}/home/scripts/loc \
           ${inputs.self}/home/scripts/update-userstyles
         shellcheck --shell=bash ${inputs.self}/home/rice/quickshell/scripts/*.sh

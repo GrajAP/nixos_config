@@ -15,6 +15,11 @@
       runtimeInputs = with pkgs; [nix coreutils python3 gnugrep];
       text = builtins.readFile ./update-userstyles;
     })
+    (pkgs.writeShellApplication {
+      name = "eduroam";
+      runtimeInputs = with pkgs; [networkmanager gnugrep gawk];
+      text = builtins.readFile ./eduroam;
+    })
     (pkgs.writeShellScriptBin "katana-switch" (builtins.readFile ./katana-switch))
     (pkgs.writeShellApplication {
       name = "herdr-launch";

@@ -35,6 +35,11 @@
     # carried around and lid-closed repeatedly is one less thing waking the
     # screen.
     autostart = false;
+    # The one machine that joins campus wifi. EAP-TTLS authenticates the
+    # station MAC address, so a random one never gets past the handshake;
+    # `eduroam` (home/scripts/eduroam) sets up the 802.1X profile and asks for
+    # the login once.
+    wifiRandomMac = false;
     # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
     # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
     # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal

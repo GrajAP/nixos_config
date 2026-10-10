@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# eduroam - join / refresh the campus 802.1X network.
+#
+# The connection profile is created and owned by this script, not by Nix:
+# NetworkManager stores the EAP password inside the profile, so a profile
+# declared in the configuration would lose the password on every rebuild. NM
+# polkit (system/core/network.nix) lets the `networkmanager` group do all of
+# this unprivileged, so nothing here needs sudo -- and the password goes to the
+# gnome-keyring agent of the running session rather than onto disk in clear.
+#
+# First run asks for the login realm (the university's domain) once and caches
+# it in ~/.config/eduroam/realm. After that, running this reconnects.
+#
+# Usage: eduroam [--forget] [--realm DOMAIN] [LOGIN]
+
+set -euo pipefail
+
+CON_NAME=eduroam
+SSID=eduroam
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/eduroam"
+REALM_FILE="$CONF_DIR/realm"
+
+forget=0
+realm_override=""
+args=()
+while (($#)); do
+  case "$1" in
+    --forget) forget=1 ;;
+    --realm)
+      realm_override="${2:?--realm needs a domain}"
+      shift
+      ;;
+    *) args+=("$1") ;;
+  esac
+  shift
+done
+login="${args[0]:-${EDUROAM_LOGIN:-}}"
+realm="$realm_override"
+[[ -z $realm && -r $REALM_FILE ]] && realm=$(<"$REALM_FILE")
+
+nm() { nmcli --wait 30 "$@"; }
+profile_exists() { nm -t -f NAME connection show | grep -qFx "$CON_NAME"; }
+
+if ((forget)); then
+  nm connection delete "$CON_NAME" 2>/dev/null || true
+  echo "removed connection profile: $CON_NAME"
+  exit 0
+fi
+
+if [[ -z $login ]]; then
+  read -r -p "eduroam login: " login
+fi
+if [[ -z $realm ]]; then
+  # EAP-TTLS carries the realm in both the outer (anonymous) and the inner
+  # identity; without it the RADIUS server cannot route the request to the
+  # right institution.
+  read -r -p "eduroam realm (e.g. student.example.edu.pl): " realm
+  mkdir -p "$CONF_DIR"
+  chmod 700 "$CONF_DIR"
+  printf '%s\n' "$realm" >"$REALM_FILE"
+  chmod 600 "$REALM_FILE"
+fi
+
+identity="$login@$realm"
+interface=$(nm -t -f DEVICE,TYPE device status | awk '$2 == "wifi" {print $1; exit}')
+if [[ -z $interface ]]; then
+  echo "no wifi device found" >&2
+  exit 1
+fi
+
+# EAP-TTLS rejects a randomized MAC outright, so the per-device setting is
+# turned off too. fleet.wifiRandomMac covers the config-level default.
+nmcli device set "$interface" wifi.mac-address-randomization no
+
+if profile_exists; then
+  # Keep the EAP parameters in sync with the login/realm typed now, and re-arm
+  # autoconnect. The stored secret is left untouched.
+  nm connection modify "$CON_NAME" \
+    802-1x.identity "$identity" \
+    802-1x.anonymous-identity "anonymous@$realm" \
+    ifname "$interface" \
+    connection.autoconnect yes
+else
+  nm connection add \
+    type wifi \
+    ifname "$interface" \
+    con-name "$CON_NAME" \
+    ssid "$SSID" \
+    wifi-sec.key-mgmt wpa-eap \
+    wifi-sec.proto 'rsn wpa' \
+    802-1x.eap ttls \
+    802-1x.identity "$identity" \
+    802-1x.anonymous-identity "anonymous@$realm" \
+    802-1x.phase2-auth mschapv2 \
+    802-1x.ca-cert /etc/ssl/certs/ca-bundle.crt \
+    connection.autoconnect yes
+fi
+
+# Only prompt when the keyring has nothing for this profile. gnome-keyring is
+# unlocked by PAM at session start, so the agent answers without a prompt.
+if [[ -z $(nm -g 802-1x.password connection show "$CON_NAME" 2>/dev/null) ]]; then
+  read -r -s -p "eduroam password for $identity: " pw
+  echo
+  nm connection modify "$CON_NAME" 802-1x.password "$pw"
+  unset pw
+fi
+
+nm connection up "$CON_NAME"

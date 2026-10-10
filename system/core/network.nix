@@ -17,7 +17,13 @@ in {
       unmanaged = ["docker0" "rndis0"];
       dns = mkIf dnscrypt "none";
       wifi = {
-        macAddress = "random";
+        # EAP-TTLS (eduroam) rejects a randomized MAC address, so hosts that
+        # join campus wifi turn this off. fleet.wifiRandomMac is the switch;
+        # lenovo and dell set it false, the PC keeps the random default.
+        macAddress =
+          if config.fleet.wifiRandomMac
+          then "random"
+          else "preserve";
         powersave = true;
       };
     };

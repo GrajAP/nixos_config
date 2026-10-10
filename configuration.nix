@@ -50,6 +50,19 @@
       '';
     };
 
+    wifiRandomMac = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether NetworkManager sets a random MAC on wifi scans.
+
+        Fine for home wifi, fatal for eduroam: EAP-TTLS authenticates the
+        station's hardware address, and a randomized one is rejected before
+        any credential is even looked at. dell carries the `eduroam` script
+        (home/scripts/eduroam), so it turns this off.
+      '';
+    };
+
     displayScale = lib.mkOption {
       type = lib.types.ints.unsigned;
       default = 100;
