@@ -51,6 +51,8 @@ in {
       "d ${backupState} 0700 root root - -"
     ];
     services = {
+      # Kept under its old name for the same reason as the state directory: the
+      # password it manages is the one that opens the existing repository.
       restic-nextcloud-password = {
         description = "Create the local Restic repository password";
         before = ["restic-backups-storage.service"];
