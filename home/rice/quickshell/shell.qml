@@ -73,21 +73,23 @@ ShellRoot {
   // Services.UPower covers power-profiles, which this fleet leaves to TLP.
   // FileView over sysfs is the supported route, and Io was already imported.
   readonly property string batteryPath:
-    batteryProbe.status === FileView.Ready ? batteryProbe.path : ""
+    batteryProbeBat0.loaded ? batteryProbeBat0.path
+    : batteryProbeBat1.loaded ? batteryProbeBat1.path
+    : ""
   readonly property bool batteryHasPack: batteryPath !== ""
   readonly property int batteryCapacity: {
-    if (!batteryHasPack || batteryCapacityView.status !== FileView.Ready)
+    if (!batteryHasPack || !batteryCapacityView.loaded)
       return -1;
     const raw = parseInt(batteryCapacityView.text().trim(), 10);
     return isNaN(raw) ? -1 : raw;
   }
   readonly property bool batteryCharging:
-    batteryStatusView.status === FileView.Ready
+    batteryStatusView.loaded
     && batteryStatusView.text().trim().indexOf("Charging") === 0
   readonly property bool acOnline:
-    acOnlineView.status === FileView.Ready && acOnlineView.text().trim() === "1";
+    acOnlineView.loaded && acOnlineView.text().trim() === "1";
   readonly property string batteryStatus:
-    batteryStatusView.status === FileView.Ready ? batteryStatusView.text().trim() : "";
+    batteryStatusView.loaded ? batteryStatusView.text().trim() : "";
   // dell's panel is 864 logical px tall, where the calendar's title bar and date
   // line cost two rows the month grid needs; the desktop keeps both.
   readonly property bool calendarHeader: @calendarHeader@;
@@ -237,18 +239,21 @@ ShellRoot {
 
   // Battery readers.
   //
-  // Power supplies are numbered (BAT0, BAT1...) with no stable symlink, so the
-  // pack is resolved by probing BAT0 and falling back to BAT1. Reading it back
-  // off the probe's own path keeps the id and the reader in sync, and the
-  // remaining readers follow whatever it settled on.
+  // Power supplies are numbered (BAT0, BAT1...) with no stable symlink, so both
+  // are probed and batteryPath keeps whichever one actually loaded. quickshell's
+  // FileView exposes no status enum -- only `loaded` -- so that is the gate: on a
+  // machine with no pack neither file exists and batteryPath stays "", which hides
+  // the whole battery UI (grajpap is a desktop; only the laptops have a pack).
   FileView {
-    id: batteryProbe
+    id: batteryProbeBat0
     path: "/sys/class/power_supply/BAT0/capacity"
     printErrors: false
-    onFileChanged: {
-      if (status === FileView.Error && path.endsWith("/BAT0/capacity"))
-        path = "/sys/class/power_supply/BAT1/capacity";
-    }
+  }
+
+  FileView {
+    id: batteryProbeBat1
+    path: "/sys/class/power_supply/BAT1/capacity"
+    printErrors: false
   }
 
   FileView {
@@ -1014,7 +1019,7 @@ ShellRoot {
     return categories;
   }
   function batteryReadNumber(view) {
-    if (view.status !== FileView.Ready)
+    if (!view.loaded)
       return -1;
     const value = parseInt(view.text().trim(), 10);
     return isNaN(value) ? -1 : value;
