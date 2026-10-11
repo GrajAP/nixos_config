@@ -17,6 +17,7 @@ if True:
       from urllib.parse import quote, urljoin, urlsplit
       from urllib.request import Request, urlopen
       from xml.etree import ElementTree as ET
+      from subprocess import run
       from xml.sax.saxutils import escape as escape_xml
 
       from icalendar import Calendar
@@ -27,6 +28,9 @@ if True:
       # It is served under /nextcloud there because tailscale serve already
       # owns the root path for HomeNest.
       BASE_URL = "https://lenovo.tail138448.ts.net/nextcloud"
+      # ssh alias for the same machine, used only to re-collect the app password
+      # when the cached one has been rotated away.
+      LENOVO_HOST = "lenovo-user"
       # urljoin() throws away any path in BASE_URL when handed an absolute one,
       # so every path built here has to carry the prefix itself. The hrefs DAV
       # returns already contain it, which is why only the literals below needed
@@ -49,11 +53,40 @@ if True:
           "cal": "urn:ietf:params:xml:ns:caldav",
       }
 
+      # The token lenovo mints for this widget is rotated monthly
+      # (nextcloud-quickshell-token-rotate on hosts/lenovo), which deletes the
+      # old one server-side. A cached copy therefore goes stale on its own and
+      # used to leave the widget permanently empty until someone re-collected
+      # it by hand. Re-collect it here instead: occ is local-only, so the
+      # supported path is the token-print wrapper over the fleet key, which the
+      # desktop already has passwordless sudo for.
+      def refresh_password():
+          result = run(
+              [
+                  "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+                  LENOVO_HOST, "sudo", "nextcloud-quickshell-token-print",
+              ],
+              capture_output=True, text=True, timeout=60,
+          )
+          token = result.stdout.strip()
+          if result.returncode != 0 or not token:
+              raise RuntimeError(
+                  f"could not re-fetch the Nextcloud app password from {LENOVO_HOST}: "
+                  f"{result.stderr.strip()[:200]}"
+              )
+          PASSWORD_FILE.parent.mkdir(parents=True, exist_ok=True)
+          PASSWORD_FILE.write_text(token + "\n", encoding="utf-8")
+          PASSWORD_FILE.chmod(0o600)
+          return token
+
       def password():
           try:
               return PASSWORD_FILE.read_text(encoding="utf-8").strip()
           except OSError as error:
-              raise RuntimeError(f"Nextcloud bar token missing at {PASSWORD_FILE}") from error
+              raise RuntimeError(
+                  f"Nextcloud app password missing at {PASSWORD_FILE} and could "
+                  f"not be re-fetched; set it manually"
+              ) from error
 
       def request(method, path, body=None, headers=None, ok=(200, 201, 204, 207)):
           url = path if path.startswith("http") else urljoin(BASE_URL, path)
@@ -76,6 +109,19 @@ if True:
                   return payload
           except HTTPError as error:
               details = error.read().decode("utf-8", errors="replace")
+              # 401 usually means the cached app password was rotated away.
+              # Re-collect it once and retry before giving up, so the widget
+              # heals itself the month after the rotation instead of staying
+              # empty until a human intervenes.
+              if error.code == 401:
+                  try:
+                      refresh_password()
+                  except Exception as refresh_error:
+                      raise RuntimeError(
+                          f"{method} {url} returned HTTP 401 and the app password "
+                          f"could not be re-fetched: {refresh_error}"
+                      ) from refresh_error
+                  return request(method, path, body, headers, ok=ok)
               raise RuntimeError(f"{method} {url} returned HTTP {error.code}: {details[:240]}") from error
           except URLError as error:
               raise RuntimeError(f"{method} {url} failed: {error.reason}") from error
