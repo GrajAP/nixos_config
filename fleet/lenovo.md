@@ -65,6 +65,67 @@ switch — `systemd-modules-load` resolves modules through
 contains `wl.ko` from the new generation onward. Then check
 `modinfo wl` and `nmcli device status` for the new wlan interface.
 
+## Audit 2026-10-11
+
+Power, disk and health audit after 15d20h uptime. RAPL (`/sys/class/powercap`)
+measured the CPU package at **2.3–4.5 W** (avg ~3.5 W) at 14.5% average CPU
+busy; full-system wall draw is **~10–15 W**, estimated at **~4.6 kWh** since the
+boot, ~5 zł. There is no wall meter on this box and the battery is dead, so
+nothing here is a metered figure — it is RAPL plus a model.
+
+Corrected earlier assumptions:
+
+- The battery (`BAT0`) is effectively gone: 3.86 V against 14.88 V design,
+  `capacity=0`, `energy_now=0`. TLP's 50/80 charge thresholds have nothing to
+  act on, and **there is no power-cut buffer** — the box dies instantly.
+- The discrete **GeForce 820M is not a power problem**: `nouveau` binds it, but
+  `/sys/bus/pci/devices/0000:03:00.0/power/runtime_status` is `suspended` and
+  stays there. An earlier single reading showed `active`; that was a transient.
+  The repeated `nouveau: MMIO write ... FAULT at PRIVRING` lines in the journal
+  are probe noise, not a blocked suspend. Do not blacklist the module on the
+  assumption that it saves watts — removing the driver takes runtime PM with it.
+- i915 (`00:02.0`) sits at `power/control=on`, `runtime_status=active`. With the
+  lid closed and the panel blanked that is <1 W; not worth destabilising.
+
+The CPU package is only part of the bill. `opencode.exe` + `node` + `esbuild` +
+`cloudflared` accounted for **28.7 CPU-hours, 39% of all CPU time** since the
+boot. Until the agent stops idling on this box, the machine cannot reach idle.
+
+### Disk
+
+`/` hit **92% (18G free)**. Two causes, both fixed:
+
+- `nix-store-gc` had been failing every night since the Nix 2.31 migration —
+  `--max-free-space` no longer exists in `nix-collect-garbage`. It now only
+  passes `--delete-older-than 14d`; the free-space floor is `min-free = "10G"`
+  in `modules/boot.nix`. The timer is daily, not weekly.
+- Agent scratch: `~/.t3/worktrees` held 34G of stale T3 Code worktrees and
+  `/tmp/opencode` 13G. `agent-scratch-prune.service` (daily, 03:40) now prunes
+  both, age-gated at 7 days, skipping anything any process has open. Worktrees
+  go through `git worktree remove` **without `--force`**, so a tree with
+  uncommitted changes is never touched.
+
+`disk-space-check` was alert-only. It now warns at 85% and *reclaims* at 92%
+by starting both jobs and reporting what was freed; the timer runs every 4h.
+
+Result: 190G used / 92% → **106G used / 51%**.
+
+`~/.t3/worktrees/kilometr/t3code-e141a3f4` was **kept on purpose** — it has
+three uncommitted files (`.github/workflows/build-apk.yml`, `LiveTripPlan.kt`,
+`LiveUpdateFactory`). Everything else in that project was clean, committed to
+branches in `/home/grajpap/dev/kilometr`, and removed.
+
+### Power settings
+
+`power.cpuMitigations = false` is set in `configuration.nix` (PTI, retpolines,
+IBPB, RDT off). Requires a reboot; **not yet applied to the running kernel**.
+
+### Known cosmetic
+
+Nextcloud logs `files_trashbin/trashbin_size is stored as integer but was
+requested as string` and `NoteDoesNotExistException` from the Notes app on
+delete. Harmless, noisy.
+
 ## Rebuild
 
 ```bash
