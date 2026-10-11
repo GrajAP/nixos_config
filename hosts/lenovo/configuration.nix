@@ -32,6 +32,12 @@
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
 
+  # Drop PTI, retpolines, IBPB, RDT and friends (boot.nix adds mitigations=off).
+  # Accepted trade-off: this box exposes nothing but Tailscale and key-only SSH,
+  # so the speculative-execution attack surface is close to empty, while on this
+  # Haswell the mitigations cost real watts and clock. Needs a reboot to apply.
+  power.cpuMitigations = false;
+
   # No home-manager here, so home/agents never gets deployed. Same skills, same
   # AGENTS.md, linked into the home by a oneshot instead.
   fleet.agents.enable = true;

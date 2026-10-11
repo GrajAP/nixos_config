@@ -6,14 +6,46 @@
 }: let
   # writeShellScriptBin, not writeShellScript: the latter emits the script at
   # the root of its store path, so "${x}/bin/name" would not resolve.
+  # Warn at 85%, but *act* at 92%.
+  #
+  # Notifying alone is not enough on a headless box: the 2026-10-11 audit found
+  # / at 92% with only 18G free, and the nightly Nix GC that should have been
+  # reclaiming that space had been failing for days. By the time a human reads
+  # the alert, a single large build can already have taken the root filesystem
+  # (and with it the journal) to zero.
+  #
+  # So above the critical line this runs the same two reclaim jobs the timers
+  # run, and reports what they managed to free.
   diskSpaceCheck = pkgs.writeShellScriptBin "disk-space-check" ''
     set -eu
-    threshold=85
+    warn=85
+    critical=92
+
     used=$(df --output=pcent / | tail -n1 | tr -dc '0-9')
-    if [ "$used" -ge "$threshold" ]; then
-      ${notify}/bin/server-notify "root filesystem at ''${used}% (threshold ''${threshold}%)" \
-        "$(df -h /; echo; echo 'nix-collect-garbage -d; nh clean all')"
+    avail=$(df -h --output=avail / | tail -n1 | tr -d ' ')
+
+    if [ "$used" -lt "$warn" ]; then
+      echo "disk-space-check: ''${used}% used, ''${avail} available"
+      exit 0
     fi
+
+    reclaimed="nothing reclaimed"
+
+    if [ "$used" -ge "$critical" ]; then
+      before=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
+      systemctl start --no-block agent-scratch-prune.service
+      systemctl start --no-block nix-store-gc.service
+      # Neither job is instant; give them room before measuring the result.
+      for _ in $(seq 1 60); do
+        [ -z "$(systemctl list-jobs --no-legend agent-scratch-prune.service nix-store-gc.service 2>/dev/null)" ] && break
+        sleep 10
+      done
+      after=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
+      reclaimed=$(( (after - before) / 1048576 ))" MiB reclaimed by prune+GC"
+    fi
+
+    ${notify}/bin/server-notify "root filesystem at ''${used}% (''${avail} free, reclaimed: ''${reclaimed})" \\
+      "$(df -h /; echo; echo 'journalctl -u agent-scratch-prune -u nix-store-gc -n 50')"
   '';
 
   # systemd does not run ExecStart through a shell, so the `systemctl status`
@@ -143,9 +175,17 @@ in {
       )
       // {
         "disk-space-check" = {
-          description = "Warn when the root filesystem gets full";
+          description = "Warn when the root filesystem gets full, reclaim when critical";
           after = ["local-fs.target"];
-          path = [pkgs.coreutils];
+          path = [
+            notify
+            pkgs.coreutils
+            pkgs.systemd
+          ];
+          environment = {
+            SERVER_ALERT_NTFY_HOST = config.serverAlerts.ntfyHost;
+            SERVER_ALERT_NTFY_TOPIC = config.serverAlerts.ntfyTopic;
+          };
           serviceConfig = {
             Type = "oneshot";
             ExecStart = "${diskSpaceCheck}/bin/disk-space-check";
@@ -179,11 +219,14 @@ in {
     environment.systemPackages = [pkgs.smartmontools];
 
     systemd.timers.disk-space-check = {
-      description = "Daily disk space check";
+      description = "Disk space check every 4 hours";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar = "*-*-* 06:00:00";
-        RandomizedDelaySec = "20m";
+        # Every 4h, not daily: the check is a df() plus, above the critical
+        # line, a reclaim. At the observed growth rate (34G of worktrees in a
+        # fortnight on a 219G disk) a daily cadence leaves very little room.
+        OnCalendar = "*-*-* 00/4:15:00";
+        RandomizedDelaySec = "15m";
         Persistent = true;
       };
     };

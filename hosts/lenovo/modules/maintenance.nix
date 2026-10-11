@@ -10,9 +10,95 @@
       exit 0
     fi
 
-    ${pkgs.nix}/bin/nix-collect-garbage \
-      --delete-older-than 14d \
-      --max-free-space 10G
+    # Only --delete-older-than. Nix 2.31 removed --max-free-space from
+    # nix-collect-garbage entirely, and passing it made this unit exit 1 every
+    # night ("error: unrecognised flag '--max-free-space'"), so /nix/store had
+    # not been collected since the migration. The free-space floor is a nix.conf
+    # concern, not a flag: modules/boot.nix sets `min-free = "10G"`.
+    ${pkgs.nix}/bin/nix-collect-garbage --delete-older-than 14d
+  '';
+
+  # ---------------------------------------------------------------------------
+  # Agent scratch pruning
+  #
+  # /tmp/opencode and ~/.t3/worktrees are not part of any backup and grow without
+  # bound: one fortnight of agent sessions put 13G in /tmp/opencode and 34G in
+  # T3 Code worktrees, which is what pushed / to 92% on a 219G SSD.
+  #
+  # Deliberately conservative:
+  #   * age-gated, so anything a session is still touching is untouched;
+  #   * a worktree with uncommitted changes is never removed, and `git worktree
+  #     remove` is used rather than `rm -rf` so the parent's worktree list stays
+  #     consistent -- committed work lives in branches and cannot be lost;
+  #   * an entry that any process has open, or uses as its cwd, is skipped.
+  # ---------------------------------------------------------------------------
+  agentScratchPrune = pkgs.writeShellScriptBin "agent-scratch-prune" ''
+    set -eu
+
+    max_age_days=7
+    now=$(date +%s)
+
+    # One pass over /proc instead of one per candidate: the naive "is this path
+    # in use" check rescans every fd of every process for every directory, which
+    # on ~350 candidates takes hours.
+    inuse=$(mktemp)
+    trap 'rm -f "$inuse"' EXIT
+    for l in /proc/[0-9]*/cwd /proc/[0-9]*/root /proc/[0-9]*/exe /proc/[0-9]*/fd/*; do
+      readlink "$l" 2>/dev/null || true
+    done > "$inuse"
+
+    free_bytes() { df --output=avail -B1 "$1" 2>/dev/null | tail -n1 | tr -dc '0-9'; }
+
+    pruned=0
+    skipped=0
+
+    # /tmp/opencode: flat scratch dirs, safe to drop whole.
+    scratch=/tmp/opencode
+    if [ -d "$scratch" ]; then
+      for p in "$scratch"/*; do
+        [ -e "$p" ] || continue
+        [ $(( (now - $(stat -c %Y "$p")) / 86400 )) -ge "$max_age_days" ] || continue
+        if grep -qxF "$p" "$inuse" || grep -qxF "$p/" "$inuse"; then
+          echo "agent-scratch-prune: in use, keeping $p"
+          skipped=$((skipped + 1))
+          continue
+        fi
+        rm -rf -- "$p" && pruned=$((pruned + 1)) || skipped=$((skipped + 1))
+      done
+    fi
+
+    # T3 Code worktrees: ask git, never rm.
+    wtroot=/home/grajpap/.t3/worktrees
+    if [ -d "$wtroot" ]; then
+      for project in "$wtroot"/*; do
+        [ -d "$project" ] || continue
+        for wt in "$project"/*; do
+          [ -e "$wt" ] || continue
+          [ -e "$wt/.git" ] || continue
+          [ $(( (now - $(stat -c %Y "$wt")) / 86400 )) -ge "$max_age_days" ] || continue
+          if grep -qxF "$wt" "$inuse"; then
+            echo "agent-scratch-prune: in use, keeping $wt"
+            skipped=$((skipped + 1))
+            continue
+          fi
+          # No --force: `git worktree remove` refuses a tree with modified or
+          # untracked files, which is exactly the guarantee we want here.
+          # Uncommitted work is never deleted by this job.
+          main=$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+          [ -n "$main" ] || continue
+          main=''${main%/.git}
+          if git -C "$main" worktree remove "$wt" 2>/dev/null; then
+            echo "agent-scratch-prune: removed $wt"
+            pruned=$((pruned + 1))
+          else
+            echo "agent-scratch-prune: refused (dirty?), keeping $wt"
+            skipped=$((skipped + 1))
+          fi
+        done
+      done
+    fi
+
+    echo "agent-scratch-prune: pruned=$pruned skipped=$skipped avail=$(free_bytes /)"
   '';
 
   nixUpdateCheck = pkgs.writeShellScriptBin "nix-update-check" ''
@@ -80,6 +166,26 @@ in {
       };
 
       # ---------------------------------------------------------------------------
+      # Agent scratch pruning
+      #
+      # Runs before the GC in the same window: freeing the scratch first means
+      # the garbage collector does not have to be the thing that rescues a full
+      # disk. Age-gated and read-only towards anything in use -- see the script.
+      # ---------------------------------------------------------------------------
+      agent-scratch-prune = {
+        description = "Prune stale agent scratch dirs and T3 Code worktrees";
+        after = ["local-fs.target"];
+        path = [
+          pkgs.coreutils
+          pkgs.git
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${agentScratchPrune}/bin/agent-scratch-prune";
+        };
+      };
+
+      # ---------------------------------------------------------------------------
       # Patch awareness
       #
       # Deliberately NOT an unattended `nixos-rebuild switch`. This box is headless
@@ -111,11 +217,25 @@ in {
     };
 
     timers = {
-      nix-store-gc = {
-        description = "Weekly Nix store garbage collection";
+      agent-scratch-prune = {
+        description = "Daily prune of stale agent scratch and worktrees";
         wantedBy = ["timers.target"];
         timerConfig = {
-          OnCalendar = "Sun *-*-* 04:00:00";
+          OnCalendar = "*-*-* 03:40:00";
+          RandomizedDelaySec = "30m";
+          Persistent = true;
+        };
+      };
+
+      # Daily, not weekly. /nix/store reached 77G on a 219G disk, and with a
+      # weekly cadence plus a 14-day retention window a heavy week of builds
+      # fills the disk before the collector ever runs. nix-collect-garbage on a
+      # store with nothing to delete is a few seconds of stat() calls.
+      nix-store-gc = {
+        description = "Daily Nix store garbage collection";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "*-*-* 04:00:00";
           RandomizedDelaySec = "45m";
           Persistent = true;
         };
