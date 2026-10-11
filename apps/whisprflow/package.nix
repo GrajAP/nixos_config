@@ -1,7 +1,6 @@
 {
   lib,
   pkgs,
-  sparkCorrector ? pkgs.callPackage ../spark-corrector/package.nix {},
 }: let
   whisperPython = pkgs.python3.withPackages (ps: [
     ps.faster-whisper
@@ -26,7 +25,6 @@
       pipewire
       procps
       pulseaudio
-      sparkCorrector
       wl-clipboard
       wtype
       yad

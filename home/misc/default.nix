@@ -11,7 +11,6 @@ in {
     ./cursor.nix
     ./obsidian.nix
     ./stylus.nix
-    ./chatgpt.nix
     ./ferdium.nix
   ];
 
@@ -42,7 +41,6 @@ in {
       fi
     }
 
-    set_codex_option model '"gpt-5.3-codex-spark"'
     set_codex_option model_reasoning_effort '"low"'
     set_codex_option approval_policy '"never"'
     set_codex_option sandbox_mode '"danger-full-access"'

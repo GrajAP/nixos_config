@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Refresh the pinned Catppuccin userstyles export used by home/misc/stylus.nix

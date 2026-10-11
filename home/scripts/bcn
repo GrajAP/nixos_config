@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 bluetoothctl power on >/dev/null

@@ -48,18 +48,7 @@ in {
     ../../system/desktop
     ../../system/backup
     ../../system/monitoring
-
-    # The public PanicMap API. This machine is the backend for hy.be-spotted.org.
-    ../../apps/panicmap/modules/nixos.nix
   ];
-
-  # Serves hy.be-spotted.org out of /mnt/SSD2/dev/hackyeah2026 and keeps itself
-  # in step with that checkout: the reload timer for a local edit, the update
-  # timer for a pushed commit.
-  panicmap = {
-    enable = true;
-    autoUpdate.enable = true;
-  };
 
   fleet = {
     # The PC dual-boots Windows and has always been on GRUB. The fleet-wide
@@ -82,7 +71,6 @@ in {
       criticalUnits = [
         "tailscaled"
         "sshd"
-        "panicmap-api.service"
       ];
     };
   };

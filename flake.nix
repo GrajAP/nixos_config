@@ -23,10 +23,6 @@
       url = "github:ominit/helium-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    codex-desktop-linux = {
-      url = "github:ilysenko/codex-desktop-linux";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -88,14 +84,9 @@
           ${inputs.self}/rebuild.sh \
           ${inputs.self}/fleet/auto-rebuild \
           ${inputs.self}/fleet/status.sh \
-          ${inputs.self}/fleet/dell-bootstrap.sh \
           ${inputs.self}/home/scripts/katana-switch \
           ${inputs.self}/home/scripts/herdr-launch \
-          ${inputs.self}/apps/spark-corrector/spark-corrector \
-          ${inputs.self}/apps/spark-corrector/test.sh \
           ${inputs.self}/apps/whisprflow/whisprflow \
-          ${inputs.self}/apps/panicmap/panicmap-api-update
-        shellcheck --shell=bash \
           ${inputs.self}/home/scripts/bcn \
           ${inputs.self}/home/scripts/eduroam \
           ${inputs.self}/home/scripts/loc \
@@ -103,13 +94,6 @@
         shellcheck --shell=bash ${inputs.self}/home/rice/quickshell/scripts/*.sh
         touch $out
       '';
-      spark-corrector =
-        pkgs.runCommand "check-spark-corrector" {
-          nativeBuildInputs = [pkgs.bash pkgs.coreutils pkgs.jq];
-        } ''
-          bash ${inputs.self}/apps/spark-corrector/test.sh
-          touch $out
-        '';
       quickshell-scripts =
         pkgs.runCommand "check-quickshell-scripts" {
           nativeBuildInputs = [pkgs.bash pkgs.python3];

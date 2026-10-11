@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 readonly source_types="Assembly,Astro,AWK,BASH,Bazel,C,C Header,C#,C++,C++ Header,C++ Module,CMake,Clojure,ClojureC,ClojureScript,Common Lisp,CSS,CUDA,D,Dart,Dockerfile,Elixir,Elm,Erlang,F#,Fish,GLSL,Go,GraphQL,Haskell,HCL,HLSL,HTML,Java,JavaScript,JSX,Julia,Kotlin,LESS,Lua,Makefile,Nim,Nix,OCaml,Perl,PHP,PowerShell,Protocol Buffers,Python,QML,R,Racket,Ruby,Rust,Sass,Scala,Scheme,Shell,Solidity,SQL,Svelte,Swift,SystemVerilog,TSX,TypeScript,Verilog,VHDL,Vue,WebAssembly,WebGPU Shader Language,Zig,Zsh"
