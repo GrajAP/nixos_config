@@ -19,6 +19,7 @@
   environment.systemPackages = with pkgs; [
     # --- required by services and operational scripts -------------------
     git # homenest auto-update.sh, nix-update-check timer
+    gitleaks # secret scanning in rebuild.sh
     nodejs_22 # homenest.service ExecStart, auto-update.sh
     sqlite # consistent database snapshot in the restic backup
     python3 # was in the previous system set; node tooling and scripts expect it

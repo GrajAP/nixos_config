@@ -23,6 +23,7 @@
       glib
       libglibutil
       nix-output-monitor
+      gitleaks
     ];
     defaultPackages = [];
   };

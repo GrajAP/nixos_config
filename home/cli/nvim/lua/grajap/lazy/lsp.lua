@@ -21,14 +21,17 @@ return {
             "force",
             {},
             vim.lsp.protocol.make_client_capabilities(),
-            cmp_lsp.default_capabilities())
-        require("lspconfig").tsserver.setup({
-            on_attach = on_attach,
-            capabilities = capabilities
+            cmp_lsp.default_capabilities()
+        )
+
+        vim.lsp.config('*', {
+            capabilities = capabilities,
         })
+
         require("fidget").setup({})
         require("mason").setup()
-        require("lspconfig").nixd.setup({
+
+        vim.lsp.config('nixd', {
             cmd = { "nixd" },
             settings = {
                 nixd = {
@@ -49,35 +52,35 @@ return {
                 },
             },
         })
+
+        vim.lsp.config('lua_ls', {
+            settings = {
+                Lua = {
+                    diagnostics = {
+                        globals = { "vim", "it", "describe", "before_each", "after_each" },
+                    },
+                },
+            },
+        })
+
         require("mason-lspconfig").setup({
             ensure_installed = {
-                "tsserver",
+                "ts_ls",
                 "html",
                 "cssls",
                 "lua_ls",
                 "rust_analyzer",
             },
-            handlers = {
-                function(server_name) -- default handler (optional)
-                    require("lspconfig")[server_name].setup {
-                        capabilities = capabilities
-                    }
-                end,
+            automatic_enable = true,
+        })
 
-                ["lua_ls"] = function()
-                    local lspconfig = require("lspconfig")
-                    lspconfig.lua_ls.setup {
-                        capabilities = capabilities,
-                        settings = {
-                            Lua = {
-                                diagnostics = {
-                                    globals = { "vim", "it", "describe", "before_each", "after_each" },
-                                }
-                            }
-                        }
-                    }
-                end,
-            }
+        vim.lsp.enable({
+            "nixd",
+            "ts_ls",
+            "html",
+            "cssls",
+            "lua_ls",
+            "rust_analyzer",
         })
 
         local cmp_select = { behavior = cmp.SelectBehavior.Select }

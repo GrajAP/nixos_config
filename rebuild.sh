@@ -31,12 +31,17 @@ usage() {
 # .gitleaks.toml next to the script; --redact keeps the secret out of the
 # terminal and out of the log.
 leak_scan() {
+  local -a cmd=(gitleaks)
   if ! command -v gitleaks >/dev/null 2>&1; then
-    printf '⚠ gitleaks not found; skipping the secret scan\n' >&2
-    return 0
+    if command -v nix >/dev/null 2>&1; then
+      cmd=(nix run --inputs-from "$repo" nixpkgs#gitleaks --)
+    else
+      printf '⚠ gitleaks not found; skipping the secret scan\n' >&2
+      return 0
+    fi
   fi
 
-  if gitleaks dir "$repo" --no-banner --redact --verbose; then
+  if "${cmd[@]}" dir "$repo" --no-banner --redact --verbose; then
     printf '✓ No secrets found\n'
     return 0
   fi
