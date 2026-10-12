@@ -1708,7 +1708,7 @@ ShellRoot {
       .length;
     return Math.max(0, count - (limit || 3));
   }
-  function calendarEventDurationMinutes(event) {
+  function calendarEventSpanMinutes(event) {
     if (!event || !event.startTime || !event.endTime || event.allDay || event.task)
       return 0;
     const start = root.calendarMinutesFromClock(event.startTime, -1);
@@ -1721,7 +1721,7 @@ ShellRoot {
     return event.endTime ? event.startTime + "–" + event.endTime : event.startTime;
   }
   function calendarEventChipHeight(event) {
-    const minutes = root.calendarEventDurationMinutes(event);
+    const minutes = root.calendarEventSpanMinutes(event);
     if (minutes <= 0) return 20;
     return Math.max(20, Math.min(64, Math.round(20 + (minutes - 30) * 0.25)));
   }
