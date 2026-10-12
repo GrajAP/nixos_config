@@ -30,16 +30,6 @@ return {
             capabilities = capabilities,
         })
 
-        vim.lsp.config('lua_ls', {
-            settings = {
-                Lua = {
-                    diagnostics = {
-                        globals = { "vim", "it", "describe", "before_each", "after_each" },
-                    },
-                },
-            },
-        })
-
         vim.lsp.config('nixd', {
             cmd = { "nixd" },
             settings = {
@@ -61,6 +51,17 @@ return {
                 },
             },
         })
+
+        vim.lsp.config('lua_ls', {
+            settings = {
+                Lua = {
+                    diagnostics = {
+                        globals = { "vim", "it", "describe", "before_each", "after_each" },
+                    },
+                },
+            },
+        })
+
         require("mason-lspconfig").setup({
             ensure_installed = {
                 "ts_ls",
@@ -69,6 +70,7 @@ return {
                 "lua_ls",
                 "rust_analyzer",
             },
+            automatic_enable = true,
         })
 
         vim.lsp.enable({
