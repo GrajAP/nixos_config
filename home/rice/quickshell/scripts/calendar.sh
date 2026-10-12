@@ -95,6 +95,10 @@ if True:
           request_headers = {
               "Authorization": f"Basic {auth}",
               "User-Agent": "quickshell-nextcloud-calendar",
+              # Without this Nextcloud serves webcal subscriptions as cs:subscribed
+              # nodes with no readable children, so discover_calendars() skips them
+              # and subscribed calendars (USOS) never reach the widget.
+              "X-NC-CalDAV-Webcal-Caching": "On",
           }
           if body is not None:
               request_headers["Content-Type"] = "application/xml; charset=utf-8"
@@ -330,6 +334,7 @@ if True:
           <d:displayname />
           <d:resourcetype />
           <cal:supported-calendar-component-set />
+          <d:current-user-privilege-set />
         </d:prop>
       </d:propfind>"""
           root = ET.fromstring(request("PROPFIND", CALENDAR_HOME, body, {"Depth": "1"}))
@@ -345,11 +350,22 @@ if True:
                   comp.attrib.get("name", "").upper()
                   for comp in prop.findall("cal:supported-calendar-component-set/cal:comp", NS)
               }
+              privileges = {
+                  granted.tag.rsplit("}", 1)[-1]
+                  for granted in (
+                      child
+                      for privilege in prop.findall("d:current-user-privilege-set/d:privilege", NS)
+                      for child in privilege
+                  )
+              }
               name = text_of(prop, "d:displayname") or href.rstrip("/").split("/")[-1]
               calendars.append({
                   "href": href if href.endswith("/") else f"{href}/",
                   "displayName": name,
                   "components": comps,
+                  # A webcal subscription is mirrored read-only: the server
+                  # grants read but no write-content, so PUTs to it fail 403.
+                  "readOnly": not privileges & {"write", "write-content", "all"},
               })
           return calendars
 
@@ -496,7 +512,8 @@ if True:
               task_lists.append({
                   "id": item["href"],
                   "name": item["displayName"],
-                  "deletable": item["components"] == {"VTODO"} and task_count == 0,
+                  "readOnly": item["readOnly"],
+                  "deletable": not item["readOnly"] and item["components"] == {"VTODO"} and task_count == 0,
                   "taskCount": task_count,
               })
           task_lists.sort(key=lambda item: item["name"].casefold())
@@ -565,7 +582,7 @@ if True:
 
       def choose_calendar(component):
           calendars = discover_calendars()
-          candidates = [item for item in calendars if component in item["components"]]
+          candidates = [item for item in calendars if component in item["components"] and not item["readOnly"]]
           if component == "VTODO":
               tasks_calendar = find_tasks_calendar(candidates)
               if tasks_calendar:
@@ -587,7 +604,7 @@ if True:
           if not task_list_id:
               return choose_calendar("VTODO")
           for item in discover_calendars():
-              if item["href"] == task_list_id and "VTODO" in item["components"]:
+              if item["href"] == task_list_id and "VTODO" in item["components"] and not item["readOnly"]:
                   return item
           raise RuntimeError("Selected task list is unavailable")
 
