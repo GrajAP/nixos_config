@@ -61,8 +61,6 @@ return {
                 },
             },
         })
-        vim.lsp.enable('nixd')
-
         require("mason-lspconfig").setup({
             ensure_installed = {
                 "ts_ls",
@@ -71,6 +69,15 @@ return {
                 "lua_ls",
                 "rust_analyzer",
             },
+        })
+
+        vim.lsp.enable({
+            "nixd",
+            "ts_ls",
+            "html",
+            "cssls",
+            "lua_ls",
+            "rust_analyzer",
         })
 
         local cmp_select = { behavior = cmp.SelectBehavior.Select }
