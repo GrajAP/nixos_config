@@ -3721,7 +3721,11 @@ ShellRoot {
                         required property var modelData
                         width: parent.width
                         readonly property bool twoLine: height >= 34
-                        height: root.calendarEventChipHeight(modelData)
+                        // Compact (dell): every chip gets a time line plus up
+                        // to two title lines, so the title uses the full chip
+                        // width instead of sharing one line with the time.
+                        // Desktop keeps the duration-based single line.
+                        height: root.calendarCompact ? Math.max(46, root.calendarEventChipHeight(modelData)) : root.calendarEventChipHeight(modelData)
                         radius: 5
                         color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
                         readonly property color textColor: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
@@ -3732,7 +3736,7 @@ ShellRoot {
                           spacing: 0
                           Text {
                             Layout.fillWidth: true
-                            visible: calendarChip.twoLine && !modelData.nowMarker
+                            visible: calendarChip.twoLine && !modelData.nowMarker && (!root.calendarCompact || root.calendarEventTimeRange(modelData) !== "")
                             text: root.calendarEventTimeRange(modelData)
                             color: Qt.rgba(calendarChip.textColor.r, calendarChip.textColor.g, calendarChip.textColor.b, 0.75)
                             font.family: Theme.fontSans
@@ -3750,6 +3754,8 @@ ShellRoot {
                             font.bold: Boolean(modelData.nowMarker)
                             font.strikeout: Boolean(modelData.completed)
                             elide: Text.ElideRight
+                            wrapMode: root.calendarCompact ? Text.Wrap : Text.NoWrap
+                            maximumLineCount: root.calendarCompact ? 2 : 1
                             verticalAlignment: calendarChip.twoLine ? Text.AlignTop : Text.AlignVCenter
                           }
                         }
@@ -3772,13 +3778,13 @@ ShellRoot {
                           timeout: 5000
                           x: Math.max(0, Math.min(calendarChip.width - width, (calendarChip.width - width) / 2))
                           y: calendarChip.height + 6
+                          contentWidth: 260
                           contentItem: Text {
                             text: (root.calendarEventTimeRange(calendarChip.modelData) ? root.calendarEventTimeRange(calendarChip.modelData) + " " : "") + (calendarChip.modelData.title || "")
                             color: Theme.text
                             font.family: Theme.fontSans
                             font.pixelSize: 12
                             wrapMode: Text.Wrap
-                            implicitWidth: 260
                           }
                           background: Rectangle {
                             color: Theme.surfaceAlt
