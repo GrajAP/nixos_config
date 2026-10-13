@@ -3755,7 +3755,9 @@ ShellRoot {
                         }
                         // Hover shows the full "time title" only when the chip
                         // actually elides it; acceptedButtons: none so day
-                        // selection clicks pass through.
+                        // selection clicks pass through. Explicit ToolTip (not
+                        // the attached one) so it follows the shell theme
+                        // instead of the default light tooltip style.
                         MouseArea {
                           id: calendarChipHover
                           anchors.fill: parent
@@ -3763,9 +3765,28 @@ ShellRoot {
                           acceptedButtons: Qt.NoButton
                           scrollGestureEnabled: false
                         }
-                        ToolTip.visible: root.calendarCompact && calendarChipTitle.truncated && calendarChipHover.containsMouse
-                        ToolTip.text: (root.calendarEventTimeRange(modelData) ? root.calendarEventTimeRange(modelData) + " " : "") + (modelData.title || "")
-                        ToolTip.delay: 450
+                        ToolTip {
+                          id: calendarChipTip
+                          visible: root.calendarCompact && calendarChipTitle.truncated && calendarChipHover.containsMouse
+                          delay: 450
+                          timeout: 5000
+                          x: Math.max(0, Math.min(calendarChip.width - width, (calendarChip.width - width) / 2))
+                          y: calendarChip.height + 6
+                          contentItem: Text {
+                            text: (root.calendarEventTimeRange(calendarChip.modelData) ? root.calendarEventTimeRange(calendarChip.modelData) + " " : "") + (calendarChip.modelData.title || "")
+                            color: Theme.text
+                            font.family: Theme.fontSans
+                            font.pixelSize: 12
+                            wrapMode: Text.Wrap
+                            implicitWidth: 260
+                          }
+                          background: Rectangle {
+                            color: Theme.surfaceAlt
+                            border.color: Theme.border
+                            border.width: 1
+                            radius: 8
+                          }
+                        }
                       }
                     }
                   }
@@ -4049,45 +4070,25 @@ ShellRoot {
               readonly property bool editable: Boolean(modelData.href) && !modelData.note && modelData.source !== "Obsidian"
               readonly property bool noteOpenable: Boolean(modelData.note) && Boolean(modelData.noteId)
               width: ListView.view.width
-              implicitHeight: root.calendarCompact ? 70 : 58
+              implicitHeight: root.calendarCompact ? calendarItemCompact.implicitHeight + 16 : 58
               radius: 9
 	              color: root.calendarEditingHref === modelData.href ? Theme.surfaceAlt : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.10) : Theme.surface)
               RowLayout {
-                anchors.fill: parent; anchors.margins: root.calendarCompact ? 8 : 10; spacing: root.calendarCompact ? 6 : 10
+                id: calendarItemDesktop
+                visible: !root.calendarCompact
+                anchors.fill: parent; anchors.margins: 10; spacing: 10
                 ColumnLayout {
                   spacing: 0
                   Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "dd"); color: Theme.accent; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
                   Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "MMM"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
                 }
-	                Text {
-                    id: calendarItemTitle
-                    text: modelData.title
-                    color: modelData.completed ? Theme.muted : Theme.text
-                    font.family: Theme.font
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                    font.strikeout: Boolean(modelData.completed)
-                    // Compact (dell): two lines instead of one so titles like
-                    // "W - Miernictwo ..." stay readable; desktop keeps one.
-                    wrapMode: root.calendarCompact ? Text.Wrap : Text.NoWrap
-                    maximumLineCount: root.calendarCompact ? 2 : 1
-                    MouseArea {
-                      id: calendarItemTitleHover
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      acceptedButtons: Qt.NoButton
-                      scrollGestureEnabled: false
-                    }
-                    ToolTip.visible: root.calendarCompact && calendarItemTitle.truncated && calendarItemTitleHover.containsMouse
-                    ToolTip.text: modelData.title || ""
-                    ToolTip.delay: 450
-                  }
+	                Text { text: modelData.title; color: modelData.completed ? Theme.muted : Theme.text; font.family: Theme.font; Layout.fillWidth: true; elide: Text.ElideRight; font.strikeout: Boolean(modelData.completed) }
 	                Text {
 	                  text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? ((modelData.completed ? "done" : "task") + (modelData.source ? " · " + modelData.source : "")) : (modelData.allDay ? "all day" : (root.calendarEventTimeRange(modelData) || modelData.startTime || ""))))
 	                  color: Theme.muted
                    font.family: Theme.fontSans
-                   font.pixelSize: root.calendarCompact ? 9 : 10
-	                  Layout.maximumWidth: root.calendarCompact ? 76 : 110
+                   font.pixelSize: 10
+	                  Layout.maximumWidth: 110
 	                  elide: Text.ElideRight
                 }
                 Rectangle {
@@ -4116,8 +4117,8 @@ ShellRoot {
                 }
                 Rectangle {
                   visible: calendarItemRow.editable
-                  implicitWidth: root.calendarCompact ? 46 : 58
-                  implicitHeight: root.calendarCompact ? 28 : 32
+                  implicitWidth: 58
+                  implicitHeight: 32
                   radius: 8
                   color: Theme.surfaceAlt
                   Text {
@@ -4125,7 +4126,7 @@ ShellRoot {
 		                    text: "Edit"
 		                    color: Theme.text
 		                    font.family: Theme.fontSans
-		                    font.pixelSize: root.calendarCompact ? 11 : 12
+		                    font.pixelSize: 12
 		                    font.bold: true
 		                    horizontalAlignment: Text.AlignHCenter
 		                    verticalAlignment: Text.AlignVCenter
@@ -4140,8 +4141,8 @@ ShellRoot {
                 }
                 Rectangle {
                   visible: calendarItemRow.editable
-                  implicitWidth: root.calendarCompact ? 56 : 72
-                  implicitHeight: root.calendarCompact ? 28 : 32
+                  implicitWidth: 72
+                  implicitHeight: 32
                   radius: 8
                   color: Theme.surfaceAlt
                   Text {
@@ -4149,7 +4150,7 @@ ShellRoot {
 		                    text: "Remove"
 		                    color: Theme.muted
 		                    font.family: Theme.fontSans
-		                    font.pixelSize: root.calendarCompact ? 11 : 12
+		                    font.pixelSize: 12
 		                    font.bold: true
 		                    horizontalAlignment: Text.AlignHCenter
 		                    verticalAlignment: Text.AlignVCenter
@@ -4183,6 +4184,109 @@ ShellRoot {
                     enabled: !calendarTaskAction.running
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.completeCalendarTask(modelData.href)
+                  }
+                }
+              }
+              // Compact (dell) card: title gets (almost) the full row width on
+              // its own line and wraps to three lines, time/source plus the
+              // buttons sit below it. Desktop keeps the single-line row above.
+              ColumnLayout {
+                id: calendarItemCompact
+                visible: root.calendarCompact
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                anchors.topMargin: 8
+                spacing: 6
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 8
+                  ColumnLayout {
+                    spacing: 0
+                    Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "dd"); color: Theme.accent; font.family: Theme.font; font.pixelSize: 18; font.bold: true }
+                    Text { text: Qt.formatDateTime(new Date(modelData.date + "T00:00:00"), "MMM"); color: Theme.muted; font.family: Theme.font; font.pixelSize: 10 }
+                  }
+                  Text {
+                    text: modelData.title
+                    color: modelData.completed ? Theme.muted : Theme.text
+                    font.family: Theme.font
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 3
+                    elide: Text.ElideRight
+                    font.strikeout: Boolean(modelData.completed)
+                  }
+                }
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 6
+                  Text {
+                    text: modelData.birthday ? "birthday" : (modelData.note ? "note" : (modelData.task ? ((modelData.completed ? "done" : "task") + (modelData.source ? " · " + modelData.source : "")) : (modelData.allDay ? "all day" : (root.calendarEventTimeRange(modelData) || modelData.startTime || ""))))
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 150
+                  }
+                  Item { Layout.fillWidth: true }
+                  Rectangle {
+                    visible: calendarItemRow.noteOpenable
+                    implicitWidth: 58
+                    implicitHeight: 30
+                    radius: 8
+                    color: Theme.surfaceAlt
+                    Text { anchors.fill: parent; text: "Open"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: calendarItemRow.noteOpenable && !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.openCalendarNote(calendarItemRow.modelData.noteId)
+                    }
+                  }
+                  Rectangle {
+                    visible: calendarItemRow.editable
+                    implicitWidth: 54
+                    implicitHeight: 30
+                    radius: 8
+                    color: Theme.surfaceAlt
+                    Text { anchors.fill: parent; text: "Edit"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: calendarItemRow.editable && !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.editCalendarItem(calendarItemRow.modelData)
+                    }
+                  }
+                  Rectangle {
+                    visible: calendarItemRow.editable
+                    implicitWidth: 66
+                    implicitHeight: 30
+                    radius: 8
+                    color: Theme.surfaceAlt
+                    Text { anchors.fill: parent; text: "Remove"; color: Theme.muted; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: calendarItemRow.editable && !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.deleteCalendarItem(calendarItemRow.modelData.href)
+                    }
+                  }
+                  Rectangle {
+                    visible: Boolean(modelData.task) && !Boolean(modelData.completed) && calendarItemRow.editable
+                    implicitWidth: 28
+                    implicitHeight: 28
+                    radius: 14
+                    color: Theme.accent
+                    Text { anchors.fill: parent; text: "✓"; color: Theme.background; font.family: Theme.fontSans; font.pixelSize: 13; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.completeCalendarTask(modelData.href)
+                    }
                   }
                 }
               }
@@ -4615,10 +4719,11 @@ ShellRoot {
               id: overallTodoRow
               required property var modelData
               width: ListView.view.width
-              implicitHeight: 58
+              implicitHeight: root.calendarCompact ? overallTodoCompact.implicitHeight + 16 : 58
               radius: 9
               color: Theme.surface
               RowLayout {
+                visible: !root.calendarCompact
                 anchors.fill: parent
                 anchors.margins: 10
                 spacing: 10
@@ -4708,6 +4813,109 @@ ShellRoot {
                     enabled: !calendarTaskAction.running
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.completeCalendarTask(overallTodoRow.modelData.href)
+                  }
+                }
+              }
+              // Compact (dell) card, same idea as the Selected-day one: full
+              // width title on its own line, date plus buttons below.
+              ColumnLayout {
+                id: overallTodoCompact
+                visible: root.calendarCompact
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                anchors.topMargin: 8
+                spacing: 6
+                Text {
+                  Layout.fillWidth: true
+                  text: overallTodoRow.modelData.title
+                  color: Theme.text
+                  font.family: Theme.font
+                  font.pixelSize: 12
+                  wrapMode: Text.Wrap
+                  maximumLineCount: 3
+                  elide: Text.ElideRight
+                }
+                RowLayout {
+                  Layout.fillWidth: true
+                  spacing: 6
+                  Text {
+                    text: overallTodoRow.modelData.date ? root.calendarDateLabel(overallTodoRow.modelData.date) : ""
+                    visible: text.length > 0
+                    color: Theme.muted
+                    font.family: Theme.fontSans
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 150
+                  }
+                  Item { Layout.fillWidth: true }
+                  Rectangle {
+                    implicitWidth: 54
+                    implicitHeight: 30
+                    radius: 8
+                    color: root.overallTodoEditingHref === overallTodoRow.modelData.href ? Theme.accent : Theme.surfaceAlt
+                    Text {
+                      anchors.fill: parent
+                      text: "Edit"
+                      color: root.overallTodoEditingHref === overallTodoRow.modelData.href ? Theme.background : Theme.text
+                      font.family: Theme.fontSans
+                      font.pixelSize: 11
+                      font.bold: true
+                      horizontalAlignment: Text.AlignHCenter
+                      verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.editOverallTodo(overallTodoRow.modelData)
+                    }
+                  }
+                  Rectangle {
+                    implicitWidth: 66
+                    implicitHeight: 30
+                    radius: 8
+                    color: Theme.surfaceAlt
+                    Text {
+                      anchors.fill: parent
+                      text: "Remove"
+                      color: Theme.muted
+                      font.family: Theme.fontSans
+                      font.pixelSize: 11
+                      font.bold: true
+                      horizontalAlignment: Text.AlignHCenter
+                      verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.deleteCalendarItem(overallTodoRow.modelData.href)
+                    }
+                  }
+                  Rectangle {
+                    implicitWidth: 28
+                    implicitHeight: 28
+                    radius: 14
+                    color: Theme.accent
+                    Text {
+                      anchors.fill: parent
+                      text: "✓"
+                      color: Theme.background
+                      font.family: Theme.fontSans
+                      font.pixelSize: 13
+                      font.bold: true
+                      horizontalAlignment: Text.AlignHCenter
+                      verticalAlignment: Text.AlignVCenter
+                    }
+                    MouseArea {
+                      anchors.fill: parent
+                      enabled: !calendarTaskAction.running
+                      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                      onClicked: root.completeCalendarTask(overallTodoRow.modelData.href)
+                    }
                   }
                 }
               }
