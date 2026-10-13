@@ -196,6 +196,10 @@ ShellRoot {
   readonly property bool clipboardLoading: clipboardQuery.running
   property int calendarMonthOffset: 0
   property string calendarSelectedDate: Qt.formatDateTime(clock.date, "yyyy-MM-dd")
+  // "yyyy-MM-dd HH:mm", refreshed every 20 s (see calendarNowTick). The agenda
+  // "now" line subscribes to this instead of the per-second clock so the list
+  // does not rebuild -- and lose its scroll position -- every second.
+  property string calendarNowKey: ""
   property string calendarEntryMode: "event"
   property string calendarTitleDraft: ""
   property string overallTodoDraft: ""
@@ -650,6 +654,7 @@ ShellRoot {
     weatherQuery.running = true;
     calendarQuery.running = true;
     codexUsageQuery.running = true;
+    root.calendarNowKey = Qt.formatDateTime(clock.date, "yyyy-MM-dd HH:mm");
     root.refreshShutdownStatus();
   }
   Timer {
@@ -669,6 +674,13 @@ ShellRoot {
     interval: 115
     repeat: true
     onTriggered: root.adjustCalendarTime(root.calendarRepeatAction, root.calendarRepeatDelta)
+  }
+  Timer {
+    id: calendarNowTick
+    interval: 20000
+    running: true
+    repeat: true
+    onTriggered: root.calendarNowKey = Qt.formatDateTime(clock.date, "yyyy-MM-dd HH:mm")
   }
   Timer {
     id: codexUsageTimer
@@ -1682,7 +1694,11 @@ ShellRoot {
         eventCount: counts[key] || 0
       });
     }
-    return cells;
+    // Only weeks holding in-month days: a 5-week month must not keep an
+    // empty transparent sixth row that eats the grid's height budget and
+    // leaves a dead strip at the bottom of the panel.
+    const weeks = Math.ceil((firstDay + daysInMonth) / 7);
+    return cells.slice(0, weeks * 7);
   }
   function calendarDayItems(date, limit) {
     if (!date) return [];
@@ -1880,10 +1896,17 @@ ShellRoot {
       .slice(0, limit || 10);
   }
 	  function selectedDayEvents() {
-	    return root.calendarEvents
+	    const list = root.calendarEvents
 	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
 	      .slice()
-	      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || a.title.localeCompare(b.title));
+	      .sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || String(a.title || "").localeCompare(String(b.title || "")));
+	    // Compact (dell): current-time marker so the agenda draws a "now"
+	    // line when the selected day is today. Desktop gets events only.
+	    if (root.calendarCompact && root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
+	      list.push({ nowMarker: true, task: false, completed: false, startTime: root.calendarNowKey.substring(11, 16), title: "" });
+	      list.sort((a, b) => Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.startTime || "").localeCompare(b.startTime || "") || String(a.title || "").localeCompare(String(b.title || "")));
+	    }
+	    return list;
 	  }
   function overallTodos() {
     return root.calendarEvents
@@ -3726,12 +3749,14 @@ ShellRoot {
                         // width instead of sharing one line with the time.
                         // Desktop keeps the duration-based single line.
                         // Timed chips fit time + two small lines (40), plain
-                        // task/note chips only the title (30).
-                        height: root.calendarCompact ? (root.calendarEventTimeRange(modelData) !== "" || modelData.nowMarker ? Math.max(40, root.calendarEventChipHeight(modelData)) : Math.max(30, root.calendarEventChipHeight(modelData))) : root.calendarEventChipHeight(modelData)
+                        // task/note chips only the title (30). The "now"
+                        // marker is a 16 px line, not a block.
+                        height: root.calendarCompact ? (modelData.nowMarker ? 16 : (root.calendarEventTimeRange(modelData) !== "" ? Math.max(40, root.calendarEventChipHeight(modelData)) : Math.max(30, root.calendarEventChipHeight(modelData)))) : root.calendarEventChipHeight(modelData)
                         radius: 5
-                        color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
+                        color: (root.calendarCompact && modelData.nowMarker) ? "transparent" : (modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10))))))
                         readonly property color textColor: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
                         ColumnLayout {
+                          visible: !(root.calendarCompact && modelData.nowMarker)
                           anchors.fill: parent
                           anchors.leftMargin: root.calendarCompact ? 4 : 7
                           anchors.rightMargin: root.calendarCompact ? 4 : 7
@@ -3760,6 +3785,14 @@ ShellRoot {
                             maximumLineCount: root.calendarCompact ? 2 : 1
                             verticalAlignment: calendarChip.twoLine ? Text.AlignTop : Text.AlignVCenter
                           }
+                        }
+                        // Compact (dell) current-time line inside the day cell.
+                        RowLayout {
+                          visible: root.calendarCompact && modelData.nowMarker
+                          anchors.fill: parent
+                          spacing: 4
+                          Text { text: modelData.title; color: "#f38ba8"; font.family: Theme.fontSans; font.pixelSize: 9; font.bold: true; verticalAlignment: Text.AlignVCenter }
+                          Rectangle { Layout.fillWidth: true; implicitHeight: 2; radius: 1; color: "#f38ba8" }
                         }
                         // Hover shows the full "time title" only when the chip
                         // actually elides it; acceptedButtons: none so day
@@ -4078,7 +4111,7 @@ ShellRoot {
               readonly property bool editable: Boolean(modelData.href) && !modelData.note && modelData.source !== "Obsidian"
               readonly property bool noteOpenable: Boolean(modelData.note) && Boolean(modelData.noteId)
               width: ListView.view.width
-              implicitHeight: root.calendarCompact ? calendarItemCompact.implicitHeight + 16 : 58
+              implicitHeight: root.calendarCompact ? (modelData.nowMarker ? 20 : calendarItemCompact.implicitHeight + 16) : 58
               radius: 9
 	              color: root.calendarEditingHref === modelData.href ? Theme.surfaceAlt : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.10) : Theme.surface)
               RowLayout {
@@ -4200,7 +4233,7 @@ ShellRoot {
               // buttons sit below it. Desktop keeps the single-line row above.
               ColumnLayout {
                 id: calendarItemCompact
-                visible: root.calendarCompact
+                visible: root.calendarCompact && !modelData.nowMarker
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -4297,6 +4330,19 @@ ShellRoot {
                     }
                   }
                 }
+              }
+              // Compact (dell) current-time line, drawn instead of a card when
+              // the selected day is today. Desktop never gets nowMarker items.
+              RowLayout {
+                visible: root.calendarCompact && modelData.nowMarker
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                spacing: 6
+                Text { text: modelData.startTime || ""; color: "#f38ba8"; font.family: Theme.fontSans; font.pixelSize: 9; font.bold: true }
+                Rectangle { Layout.fillWidth: true; implicitHeight: 2; radius: 1; color: "#f38ba8" }
               }
             }
             Text {
