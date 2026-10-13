@@ -3702,8 +3702,8 @@ ShellRoot {
                   anchors.top: parent.top
                   anchors.bottom: parent.bottom
                   anchors.topMargin: calendarMonthGrid.px(44, 26)
-                  anchors.leftMargin: calendarMonthGrid.px(12, 7)
-                  anchors.rightMargin: calendarMonthGrid.px(8, 5)
+                  anchors.leftMargin: root.calendarCompact ? calendarMonthGrid.px(9, 5) : calendarMonthGrid.px(12, 7)
+                  anchors.rightMargin: root.calendarCompact ? calendarMonthGrid.px(6, 4) : calendarMonthGrid.px(8, 5)
                   anchors.bottomMargin: calendarMonthGrid.px(10, 6)
                   clip: true
                   boundsBehavior: Flickable.StopAtBounds
@@ -3725,14 +3725,16 @@ ShellRoot {
                         // to two title lines, so the title uses the full chip
                         // width instead of sharing one line with the time.
                         // Desktop keeps the duration-based single line.
-                        height: root.calendarCompact ? Math.max(46, root.calendarEventChipHeight(modelData)) : root.calendarEventChipHeight(modelData)
+                        // Timed chips fit time + two small lines (40), plain
+                        // task/note chips only the title (30).
+                        height: root.calendarCompact ? (root.calendarEventTimeRange(modelData) !== "" || modelData.nowMarker ? Math.max(40, root.calendarEventChipHeight(modelData)) : Math.max(30, root.calendarEventChipHeight(modelData))) : root.calendarEventChipHeight(modelData)
                         radius: 5
                         color: modelData.nowMarker ? "#f38ba8" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
                         readonly property color textColor: modelData.nowMarker ? Theme.background : (calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text))
                         ColumnLayout {
                           anchors.fill: parent
-                          anchors.leftMargin: root.calendarCompact ? 5 : 7
-                          anchors.rightMargin: root.calendarCompact ? 5 : 7
+                          anchors.leftMargin: root.calendarCompact ? 4 : 7
+                          anchors.rightMargin: root.calendarCompact ? 4 : 7
                           spacing: 0
                           Text {
                             Layout.fillWidth: true
@@ -3740,7 +3742,7 @@ ShellRoot {
                             text: root.calendarEventTimeRange(modelData)
                             color: Qt.rgba(calendarChip.textColor.r, calendarChip.textColor.g, calendarChip.textColor.b, 0.75)
                             font.family: Theme.fontSans
-                            font.pixelSize: 10
+                            font.pixelSize: root.calendarCompact ? 9 : 10
                             elide: Text.ElideRight
                           }
                           Text {
@@ -3750,7 +3752,7 @@ ShellRoot {
                             text: (modelData.nowMarker ? "now " : (calendarChip.twoLine ? "" : (root.calendarEventTimeRange(modelData) ? root.calendarEventTimeRange(modelData) + " " : ""))) + ((modelData.birthday ? "✦ " : (modelData.note ? "≡ " : (modelData.task ? (modelData.completed ? "✓ " : "○ ") : ""))) + modelData.title)
                             color: calendarChip.textColor
                             font.family: Theme.fontSans
-                            font.pixelSize: root.calendarCompact ? 11 : 12
+                            font.pixelSize: root.calendarCompact ? 10 : 12
                             font.bold: Boolean(modelData.nowMarker)
                             font.strikeout: Boolean(modelData.completed)
                             elide: Text.ElideRight
