@@ -1694,9 +1694,11 @@ ShellRoot {
         eventCount: counts[key] || 0
       });
     }
-    // Only weeks holding in-month days: a 5-week month must not keep an
-    // empty transparent sixth row that eats the grid's height budget and
-    // leaves a dead strip at the bottom of the panel.
+    // Only weeks holding in-month days on compact panels (dell): a 5-week month
+    // must not keep an empty transparent sixth row that eats the grid's height
+    // budget and leaves a dead strip at the bottom of the panel. Desktop keeps
+    // all 42 cells (6 full weeks).
+    if (!root.calendarCompact) return cells;
     const weeks = Math.ceil((firstDay + daysInMonth) / 7);
     return cells.slice(0, weeks * 7);
   }
@@ -3676,8 +3678,9 @@ ShellRoot {
                 // 184 and the desktop layout is untouched. Short or narrow
                 // panels (a 1536x864 laptop at 125%) shrink the cell to what
                 // actually fits, so the sixth week row is not cut off.
-                readonly property int rows: Math.ceil(root.monthCells().length / 7)
+                readonly property int rows: root.calendarCompact ? Math.ceil(root.monthCells().length / 7) : 6
                 readonly property int cellSize: {
+                  if (!root.calendarCompact) return 184;
                   // Off the panel, not off calendarMonthRow: the row's width
                   // depends on the grid's implicit width, which is seven cells,
                   // so reading it here makes the layout rearrange itself.
