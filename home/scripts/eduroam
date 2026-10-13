@@ -11,7 +11,7 @@
 # First run asks for the login realm (the university's domain) once and caches
 # it in ~/.config/eduroam/realm. After that, running this reconnects.
 #
-# Usage: eduroam [--forget] [--realm DOMAIN] [LOGIN]
+# Usage: eduroam [--forget] [--realm DOMAIN] [--phase2 METHOD] [LOGIN]
 
 set -euo pipefail
 
@@ -22,12 +22,17 @@ REALM_FILE="$CONF_DIR/realm"
 
 forget=0
 realm_override=""
+phase2_override=""
 args=()
 while (($#)); do
   case "$1" in
     --forget) forget=1 ;;
     --realm)
       realm_override="${2:?--realm needs a domain}"
+      shift
+      ;;
+    --phase2)
+      phase2_override="${2:?--phase2 needs a method (e.g. pap or mschapv2)}"
       shift
       ;;
     *) args+=("$1") ;;
@@ -47,14 +52,29 @@ if ((forget)); then
   exit 0
 fi
 
+if [[ $login == *@* ]]; then
+  if [[ -z $realm ]]; then
+    realm="${login#*@}"
+  fi
+  login="${login%%@*}"
+fi
+
 if [[ -z $login ]]; then
   read -r -p "eduroam login: " login
 fi
+
+if [[ $login == *@* ]]; then
+  if [[ -z $realm ]]; then
+    realm="${login#*@}"
+  fi
+  login="${login%%@*}"
+fi
+
 if [[ -z $realm ]]; then
   # EAP-TTLS carries the realm in both the outer (anonymous) and the inner
   # identity; without it the RADIUS server cannot route the request to the
   # right institution.
-  read -r -p "eduroam realm (e.g. student.example.edu.pl): " realm
+  read -r -p "eduroam realm (e.g. student.pwr.edu.pl): " realm
   mkdir -p "$CONF_DIR"
   chmod 700 "$CONF_DIR"
   printf '%s\n' "$realm" >"$REALM_FILE"
@@ -62,22 +82,35 @@ if [[ -z $realm ]]; then
 fi
 
 identity="$login@$realm"
-interface=$(nm -t -f DEVICE,TYPE device status | awk '$2 == "wifi" {print $1; exit}')
+anonymous_identity="anonymous@$realm"
+if [[ $realm == "pwr.edu.pl" || $realm == *.pwr.edu.pl ]]; then
+  anonymous_identity="anonymous@pwr.edu.pl"
+fi
+
+phase2="$phase2_override"
+if [[ -z $phase2 ]]; then
+  if [[ $realm == "pwr.edu.pl" || $realm == *.pwr.edu.pl ]]; then
+    phase2="pap"
+  else
+    phase2="mschapv2"
+  fi
+fi
+
+interface=$(nm -t -f DEVICE,TYPE device status | awk -F: '$2 == "wifi" {print $1; exit}')
 if [[ -z $interface ]]; then
   echo "no wifi device found" >&2
   exit 1
 fi
-
-# EAP-TTLS rejects a randomized MAC outright, so the per-device setting is
-# turned off too. fleet.wifiRandomMac covers the config-level default.
-nmcli device set "$interface" wifi.mac-address-randomization no
 
 if profile_exists; then
   # Keep the EAP parameters in sync with the login/realm typed now, and re-arm
   # autoconnect. The stored secret is left untouched.
   nm connection modify "$CON_NAME" \
     802-1x.identity "$identity" \
-    802-1x.anonymous-identity "anonymous@$realm" \
+    802-1x.anonymous-identity "$anonymous_identity" \
+    802-1x.phase2-auth "$phase2" \
+    wifi.cloned-mac-address preserve \
+    wifi.mac-address-randomization never \
     ifname "$interface" \
     connection.autoconnect yes
 else
@@ -88,10 +121,12 @@ else
     ssid "$SSID" \
     wifi-sec.key-mgmt wpa-eap \
     wifi-sec.proto 'rsn wpa' \
+    wifi.cloned-mac-address preserve \
+    wifi.mac-address-randomization never \
     802-1x.eap ttls \
     802-1x.identity "$identity" \
-    802-1x.anonymous-identity "anonymous@$realm" \
-    802-1x.phase2-auth mschapv2 \
+    802-1x.anonymous-identity "$anonymous_identity" \
+    802-1x.phase2-auth "$phase2" \
     802-1x.ca-cert /etc/ssl/certs/ca-bundle.crt \
     connection.autoconnect yes
 fi
