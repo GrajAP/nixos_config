@@ -1707,17 +1707,35 @@ ShellRoot {
       .map(event => {
         const copy = Object.assign({}, event);
         copy.nowMarker = false;
+        copy.nowThrough = false;
         copy.sortMinutes = event.startTime && !event.task ? root.calendarMinutesFromClock(event.startTime, 0) : (event.task ? 1500 : -1);
         return copy;
       });
     if (date === root.dateKey(clock.date)) {
-      items.push({
-        nowMarker: true,
-        task: false,
-        completed: false,
-        title: Qt.formatDateTime(clock.date, "HH:mm"),
-        sortMinutes: clock.date.getHours() * 60 + clock.date.getMinutes()
-      });
+      const nowMinutes = clock.date.getHours() * 60 + clock.date.getMinutes();
+      // Compact (dell): no separate "now" row -- it steals vertical space and
+      // pushes the last chip out of the cell. Instead the ongoing event's own
+      // chip gets a strike-through line. Desktop keeps the pink block below.
+      let struck = false;
+      for (const item of items) {
+        if (struck || item.task || item.completed || item.allDay || !item.startTime || !item.endTime) continue;
+        const start = root.calendarMinutesFromClock(item.startTime, -1);
+        const end = root.calendarMinutesFromClock(item.endTime, -1);
+        if (start >= 0 && start <= nowMinutes && nowMinutes < end) {
+          item.nowThrough = true;
+          struck = true;
+        }
+      }
+      if (!root.calendarCompact) {
+        items.push({
+          nowMarker: true,
+          nowThrough: false,
+          task: false,
+          completed: false,
+          title: Qt.formatDateTime(clock.date, "HH:mm"),
+          sortMinutes: nowMinutes
+        });
+      }
     }
     items.sort((a, b) => a.sortMinutes - b.sortMinutes || Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? items : items.slice(0, limit);
@@ -3666,8 +3684,15 @@ ShellRoot {
                   const rowWidth = widgetPanel.width - 56;
                   const share = Math.max(520, Math.min(1700, rowWidth - calendarMonthRow.spacing - calendarMonthRow.agendaWidth));
                   const widthFit = Math.floor((share - columnSpacing * 6) / 7);
+                  // The month column also holds the 40 px month-nav row plus
+                  // one column gap above this grid; forgetting those 50 px made
+                  // the grid bleed past the panel bottom (invisible while the
+                  // sixth row was blank, cutting real cells once it went away).
+                  // Day-names height stays a constant here: px() reads cellScale
+                  // which reads cellSize, so calling it would loop the binding.
+                  const navHeight = 40 + calendarMonthColumn.spacing;
                   const header = 22 + rowSpacing;
-                  const heightFit = Math.floor((calendarMonthColumn.height - header - calendarMonthColumn.spacing - rowSpacing * (rows - 1)) / rows);
+                  const heightFit = Math.floor((calendarMonthColumn.height - navHeight - header - rowSpacing * (rows - 1)) / rows);
                   return Math.max(88, Math.min(184, widthFit, heightFit));
                 }
                 readonly property real cellScale: cellSize / 184
@@ -3786,13 +3811,18 @@ ShellRoot {
                             verticalAlignment: calendarChip.twoLine ? Text.AlignTop : Text.AlignVCenter
                           }
                         }
-                        // Compact (dell) current-time line inside the day cell.
-                        RowLayout {
-                          visible: root.calendarCompact && modelData.nowMarker
-                          anchors.fill: parent
-                          spacing: 4
-                          Text { text: modelData.title; color: "#f38ba8"; font.family: Theme.fontSans; font.pixelSize: 9; font.bold: true; verticalAlignment: Text.AlignVCenter }
-                          Rectangle { Layout.fillWidth: true; implicitHeight: 2; radius: 1; color: "#f38ba8" }
+                        // Compact (dell) current-time strike drawn ON the ongoing
+                        // event's own chip -- a separate row would push the
+                        // last chip out of the cell. Strict === true, same
+                        // undefined-modelData reason as in the agenda delegate.
+                        Rectangle {
+                          visible: root.calendarCompact && modelData.nowThrough === true
+                          anchors.left: parent.left
+                          anchors.right: parent.right
+                          anchors.verticalCenter: parent.verticalCenter
+                          height: 2
+                          radius: 1
+                          color: "#f38ba8"
                         }
                         // Hover shows the full "time title" only when the chip
                         // actually elides it; acceptedButtons: none so day
@@ -4333,8 +4363,11 @@ ShellRoot {
               }
               // Compact (dell) current-time line, drawn instead of a card when
               // the selected day is today. Desktop never gets nowMarker items.
+              // NOTE: strict === true -- plain nowMarker truthiness keeps the
+              // default visible=true when the field is undefined (agenda items
+              // do not carry it), painting the line in every card.
               RowLayout {
-                visible: root.calendarCompact && modelData.nowMarker
+                visible: root.calendarCompact && modelData.nowMarker === true
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
