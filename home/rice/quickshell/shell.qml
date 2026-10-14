@@ -1737,6 +1737,38 @@ ShellRoot {
     items.sort((a, b) => a.sortMinutes - b.sortMinutes || Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? items : items.slice(0, limit);
   }
+  // Compact (dell) paging: split a day's items into what fits the cell's
+  // pixel budget plus an overflow count for a "+N more" chip. Desktop shows
+  // everything uncapped. Heights mirror the compact chip minimums above, so
+  // keep the two in sync.
+  function calendarCellChipHeight(item) {
+    const base = root.calendarEventChipHeight(item);
+    if (item.task || root.calendarEventTimeRange(item) === "") return Math.max(26, base);
+    return Math.max(36, base);
+  }
+  function calendarCellItems(date, cellH, topM, botM, gap) {
+    const items = root.calendarDayItems(date);
+    const budget = cellH - topM - botM;
+    let used = 0;
+    const shown = [];
+    for (const item of items) {
+      const need = root.calendarCellChipHeight(item) + (shown.length > 0 ? gap : 0);
+      if (used + need <= budget) {
+        used += need;
+        shown.push(item);
+      } else {
+        break;
+      }
+    }
+    let overflow = items.length - shown.length;
+    // Make room for the "+N more" chip itself by dropping trailing chips.
+    while (overflow > 0 && shown.length > 0 && used + gap + 16 > budget) {
+      const last = shown.pop();
+      used -= root.calendarCellChipHeight(last) + (shown.length > 0 ? gap : 0);
+      overflow += 1;
+    }
+    return { shown: shown, overflow: overflow };
+  }
   function calendarDayOverflow(date, limit) {
     if (!date) return 0;
     const count = root.calendarEvents
@@ -3744,6 +3776,12 @@ ShellRoot {
 	              Rectangle {
 	                id: calendarDayCell
 	                required property var modelData
+	                // Compact (dell) paging input: null on desktop, where the
+	                // cell shows every item uncapped. Forward reference to the
+	                // scroll area below is fine -- id lookup ignores order.
+	                readonly property var cellPaging: root.calendarCompact && modelData.inMonth
+	                  ? root.calendarCellItems(modelData.date, calendarMonthGrid.cellSize, calendarDayScroll.anchors.topMargin, calendarDayScroll.anchors.bottomMargin, calendarMonthGrid.px(5, 2))
+	                  : null
                 Layout.preferredWidth: calendarMonthGrid.cellSize
                 Layout.preferredHeight: calendarMonthGrid.cellSize
                 implicitWidth: calendarMonthGrid.cellSize
@@ -3792,7 +3830,9 @@ ShellRoot {
                         readonly property bool twoLine: height >= 34
                         // Current-time marker is a 16 px line (or 18 on desktop) with
                         // transparent background placed above the ongoing / upcoming event.
-                        height: modelData.nowMarker ? (root.calendarCompact ? 16 : 18) : (root.calendarCompact ? (root.calendarEventTimeRange(modelData) !== "" ? Math.max(40, root.calendarEventChipHeight(modelData)) : Math.max(30, root.calendarEventChipHeight(modelData))) : root.calendarEventChipHeight(modelData))
+                        // Timed chips fit time + two small lines (36), plain
+                        // task/note chips only the title (26).
+                        height: modelData.nowMarker ? (root.calendarCompact ? 16 : 18) : (root.calendarCompact ? (root.calendarEventTimeRange(modelData) !== "" ? Math.max(36, root.calendarEventChipHeight(modelData)) : Math.max(26, root.calendarEventChipHeight(modelData))) : root.calendarEventChipHeight(modelData))
                         radius: 5
                         color: modelData.nowMarker ? "transparent" : (modelData.birthday ? Qt.rgba(0.98, 0.70, 0.53, 0.28) : (calendarDayCell.modelData.isSelected ? Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.28) : (modelData.completed ? Qt.rgba(Theme.muted.r, Theme.muted.g, Theme.muted.b, 0.14) : (modelData.task ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.24) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)))))
                         readonly property color textColor: calendarDayCell.modelData.isSelected ? Theme.background : (modelData.completed ? Theme.muted : Theme.text)
