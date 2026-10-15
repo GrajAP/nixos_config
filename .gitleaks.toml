@@ -13,6 +13,10 @@ paths = [
   '''home/misc/catppuccin-userstyles\.json''',
   # Bundled JS/TS build artifacts from workspace tooling (e.g. T3 Code server)
   '''binCli-.*\.mjs''',
+  # The T3 Gate extension's manifest pins its id with the extension's public
+  # key. It is not a credential: it ships inside every extension and only fixes
+  # the id so settings survive a rebuild.
+  '''apps/t3-gate/extension/manifest\.json''',
 ]
 regexes = [
   # dnscrypt-resolvers minisign key: a public key, fetched and verified openly.

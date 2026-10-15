@@ -27,6 +27,9 @@
 
     # Shared with grajpap: t3 CLI, T3 Connect environment, theme publishing
     ../../apps/t3code/modules/nixos.nix
+
+    # Answers the desktops' T3 Gate over SSH: is a T3 agent running here?
+    ../../apps/t3-gate/modules/nixos.nix
   ];
 
   # The production app. Everything else on this box is infrastructure for it.
@@ -40,7 +43,13 @@
 
   # No home-manager here, so home/agents never gets deployed. Same skills, same
   # AGENTS.md, linked into the home by a oneshot instead.
-  fleet.agents.enable = true;
+  #
+  # t3Gate is the headless half of T3 Gate: `t3-running-count`, so the desktops
+  # can ask this box over SSH whether an agent is running here.
+  fleet = {
+    agents.enable = true;
+    t3Gate.enable = true;
+  };
 
   # Headless T3 Code host: `t3 serve`, `t3 theme` and `t3 connect` for T3
   # Connect. The service env comes from the drop-in `t3 service install` writes

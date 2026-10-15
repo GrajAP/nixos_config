@@ -7,6 +7,8 @@
   imports = [
     ./system
     ./theme
+    # t3-running-count on every desktop host; the browser gate fans out to it.
+    ./apps/t3-gate/modules/nixos.nix
   ];
 
   options.fleet = {
@@ -81,11 +83,16 @@
   config = {
     stylix.enableReleaseChecks = false;
 
+    fleet.t3Gate.enable = true;
+
     home-manager = {
       backupFileExtension = "hm-backup";
       extraSpecialArgs = {
         inherit inputs;
         heavy = config.fleet.heavy.enable;
+        # The T3 Gate home module picks its SSH remotes from the host name, so
+        # each desktop asks the two machines that are not itself.
+        hostName = config.networking.hostName;
         # home-manager modules cannot read NixOS options directly, so the
         # per-host fallback scale, break-timer switch, calendar chrome and
         # autostart switch are passed in the same way `heavy` is.

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        width: 280px;
+        background: #101014;
+        color: #e6e6ee;
+        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px 8px;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0;
+      }
+      #pill {
+        font-weight: 700;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #2b2b35;
+        color: #9a9aa8;
+      }
+      #pill.busy {
+        background: #17381f;
+        color: #6bbf7b;
+      }
+      #pill.idle {
+        background: #3a1b1b;
+        color: #e56b6b;
+      }
+      #hosts {
+        border-top: 1px solid #2b2b35;
+        padding: 8px 14px;
+      }
+      #hosts div {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+        color: #9a9aa8;
+      }
+      #hosts .v {
+        font-variant-numeric: tabular-nums;
+      }
+      .running {
+        color: #6bbf7b;
+      }
+      .down {
+        color: #e56b6b;
+      }
+      footer {
+        display: flex;
+        gap: 8px;
+        padding: 8px 14px 14px;
+      }
+      button {
+        flex: 1;
+        background: #8ab4f8;
+        color: #10141c;
+        border: 0;
+        border-radius: 8px;
+        padding: 7px 10px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.ghost {
+        background: transparent;
+        color: #8ab4f8;
+        border: 1px solid #2b2b35;
+      }
+      #when {
+        padding: 0 14px 8px;
+        color: #6b6b78;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>T3 Gate</h1>
+      <span id="pill">…</span>
+    </header>
+    <div id="hosts"></div>
+    <div id="when"></div>
+    <footer>
+      <button id="refresh">Odśwież</button>
+      <button id="options" class="ghost">Ustawienia</button>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

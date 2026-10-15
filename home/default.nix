@@ -2,6 +2,7 @@
   pkgs,
   config,
   lib,
+  hostName,
   ...
 }: let
   catppuccinGtk = pkgs.catppuccin-gtk.override {
@@ -46,6 +47,17 @@ in {
   # timers, the autostart stays with the compositor in home/rice/hyprland.
   t3code.enable = true;
 
+  # Local gate the T3 Gate browser extension polls. Each desktop checks the two
+  # hosts that are not itself; the heavy PC is grajpap, the other desktop is
+  # dellap on the tailnet.
+  t3Gate = {
+    enable = true;
+    remotes =
+      if hostName == "dell"
+      then ["lenovo-user-ts" "grajpap"]
+      else ["lenovo-user-ts" "dellap"];
+  };
+
   imports = [
     # Core package surfaces shared across app, shell, and desktop config
     ./packages.nix
@@ -62,5 +74,7 @@ in {
     ./agents
     # T3 Code desktop app, CLI, notify wrapper and AppImage update timer
     ../apps/t3code/modules/home-manager.nix
+    # Local T3 busy gate the browser extension polls
+    ../apps/t3-gate/modules/home-manager.nix
   ];
 }

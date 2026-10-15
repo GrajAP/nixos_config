@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>T3 Gate — zablokowane</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101014;
+        --panel: #1b1b22;
+        --fg: #e6e6ee;
+        --muted: #9a9aa8;
+        --accent: #8ab4f8;
+        --bad: #e56b6b;
+        --good: #6bbf7b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: 24px;
+      }
+      main {
+        width: min(560px, 100%);
+        background: var(--panel);
+        border: 1px solid #2b2b35;
+        border-radius: 14px;
+        padding: 28px;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 22px;
+      }
+      p {
+        color: var(--muted);
+        margin: 10px 0;
+      }
+      .host {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .hosts {
+        margin: 18px 0;
+        border-top: 1px solid #2b2b35;
+        padding-top: 14px;
+        font-size: 14px;
+      }
+      .hosts div {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+      }
+      .ok {
+        color: var(--good);
+      }
+      .no {
+        color: var(--bad);
+      }
+      button,
+      a.button {
+        display: inline-block;
+        background: var(--accent);
+        color: #10141c;
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        margin-right: 8px;
+        margin-top: 12px;
+      }
+      a.ghost {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid #2b2b35;
+      }
+      #state {
+        margin-top: 6px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>T3 Gate</h1>
+      <p>
+        <span class="host" id="blocked-host">Ta strona</span> jest zablokowana,
+        bo żaden agent T3 Code nie pracuje.
+      </p>
+      <div id="state">Sprawdzam stan agentów…</div>
+      <div class="hosts" id="hosts"></div>
+      <button id="retry">Sprawdź ponownie</button>
+      <a class="button ghost" href="http://127.0.0.1:3773" target="_blank" rel="noreferrer">
+        Otwórz T3 Code
+      </a>
+      <p style="font-size: 13px; margin-top: 18px">
+        Zacznij zadanie w T3 Code (na grajpap, lenovo albo dell), a ta strona
+        odblokuje się automatycznie.
+      </p>
+    </main>
+    <script src="blocked.js"></script>
+  </body>
+</html>

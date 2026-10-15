@@ -181,6 +181,11 @@
   # for Widevine DRM support (Netflix, Spotify, etc.).
   # Widevine CDM binaries are installed to ~/.config/net.imput.helium/WidevineCdm/<version>.
   helium = inputs.helium-browser.packages."${pkgs.stdenv.hostPlatform.system}".helium;
+
+  # The T3 Gate blocker is loaded the same way Stylus is: unpacked, at startup,
+  # from the store. It talks to the local t3-gate on 127.0.0.1.
+  t3GateExtension = pkgs.callPackage ../../apps/t3-gate/extension.nix {};
+
   heliumWithStylus = pkgs.symlinkJoin {
     name = "helium-with-stylus-catppuccin";
     paths = [helium];
@@ -189,7 +194,7 @@
       wrapProgram "$out/bin/helium" \
         --add-flags "--disable-gtk-ime" \
         --add-flags "--password-store=basic" \
-        --add-flags "--load-extension=${stylusExtension}"
+        --add-flags "--load-extension=${stylusExtension},${t3GateExtension}"
     '';
   };
 in {

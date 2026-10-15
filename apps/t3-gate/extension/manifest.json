@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "T3 Gate",
+  "version": "1.0.0",
+  "description": "Blokuje wybrane strony (YouTube, X itd.), dopóki na grajpap, lenovo ani dell nie działa żaden agent T3 Code.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0xEluejBG59y38QzmqHa399z30c/qBQhySyeRBHm+jX6JXGc1oKKqwAbnAastkCdUAT7IJeoH1Xc68WQdsm9T0uXc2yWi9KD6kJkvlgXqEtj02MWy1TUqHJYIiYKJkZEcPFBesKdSTEiX8CqtXkgnKtvfYEAaKyBFg0nvItg0d9e0fwp3IZvfylU0wuJk/z+1ITaPA6zuZw4IpRCBs4jxwz/FucD3N17Fz9+BGJ2cQ9dMqGT9FC2gwIsWjRrbFJV3OtaJfqU+cB9NxowRUV9exzmzC/S1a6eI9ikw8R0Ll8hzD1km6fXNeZ+Xi/bzUyHhEQaEyRpIhwHbt4AaqV16QIDAQAB",
+  "permissions": ["storage", "tabs", "webNavigation", "alarms"],
+  "host_permissions": ["http://127.0.0.1:4599/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "T3 Gate"
+  },
+  "options_page": "options.html"
+}

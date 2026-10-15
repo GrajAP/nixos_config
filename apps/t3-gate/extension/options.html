@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>T3 Gate — ustawienia</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        background: #101014;
+        color: #e6e6ee;
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: 28px;
+      }
+      main {
+        max-width: 620px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 6px;
+      }
+      p {
+        color: #9a9aa8;
+      }
+      label {
+        display: block;
+        margin: 18px 0 6px;
+        font-weight: 600;
+      }
+      textarea {
+        width: 100%;
+        min-height: 260px;
+        background: #1b1b22;
+        color: #e6e6ee;
+        border: 1px solid #2b2b35;
+        border-radius: 10px;
+        padding: 12px;
+        font: 13px/1.5 ui-monospace, "JetBrains Mono", monospace;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      button {
+        background: #8ab4f8;
+        color: #10141c;
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #saved {
+        color: #6bbf7b;
+        font-weight: 600;
+      }
+      a {
+        color: #8ab4f8;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>T3 Gate</h1>
+      <p>
+        Strony poniżej są blokowane, dopóki żaden agent T3 Code nie pracuje na
+        grajpap, lenovo ani dell. Jeden adres na linię, bez
+        <code>https://</code>. Subdomeny też są blokowane.
+      </p>
+      <label for="blocklist">Zablokowane strony</label>
+      <textarea id="blocklist" spellcheck="false"></textarea>
+      <div class="row">
+        <input id="unknown" type="checkbox" />
+        <label for="unknown" style="margin: 0; font-weight: 400">
+          Blokuj też, gdy nie da się odczytać stanu agentów (t3-gate nie
+          odpowiada)
+        </label>
+      </div>
+      <div class="row">
+        <button id="save">Zapisz</button>
+        <span id="saved"></span>
+      </div>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
