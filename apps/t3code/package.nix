@@ -29,15 +29,21 @@
     '';
   };
 
+  opencodeProxy = pkgs.writeText "opencode-proxy.js" (builtins.readFile ./opencode-proxy.js);
+
   t3codeOpencode = pkgs.writeShellApplication {
     name = "opencode";
+    runtimeInputs = [pkgs.nodejs];
     text = ''
+      real_bin="${lib.getExe pkgs.opencode}"
       user_opencode="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/npm/bin/opencode"
       if [[ -x "$user_opencode" ]]; then
-        exec "$user_opencode" "$@"
+        real_bin="$user_opencode"
       fi
 
-      exec ${lib.getExe pkgs.opencode} "$@"
+      export REAL_OPENCODE_BIN="$real_bin"
+      export OPENCODE_VERSION="${pkgs.opencode.version or "1.18.31"}"
+      exec ${lib.getExe pkgs.nodejs} "${opencodeProxy}" "$@"
     '';
   };
 
