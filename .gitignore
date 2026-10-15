@@ -7,3 +7,6 @@ result-*
 .DS_Store
 *.swp
 *~
+
+# Bundled JS/TS build artifacts from workspace tooling
+binCli-*.mjs

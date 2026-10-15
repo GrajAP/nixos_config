@@ -11,6 +11,8 @@ paths = [
   # catppuccin/userstyles pins each style by commit SHA, which looks like a
   # sourcegraph access token.
   '''home/misc/catppuccin-userstyles\.json''',
+  # Bundled JS/TS build artifacts from workspace tooling (e.g. T3 Code server)
+  '''binCli-.*\.mjs''',
 ]
 regexes = [
   # dnscrypt-resolvers minisign key: a public key, fetched and verified openly.
