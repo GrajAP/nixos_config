@@ -521,8 +521,14 @@ ShellRoot {
   Process {
     id: calendarQuery
     command: ["@calendarQuery@"]
+    property bool refreshQueued: false
     stdout: StdioCollector {
       onStreamFinished: {
+        // A query can end before it printed anything (aborted, crashed, or
+        // still warming up). Keep the last good data instead of blanking the
+        // widget and claiming the calendar could not be read.
+        if (text.trim().length === 0)
+          return;
         try {
           const payload = JSON.parse(text);
           root.calendarEvents = payload.events || [];
@@ -539,6 +545,12 @@ ShellRoot {
           root.calendarTaskLists = [];
           root.calendarError = "Could not read calendar data";
         }
+      }
+    }
+    onExited: {
+      if (calendarQuery.refreshQueued) {
+        calendarQuery.refreshQueued = false;
+        calendarQuery.running = true;
       }
     }
   }
@@ -589,12 +601,7 @@ ShellRoot {
       if (calendarTaskAction.succeeded) root.resetCalendarEditor();
       calendarTaskAction.succeeded = false;
       calendarTaskAction.actionName = "";
-      if (calendarQuery.running) {
-        calendarQuery.running = false;
-        Qt.callLater(() => calendarQuery.running = true);
-      } else {
-        calendarQuery.running = true;
-      }
+      root.refreshCalendar();
     }
   }
   Process {
@@ -667,7 +674,7 @@ ShellRoot {
     interval: 5 * 60 * 1000
     running: true
     repeat: true
-    onTriggered: if (!calendarQuery.running) calendarQuery.running = true
+    onTriggered: root.refreshCalendar()
   }
   Timer {
     id: calendarTimeRepeatTimer
@@ -716,7 +723,7 @@ ShellRoot {
     widgetPage = page;
     widgetVisible = true;
     if (page === "weather") weatherQuery.running = true;
-    if (page === "calendar") calendarQuery.running = true;
+    if (page === "calendar") root.refreshCalendar();
     if (page === "clipboard") clipboardQuery.running = true;
     if (page === "shutdown") {
       if (root.breakActive)
@@ -2112,6 +2119,12 @@ ShellRoot {
   function runCalendarAction(args) {
     calendarTaskAction.actionName = args.length > 1 ? args[1] : "";
     calendarTaskAction.exec(args);
+  }
+  function refreshCalendar() {
+    if (calendarQuery.running)
+      calendarQuery.refreshQueued = true;
+    else
+      calendarQuery.running = true;
   }
   function addCalendarItem() {
     const title = root.calendarTitleDraft.trim();

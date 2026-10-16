@@ -112,37 +112,6 @@
           };
         };
       })
-      # Keep Codex on the latest verified upstream release. The official static
-      # binary avoids waiting for the nixos-unstable package update.
-      (_: prev: {
-        codex = prev.stdenvNoCC.mkDerivation rec {
-          pname = "codex";
-          version = "0.147.0";
-
-          src = prev.fetchurl {
-            url = "https://github.com/openai/codex/releases/download/rust-v${version}/codex-x86_64-unknown-linux-musl.tar.gz";
-            hash = "sha256-Akbi53ODTgfw+1JJ7W660S5FkeYI+Me7l91qlpBUTDY=";
-          };
-
-          dontUnpack = true;
-          nativeBuildInputs = [prev.makeWrapper];
-
-          installPhase = ''
-            runHook preInstall
-            tar -xzf "$src"
-            install -Dm755 codex-x86_64-unknown-linux-musl "$out/libexec/codex"
-            makeWrapper "$out/libexec/codex" "$out/bin/codex" \
-              --prefix PATH : ${prev.lib.makeBinPath [prev.bubblewrap prev.ripgrep]}
-            runHook postInstall
-          '';
-
-          meta =
-            prev.codex.meta
-            // {
-              changelog = "https://github.com/openai/codex/releases/tag/rust-v${version}";
-            };
-        };
-      })
     ];
   };
 

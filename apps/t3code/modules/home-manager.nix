@@ -42,6 +42,7 @@ in {
         t3code.notify
         t3code.theme
         t3code.connect
+        t3code.providerCodex
       ];
 
       # The AppImage runs inside appimage-run's FHS container, which does not

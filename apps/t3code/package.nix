@@ -462,4 +462,9 @@
   };
 in {
   inherit connect desktop notify runtimeCli theme update;
+
+  # Exposed so a host can put the npm-first codex on the login PATH too: T3
+  # Code's "update providers" refreshes the npm copy, so the shell then tracks
+  # the same version the app runs instead of a frozen nixpkgs build.
+  providerCodex = t3codeCodex;
 }

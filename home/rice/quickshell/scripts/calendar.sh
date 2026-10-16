@@ -1194,25 +1194,31 @@ if True:
           events = []
           task_lists = []
           error = ""
-          obsidian_source_events = all_obsidian_events()
-          write_obsidian_index(obsidian_source_events)
           try:
-              events, task_lists = nextcloud_events()
-              events.extend(nextcloud_notes())
+              obsidian_source_events = all_obsidian_events()
+              write_obsidian_index(obsidian_source_events)
+              try:
+                  events, task_lists = nextcloud_events()
+                  events.extend(nextcloud_notes())
+              except Exception as exc:
+                  error = str(exc)
+              events = merge_obsidian_events(
+                  events,
+                  obsidian_events([
+                      event for event in obsidian_source_events
+                      if event.get("birthday")
+                  ]),
+              )
+              events.sort(key=lambda item: (
+                  item.get("date", ""),
+                  item.get("startTime") or "",
+                  item.get("title", ""),
+              ))
           except Exception as exc:
+              # A partly broken source (a vault file that is not UTF-8, an
+              # unreadable index) must not take the whole widget down with an
+              # empty stdout; report it the same way network errors are.
               error = str(exc)
-          events = merge_obsidian_events(
-              events,
-              obsidian_events([
-                  event for event in obsidian_source_events
-                  if event.get("birthday")
-              ]),
-          )
-          events.sort(key=lambda item: (
-              item.get("date", ""),
-              item.get("startTime") or "",
-              item.get("title", ""),
-          ))
           output = {
               "today": date.today().isoformat(),
               "events": events,
