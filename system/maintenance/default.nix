@@ -108,82 +108,94 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    systemd.services.auto-rebuild = {
-      description = "Unattended fleet update: pull, lint, rebuild, switch, publish";
-      documentation = [
-        "man:systemd.service(5)"
-        "file:/etc/nixos/fleet/auto-rebuild"
+  config = lib.mkMerge [
+    {
+      environment.systemPackages = [
+        (pkgs.writeShellScriptBin "rebuild" ''
+          exec ${repo}/rebuild.sh "$@"
+        '')
       ];
-      after = [
-        "network-online.target"
-        "nixos-activation.service"
-      ];
-      wants = ["network-online.target"];
-
-      serviceConfig = {
-        Type = "oneshot";
-        # A rebuild is slow by nature; a timeout would kill it mid-build.
-        TimeoutStartSec = 0;
-        User = cfg.user;
-        # The script locks in here, and rebuild.sh looks for its own lock in the
-        # same place. A system service has no XDG_RUNTIME_DIR of its own.
-        RuntimeDirectory = "auto-rebuild";
-        RuntimeDirectoryMode = "0700";
-        Environment = [
-          # A system service's PATH has no bash on NixOS, so
-          # `#!/usr/bin/env bash` alone is not enough, and the script's
-          # dependencies have to be spelled out: that is also the list of things
-          # it is allowed to call. Built by hand rather than with
-          # systemd.services.<name>.path, because that option appends /bin to
-          # every entry and cannot express a plain directory.
-          "PATH=${
-            lib.makeBinPath (
-              with pkgs; [
-                bash
-                coreutils
-                gawk
-                # gh is not a NixOS dependency of git: the credential helper in
-                # ~/.gitconfig is `!gh auth git-credential`, and without gh on
-                # PATH the push asks for a username on a machine with no tty.
-                gh
-                git
-                inetutils
-                systemd
-                util-linux
-              ]
-            )
-          }:/run/wrappers/bin:/run/current-system/sw/bin"
-          "XDG_RUNTIME_DIR=/run/auto-rebuild"
-          "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
-          "AUTO_REBUILD_MODE=${cfg.mode}"
-          "AUTO_REBUILD_SKIP_WHEN_USER_SESSION=${lib.boolToString cfg.skipWhenUserSessionActive}"
-          # Quoted, or systemd splits the list of units into separate (invalid)
-          # environment assignments.
-          "AUTO_REBUILD_CRITICAL_UNITS=\"${lib.concatStringsSep " " cfg.criticalUnits}\""
+      environment.shellAliases = {
+        rebuild = "${repo}/rebuild.sh";
+      };
+    }
+    (lib.mkIf cfg.enable {
+      systemd.services.auto-rebuild = {
+        description = "Unattended fleet update: pull, lint, rebuild, switch, publish";
+        documentation = [
+          "man:systemd.service(5)"
+          "file:/etc/nixos/fleet/auto-rebuild"
         ];
-        # sudo has to be the setuid wrapper and nixos-rebuild only exists in the
-        # running system profile, hence the two absolute PATH entries above.
-        ExecStart = "${pkgs.bash}/bin/bash ${repo}/fleet/auto-rebuild";
-        WorkingDirectory = repo;
-        # Updating is maintenance, not the machine's actual job.
-        Nice = 10;
-      };
-    };
+        after = [
+          "network-online.target"
+          "nixos-activation.service"
+        ];
+        wants = ["network-online.target"];
 
-    systemd.timers.auto-rebuild = {
-      description = "Daily unattended fleet update";
-      wantedBy = [
-        "timers.target"
-      ];
-      timerConfig = {
-        OnCalendar = cfg.onCalendar;
-        RandomizedDelaySec = cfg.randomizedDelaySec;
-        # A machine that was asleep or off at the appointed hour runs the
-        # update on its next boot instead of skipping the day.
-        Persistent = true;
-        Unit = "auto-rebuild.service";
+        serviceConfig = {
+          Type = "oneshot";
+          # A rebuild is slow by nature; a timeout would kill it mid-build.
+          TimeoutStartSec = 0;
+          User = cfg.user;
+          # The script locks in here, and rebuild.sh looks for its own lock in the
+          # same place. A system service has no XDG_RUNTIME_DIR of its own.
+          RuntimeDirectory = "auto-rebuild";
+          RuntimeDirectoryMode = "0700";
+          Environment = [
+            # A system service's PATH has no bash on NixOS, so
+            # `#!/usr/bin/env bash` alone is not enough, and the script's
+            # dependencies have to be spelled out: that is also the list of things
+            # it is allowed to call. Built by hand rather than with
+            # systemd.services.<name>.path, because that option appends /bin to
+            # every entry and cannot express a plain directory.
+            "PATH=${
+              lib.makeBinPath (
+                with pkgs; [
+                  bash
+                  coreutils
+                  gawk
+                  # gh is not a NixOS dependency of git: the credential helper in
+                  # ~/.gitconfig is `!gh auth git-credential`, and without gh on
+                  # PATH the push asks for a username on a machine with no tty.
+                  gh
+                  git
+                  inetutils
+                  systemd
+                  util-linux
+                ]
+              )
+            }:/run/wrappers/bin:/run/current-system/sw/bin"
+            "XDG_RUNTIME_DIR=/run/auto-rebuild"
+            "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
+            "AUTO_REBUILD_MODE=${cfg.mode}"
+            "AUTO_REBUILD_SKIP_WHEN_USER_SESSION=${lib.boolToString cfg.skipWhenUserSessionActive}"
+            # Quoted, or systemd splits the list of units into separate (invalid)
+            # environment assignments.
+            "AUTO_REBUILD_CRITICAL_UNITS=\"${lib.concatStringsSep " " cfg.criticalUnits}\""
+          ];
+          # sudo has to be the setuid wrapper and nixos-rebuild only exists in the
+          # running system profile, hence the two absolute PATH entries above.
+          ExecStart = "${pkgs.bash}/bin/bash ${repo}/fleet/auto-rebuild";
+          WorkingDirectory = repo;
+          # Updating is maintenance, not the machine's actual job.
+          Nice = 10;
+        };
       };
-    };
-  };
+
+      systemd.timers.auto-rebuild = {
+        description = "Daily unattended fleet update";
+        wantedBy = [
+          "timers.target"
+        ];
+        timerConfig = {
+          OnCalendar = cfg.onCalendar;
+          RandomizedDelaySec = cfg.randomizedDelaySec;
+          # A machine that was asleep or off at the appointed hour runs the
+          # update on its next boot instead of skipping the day.
+          Persistent = true;
+          Unit = "auto-rebuild.service";
+        };
+      };
+    })
+  ];
 }
