@@ -43,9 +43,11 @@ confident hypothesis wins, so the result is always one of the two languages
 (`WHISPER_DUAL=0` disables this and falls back to automatic language
 detection in a single pass). Force a language with `WHISPER_LANGUAGE`, adjust
 the search with `WHISPER_BEAM_SIZE` (default `5`), set `WHISPER_DUAL`, or
-override `WHISPER_MODEL`, `WHISPER_LANGS` and `WHISPER_SOURCE`. Quiet
-close-range speech is recognized better too: the VAD threshold is lowered and
-clipped peaks are soft-limited, so holding the mic 2–3 cm from your mouth and
+override `WHISPER_MODEL`, `WHISPER_LANGS` and `WHISPER_SOURCE`. Quiet close-range dictation is recognized too: the clip is auto-gained to a
+normal speaking level before decoding, the VAD threshold is relaxed
+(`WHISPER_VAD=0` skips the detector entirely and lets the decoder decide what
+is speech), borderline-silent segments are accepted more readily, and clipped
+peaks are soft-limited — so holding the mic 2–3 cm from your mouth and
 whispering works. The last working microphone source is cached, avoiding a
 recording probe on every activation. State and learned corrections can be
 relocated with `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`.

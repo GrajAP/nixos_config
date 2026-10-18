@@ -554,6 +554,7 @@ PY
   if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-large-v3-turbo}" WHISPER_BEAM_SIZE="${WHISPER_BEAM_SIZE:-5}" WHISPER_DUAL="${WHISPER_DUAL:-1}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" python3 - <<'PY' 2>"$log_file"; then
 import os
 import re
+import sys
 import wave
 from pathlib import Path
 
@@ -587,10 +588,29 @@ if audio.size == 0:
 
 audio -= audio.mean()
 
-# Close-range plosives can hit the PCM ceiling; soft-limit those peaks instead
-# of feeding hard-clipped samples to the mel extractor.
-if float(np.max(np.abs(audio))) > 0.985:
+# Bring whisper-level input up to a normal speaking loudness. The decoder's mel
+# extractor normalizes per clip, so the boost mainly matters for the voice
+# activity detector, which needs a real amplitude to mark the speech.
+peak = float(np.max(np.abs(audio)))
+rms = float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
+gain = 1.0
+if rms > 1e-6:
+    gain = min(0.09 / rms, 64.0)
+gain = min(gain, 0.97 / max(peak, 1e-6))
+if gain > 1.0:
+    audio = audio * gain
+    peak *= gain
+
+# Close-range plosives can still hit the PCM ceiling; soft-limit those peaks
+# instead of feeding hard-clipped samples to the mel extractor.
+if peak > 0.985:
     audio = np.tanh(audio / 0.95) * 0.95
+
+duration_s = audio.size / 16000.0
+print(
+    f"whisprflow: duration={duration_s:.2f}s rms={rms:.5f} peak={peak:.4f} gain={gain:.2f}",
+    file=sys.stderr,
+)
 
 initial_prompt = None
 if dict_path and dict_path.exists():
@@ -630,13 +650,15 @@ model = WhisperModel(
     cpu_threads=max(4, min(12, (os.cpu_count() or 4))),
 )
 
-# Quiet close-range dictation sits low on the VAD detector; lower the threshold
-# and keep short pauses from splitting words.
+# Quiet close-range dictation sits low on the VAD detector; use a very soft
+# threshold and keep short pauses from splitting words. WHISPER_VAD=0 skips the
+# detector entirely and lets the decoder decide what is speech.
+vad_enabled = os.environ.get("WHISPER_VAD", "1").strip().lower() not in {"0", "false", "no"}
 vad_parameters = dict(
-    threshold=0.35,
-    min_speech_duration_ms=200,
+    threshold=0.25,
+    min_speech_duration_ms=80,
     min_silence_duration_ms=800,
-    speech_pad_ms=150,
+    speech_pad_ms=250,
 )
 
 def score_text(raw_text: str, base_score: float) -> float:
@@ -659,7 +681,11 @@ def decode(lang):
         beam_size=beam_size,
         best_of=1,
         initial_prompt=initial_prompt,
-        vad_filter=True,
+        # Accept quieter, lower-confidence speech than the defaults: segments
+        # come back even when the clip looks borderline silent.
+        no_speech_threshold=0.85,
+        log_prob_threshold=-1.6,
+        vad_filter=vad_enabled,
         vad_parameters=vad_parameters,
         condition_on_previous_text=False,
     )
