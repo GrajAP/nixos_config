@@ -34,13 +34,21 @@ bind = , PAUSE, exec, whisprflow start
 bindr = , PAUSE, exec, whisprflow stop
 ```
 
-The default model is `small`. Language detection uses one multilingual
-inference pass instead of separately transcribing Polish and English. Force a
-language with `WHISPER_LANGUAGE`, adjust the search with
-`WHISPER_BEAM_SIZE` (default `3`), or override `WHISPER_MODEL`,
-`WHISPER_LANGS` and `WHISPER_SOURCE`. The last working microphone source is
-cached, avoiding a recording probe on every activation. State and learned
-corrections can be relocated with `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`.
+The default model is `large-v3-turbo` (downloaded from Hugging Face on first
+use). Set `WHISPER_MODEL` to use another faster-whisper model (use `small` on
+slower machines; `large-v3-turbo` is CPU-heavy but much more accurate on quiet
+speech). By default the
+clip is decoded twice — once forced to Polish, once to English — and the more
+confident hypothesis wins, so the result is always one of the two languages
+(`WHISPER_DUAL=0` disables this and falls back to automatic language
+detection in a single pass). Force a language with `WHISPER_LANGUAGE`, adjust
+the search with `WHISPER_BEAM_SIZE` (default `5`), set `WHISPER_DUAL`, or
+override `WHISPER_MODEL`, `WHISPER_LANGS` and `WHISPER_SOURCE`. Quiet
+close-range speech is recognized better too: the VAD threshold is lowered and
+clipped peaks are soft-limited, so holding the mic 2–3 cm from your mouth and
+whispering works. The last working microphone source is cached, avoiding a
+recording probe on every activation. State and learned corrections can be
+relocated with `WHISPR_STATE_DIR` and `WHISPR_DATA_DIR`.
 `ydotoold` is optional; `wtype` is used as a fallback. WhisprFlow pastes through
 the clipboard so Unicode text, including Polish characters, is preserved. The
 transcript remains in the clipboard if the paste shortcut fails. Spark
