@@ -182,6 +182,19 @@ ShellRoot {
   property string codexUsageError: ""
   property bool kanataActive: false
   property bool kanataKnown: false
+  property bool dndEnabled: false
+  readonly property bool cs2Running: {
+    const groups = root.workspaceClientsById;
+    for (const key in groups) {
+      const clients = groups[key];
+      if (!Array.isArray(clients)) continue;
+      for (const client of clients) {
+        if (root.isCs2Client(client)) return true;
+      }
+    }
+    return false;
+  }
+  readonly property bool notificationsSilenced: root.dndEnabled || root.cs2Running
   readonly property var workspaceEntries: WorkspaceState.entries
   readonly property var workspaceClientsById: WorkspaceState.clientsById
   property var workspaceDragClient: null
@@ -457,6 +470,27 @@ ShellRoot {
     id: kanataToggleAction
     command: ["@katanaSwitchTool@"]
     onExited: if (!kanataStatusQuery.running) kanataStatusQuery.running = true
+  }
+  FileView {
+    id: dndStateFile
+    path: Quickshell.env("HOME") + "/.cache/quickshell/dnd"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onTextChanged: root.refreshDndState()
+    onLoaded: root.refreshDndState()
+  }
+  Process {
+    id: dndToggleAction
+    command: ["@dndToggleTool@"]
+    onExited: dndStateFile.reload()
+  }
+  Timer {
+    id: dndStateRefresh
+    interval: 10000
+    running: true
+    repeat: true
+    onTriggered: dndStateFile.reload()
   }
   Process {
     id: kanataEventMonitor
@@ -829,6 +863,9 @@ ShellRoot {
     const className = String((client && client.className) || "").toLowerCase();
     const title = String((client && client.title) || "").toLowerCase();
     return className === "cs2" || className.startsWith("cs2:") || title.includes("counter-strike");
+  }
+  function refreshDndState() {
+    root.dndEnabled = dndStateFile.loaded && dndStateFile.text().trim() === "1";
   }
   function appIconForClient(client) {
     const value = String((client && (client.className || client.title)) || "").toLowerCase();
@@ -2202,6 +2239,7 @@ ShellRoot {
     id: notificationCenter
     onReceived: notification => {
       root.latestNotification = notification;
+      if (root.notificationsSilenced) return;
       root.notificationPopupVisible = true;
       popupTimer.restart();
     }
@@ -2453,6 +2491,39 @@ ShellRoot {
             onClicked: {
               if (kanataToggleAction.running) return;
               kanataToggleAction.running = true;
+            }
+          }
+        }
+
+        Rectangle {
+          Layout.alignment: Qt.AlignHCenter
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          id: dndIcon
+          radius: 8
+          color: {
+            if (root.dndEnabled) return Theme.accent;
+            return root.cs2Running ? Theme.warning : "transparent";
+          }
+          border.color: {
+            if (root.dndEnabled) return Theme.accent;
+            return root.cs2Running ? Theme.warning : Theme.border;
+          }
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: root.notificationsSilenced ? "󰂛" : "󰂚"
+            color: root.notificationsSilenced ? Theme.background : Theme.text
+            font.family: Theme.fontIcon
+            font.pixelSize: 18
+          }
+          MouseArea {
+            anchors.fill: parent
+            id: dndMouse
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (dndToggleAction.running) return;
+              dndToggleAction.running = true;
             }
           }
         }

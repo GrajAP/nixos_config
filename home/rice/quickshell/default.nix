@@ -60,6 +60,14 @@
     ];
     text = builtins.readFile ./scripts/clipboard.sh;
   };
+  dndToggleTool = pkgs.writeShellApplication {
+    name = "quickshell-dnd-toggle";
+    runtimeInputs = with pkgs; [
+      coreutils
+      libnotify
+    ];
+    text = builtins.readFile ./scripts/dnd-toggle;
+  };
   katanaSwitchTool = pkgs.writeShellScriptBin "katana-switch" (builtins.readFile ../../scripts/katana-switch);
   screenshotTool = pkgs.writeShellApplication {
     name = "quickshell-screenshot";
@@ -216,6 +224,7 @@
     calendarTask = "${calendarTool}/bin/quickshell-calendar";
     clipboardTool = "${clipboardTool}/bin/quickshell-clipboard";
     katanaSwitchTool = "${katanaSwitchTool}/bin/katana-switch";
+    dndToggleTool = "${dndToggleTool}/bin/quickshell-dnd-toggle";
     kanataStatusMonitor = "${kanataStatusMonitor}/bin/quickshell-kanata-status-monitor";
     screenshotTool = "${screenshotTool}/bin/quickshell-screenshot";
     voiceTool = "${voiceTool}/bin/quickshell-voice";

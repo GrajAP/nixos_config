@@ -1,0 +1,13 @@
+#!/bin/sh
+
+STATE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/dnd"
+
+mkdir -p "$(dirname "$STATE_FILE")"
+
+if [ "$(cat "$STATE_FILE" 2>/dev/null)" = "1" ]; then
+  printf '0' > "$STATE_FILE"
+  notify-send "Do not disturb" "Notifications enabled"
+else
+  printf '1' > "$STATE_FILE"
+  notify-send "Do not disturb" "Notifications disabled"
+fi
