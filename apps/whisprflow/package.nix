@@ -55,6 +55,7 @@ in
     paths = [whisprflow];
     postBuild = ''
       ln -s whisprflow "$out/bin/whisper-record-v2"
+      install -m644 ${./asr.py} "$out/bin/asr.py"
     '';
     meta = {
       description = "Push-to-talk local Whisper dictation with review and correction learning";
