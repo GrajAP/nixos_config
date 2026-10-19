@@ -2507,7 +2507,7 @@ ShellRoot {
           }
           border.color: {
             if (root.dndEnabled) return Theme.accent;
-            return root.cs2Running ? Theme.warning : Theme.border;
+            return root.cs2Running ? Theme.warning : "transparent";
           }
           border.width: 1
           Text {
