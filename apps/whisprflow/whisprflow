@@ -20,6 +20,10 @@ review_err="$state_dir/review.err"
 indicator_pid_file="$state_dir/indicator.pid"
 review_css_file="$state_dir/review.css"
 notification_id_file="$state_dir/notification.id"
+asr_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" && pwd)"
+asr_py="$asr_dir/asr.py"
+serve_sock="$state_dir/serve.sock"
+serve_log="$state_dir/serve.log"
 
 mkdir -p "$state_dir"
 mkdir -p "$data_dir"
@@ -487,6 +491,113 @@ PY
   chmod 700 "$learn_script"
 }
 
+daemon_probe() {
+  python3 - "$serve_sock" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+client = socket.socket(socket.AF_UNIX)
+client.settimeout(0.5)
+try:
+    client.connect(sys.argv[1])
+except OSError:
+    raise SystemExit(1)
+finally:
+    client.close()
+PY
+}
+
+warmup_asr() {
+  (
+    if ! daemon_probe; then
+      WHISPR_SERVE_SOCK="$serve_sock" \
+        WHISPER_MODEL="${WHISPER_MODEL:-large-v3-turbo}" \
+        WHISPER_BEAM_SIZE="${WHISPER_BEAM_SIZE:-5}" \
+        WHISPER_DUAL="${WHISPER_DUAL:-1}" \
+        WHISPER_MIN_SCORE="${WHISPER_MIN_SCORE:--0.47}" \
+        WHISPER_VAD="${WHISPER_VAD:-1}" \
+        WHISPER_LANGS="${WHISPER_LANGS:-pl,en}" \
+        DICT_PATH="$dict_file" \
+        CORRECTIONS_PATH="$corrections_file" \
+        WHISPER_LOG_PATH="$data_dir/whisper.log" \
+        WHISPER_FAILED_DIR="$data_dir/failed" \
+        nohup python3 "$asr_py" serve >>"$serve_log" 2>&1 &
+    fi
+  ) >/dev/null 2>&1 &
+  return 0
+}
+
+asr_transcribe() {
+  local wav="$1"
+  TXT_PATH="$txt_file" WAV_REQUEST="$wav" WHISPR_SOCK="$serve_sock" python3 - <<'PY' && return 0
+import json
+import os
+import socket
+import sys
+
+wanted = [
+    "WHISPER_LANGUAGE",
+    "WHISPER_LANGS",
+    "WHISPER_MODEL",
+    "WHISPER_BEAM_SIZE",
+    "WHISPER_DUAL",
+    "WHISPER_MIN_SCORE",
+    "WHISPER_VAD",
+    "DICT_PATH",
+    "CORRECTIONS_PATH",
+    "TXT_PATH",
+    "WHISPER_LOG_PATH",
+    "WHISPER_FAILED_DIR",
+]
+request = {
+    "wav": os.environ["WAV_REQUEST"],
+    "env": {key: os.environ[key] for key in wanted if key in os.environ},
+}
+try:
+    client = socket.socket(socket.AF_UNIX)
+    client.settimeout(600)
+    client.connect(os.environ["WHISPR_SOCK"])
+    client.sendall((json.dumps(request) + "\n").encode("utf-8"))
+    inbox = b""
+    while not inbox.endswith(b"\n"):
+        chunk = client.recv(65536)
+        if not chunk:
+            break
+        inbox += chunk
+    reply = json.loads(inbox.decode("utf-8"))
+    if "error" in reply:
+        print(f"whisprflow-serve: {reply['error']}", file=sys.stderr)
+        raise SystemExit(1)
+    with open(os.environ["TXT_PATH"], "w", encoding="utf-8") as fh:
+        fh.write(reply.get("text") or "")
+except Exception:
+    raise SystemExit(1)
+PY
+  WHISPR_ASR_DIR="$asr_dir" \
+  WAV_PATH="$wav" \
+  TXT_PATH="$txt_file" \
+  WHISPER_MODEL="${WHISPER_MODEL:-large-v3-turbo}" \
+  WHISPER_BEAM_SIZE="${WHISPER_BEAM_SIZE:-5}" \
+  WHISPER_DUAL="${WHISPER_DUAL:-1}" \
+  WHISPER_MIN_SCORE="${WHISPER_MIN_SCORE:--0.47}" \
+  WHISPER_VAD="${WHISPER_VAD:-1}" \
+  WHISPER_LANGS="${WHISPER_LANGS:-pl,en}" \
+  WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" \
+  DICT_PATH="$dict_file" \
+  CORRECTIONS_PATH="$corrections_file" \
+  WHISPER_LOG_PATH="$data_dir/whisper.log" \
+  WHISPER_FAILED_DIR="$data_dir/failed" \
+  python3 - <<'PY'
+import os
+import sys
+
+sys.path.insert(0, os.environ["WHISPR_ASR_DIR"])
+import asr
+
+asr.transcribe_file(os.environ["WAV_PATH"])
+PY
+}
+
 stop_recording() {
   local pid
   pid=$(cat "$pid_file" 2>/dev/null || true)
@@ -551,312 +662,7 @@ PY
 
   log_file="$state_dir/last-error.log"
 
-  if ! WAV_PATH="$wav_file" TXT_PATH="$txt_file" WHISPER_MODEL="${WHISPER_MODEL:-large-v3-turbo}" WHISPER_BEAM_SIZE="${WHISPER_BEAM_SIZE:-5}" WHISPER_DUAL="${WHISPER_DUAL:-1}" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" WHISPER_LANGUAGE="${WHISPER_LANGUAGE:-}" WHISPER_LANGS="${WHISPER_LANGS:-en,pl}" python3 - <<'PY' 2>"$log_file"; then
-import os
-import re
-import sys
-import wave
-from pathlib import Path
-
-import numpy as np
-from faster_whisper import WhisperModel
-
-wav_path = Path(os.environ["WAV_PATH"])
-txt_path = Path(os.environ["TXT_PATH"])
-dict_path = Path(os.environ.get("DICT_PATH", ""))
-corrections_path = Path(os.environ.get("CORRECTIONS_PATH", ""))
-model_name = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
-beam_size = int(os.environ.get("WHISPER_BEAM_SIZE", "5"))
-dual_mode = os.environ.get("WHISPER_DUAL", "1").strip().lower() not in {"0", "false", "no"}
-language = os.environ.get("WHISPER_LANGUAGE", "").strip() or None
-allowed_languages = [lang.strip() for lang in os.environ.get("WHISPER_LANGS", "pl,en").split(",") if lang.strip()]
-if not allowed_languages:
-    allowed_languages = ["pl", "en"]
-
-if language and language not in allowed_languages:
-    raise SystemExit(f"Unsupported WHISPER_LANGUAGE={language!r}. Allowed: {', '.join(allowed_languages)}")
-if beam_size < 1:
-    raise SystemExit("WHISPER_BEAM_SIZE must be a positive integer")
-
-with wave.open(str(wav_path), "rb") as wf:
-    audio = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
-audio = audio.astype(np.float32) / 32768.0
-
-if audio.size == 0:
-    txt_path.write_text("", encoding="utf-8")
-    raise SystemExit(0)
-
-audio -= audio.mean()
-
-# Bring whisper-level input up to a normal speaking loudness. The decoder's mel
-# extractor normalizes per clip, so the boost mainly matters for the voice
-# activity detector, which needs a real amplitude to mark the speech.
-peak = float(np.max(np.abs(audio)))
-rms = float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
-gain = 1.0
-if rms > 1e-6:
-    gain = min(0.09 / rms, 64.0)
-gain = min(gain, 0.97 / max(peak, 1e-6))
-if gain > 1.0:
-    audio = audio * gain
-    peak *= gain
-
-# Close-range plosives can still hit the PCM ceiling; soft-limit those peaks
-# instead of feeding hard-clipped samples to the mel extractor.
-if peak > 0.985:
-    audio = np.tanh(audio / 0.95) * 0.95
-
-duration_s = audio.size / 16000.0
-print(
-    f"whisprflow: duration={duration_s:.2f}s rms={rms:.5f} peak={peak:.4f} gain={gain:.2f}",
-    file=sys.stderr,
-)
-
-initial_prompt = None
-if dict_path and dict_path.exists():
-    # Keep prompt reasonably short.
-    lines = [ln.strip() for ln in dict_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-    if lines:
-        prompt = "Spellings: " + ", ".join(lines)
-        initial_prompt = prompt[:1000]
-
-if corrections_path and corrections_path.exists():
-    learned = []
-    for line in corrections_path.read_text(encoding="utf-8").splitlines():
-        if "\t" not in line:
-            continue
-        _wrong, correct = line.split("\t", 1)
-        correct = correct.strip()
-        if correct:
-            learned.append(correct)
-    if learned:
-        learned_prompt = "Preferred terms: " + ", ".join(learned[:50])
-        if initial_prompt:
-            initial_prompt = f"{initial_prompt}. {learned_prompt}"[:1000]
-        else:
-            initial_prompt = learned_prompt[:1000]
-
-if allowed_languages and not dual_mode and not language:
-    prefix = f"Language: {', '.join(allowed_languages)}. "
-    if initial_prompt:
-        initial_prompt = (prefix + initial_prompt)[:1000]
-    else:
-        initial_prompt = prefix[:1000]
-
-model = WhisperModel(
-    model_name,
-    device="cpu",
-    compute_type="int8",
-    cpu_threads=max(4, min(12, (os.cpu_count() or 4))),
-)
-
-# Quiet close-range dictation sits low on the VAD detector; use a very soft
-# threshold and keep short pauses from splitting words. WHISPER_VAD=0 skips the
-# detector entirely and lets the decoder decide what is speech.
-vad_enabled = os.environ.get("WHISPER_VAD", "1").strip().lower() not in {"0", "false", "no"}
-vad_parameters = dict(
-    threshold=0.25,
-    min_speech_duration_ms=80,
-    min_silence_duration_ms=800,
-    speech_pad_ms=250,
-)
-
-def score_text(raw_text: str, base_score: float) -> float:
-    if base_score is None or base_score != base_score:
-        return -float("inf")
-    score = base_score
-    if raw_text:
-        stripped = raw_text.replace(" ", "")
-        if len(stripped) >= 8 and stripped[: len(stripped) // 2] == stripped[len(stripped) // 2 :]:
-            score -= 1.0
-        words = raw_text.lower().split()
-        if len(words) >= 6 and len(set(words)) <= len(words) / 3:
-            score -= 1.0
-    return score
-
-def decode(lang):
-    segments, info = model.transcribe(
-        audio,
-        language=lang,
-        beam_size=beam_size,
-        best_of=1,
-        initial_prompt=initial_prompt,
-        # Accept quieter, lower-confidence speech than the defaults: segments
-        # come back even when the clip looks borderline silent.
-        no_speech_threshold=0.85,
-        log_prob_threshold=-1.6,
-        vad_filter=vad_enabled,
-        vad_parameters=vad_parameters,
-        condition_on_previous_text=False,
-    )
-    segment_list = list(segments)
-    raw_text = "".join(segment.text for segment in segment_list).strip()
-    base_score = None
-    if segment_list:
-        spans = [max(0.0, segment.end - segment.start) for segment in segment_list]
-        spoken = sum(spans)
-        if spoken > 0:
-            base_score = sum(
-                segment.avg_logprob * span for segment, span in zip(segment_list, spans)
-            ) / spoken
-        else:
-            base_score = segment_list[0].avg_logprob
-    return raw_text, score_text(raw_text, base_score)
-
-if language:
-    text, _ = decode(language)
-elif dual_mode and len(allowed_languages) >= 2:
-    # Forced-decode in every allowed language and keep the most confident
-    # hypothesis, so the transcript is always exactly PL or EN (never garbage
-    # from a mis-detected language on whispered audio).
-    attempts = [decode(lang) for lang in allowed_languages]
-    text, _ = max(attempts, key=lambda attempt: (attempt[0] != "", attempt[1]))
-else:
-    text, _ = decode(None)
-
-if text:
-    def normalize(s: str) -> str:
-        s = re.sub(r"\b(laugh|laughs|laughing|laughter)\b", "haha", s, flags=re.IGNORECASE)
-        s = re.sub(r"\b(uh|um|erm|er|ah|oh|hmm|hm|uhm|yyy|eee)\b", "", s, flags=re.IGNORECASE)
-        s = re.sub(r"\s+", " ", s).strip()
-        s = re.sub(r"\s+([,.;:!?])", r"\1", s)
-        return s
-
-    def apply_redo(s: str):
-        redo = False
-        m = re.search(
-            r"\b(no\s+){2,}(?:actually\s+|i mean\s+|i'm\s+|rather\s+|wait\s+|make that\s+|use\s+)?(?P<rest>.+)$",
-            s,
-            flags=re.IGNORECASE,
-        )
-        if m and m.group("rest").strip():
-            return m.group("rest").strip(), True
-        m = re.search(
-            r"\b(nie\s+){2,}(?:właściwie\s+|to\s+znaczy\s+|w\s+sen\s*?sie\s+|raczej\s+|czekaj\s+|poczekaj\s+|użyj\s+)?(?P<rest>.+)$",
-            s,
-            flags=re.IGNORECASE,
-        )
-        if m and m.group("rest").strip():
-            return m.group("rest").strip(), True
-
-        markers = [
-            r"\bscratch that\b",
-            r"\bforget that\b",
-            r"\bnever mind\b",
-            r"\bnevermind\b",
-            r"\bno wait\b",
-            r"\bactually\b",
-            r"\bi mean\b",
-            r"\bmake that\b",
-            r"\bcorrection\b",
-            r"\bzapomnij( o tym)?\b",
-            r"\bnieważne\b",
-            r"\bto znaczy\b",
-            r"\bw sensie\b",
-            r"\bpoprawka\b",
-            r"\bwłaściwie\b",
-            r"\bczekaj\b",
-            r"\bpoczekaj\b",
-        ]
-        last = None
-        for pat in markers:
-            for match in re.finditer(pat, s, flags=re.IGNORECASE):
-                last = match
-        if last:
-            rest = s[last.end() :].strip(" ,")
-            if rest:
-                return rest, True
-        return s, redo
-
-    def wrap_with(s: str, left: str, right: str) -> str:
-        return f"{left}{s}{right}"
-
-    text = normalize(text)
-    text, redo_applied = apply_redo(text)
-
-    wrap_applied = False
-    wrap_patterns = [
-        (
-            "()",
-            ("(", ")"),
-            ["parenthesis", "parentheses", "parens", "nawias", "nawiasy", "nawiasie", "nawiasach"],
-        ),
-        (
-            "[]",
-            ("[", "]"),
-            [
-                "brackets",
-                "square brackets",
-                "nawiasy kwadratowe",
-                "nawiasach kwadratowych",
-                "nawias kwadratowy",
-            ],
-        ),
-        (
-            "{}",
-            ("{", "}"),
-            ["braces", "curly braces", "klamry", "klamrach", "nawiasy klamrowe", "klamra"],
-        ),
-        (
-            "\"\"",
-            ("\"", "\""),
-            ["double quotes", "quotes", "cudzyslow", "cudzyslowy", "cudzysłów", "cudzysłowie", "cudzysłowach"],
-        ),
-        (
-            "''",
-            ("'", "'"),
-            ["single quotes", "apostrophes", "apostrof", "apostrofy", "apostrofach"],
-        ),
-    ]
-
-    for _label, (left, right), words in wrap_patterns:
-        word_re = "|".join(re.escape(w) for w in words)
-        m = re.search(
-            rf"\b(put|wstaw|daj|umieść|umiesc|wrzuć|wrzuc)\s+(.*?)\s+(in|w)\s+({word_re})\b",
-            text,
-            flags=re.IGNORECASE,
-        )
-        if m and m.group(1).strip():
-            text = wrap_with(m.group(2).strip(), left, right)
-            wrap_applied = True
-            break
-
-        m = re.search(rf"\b(in\s*side|inside|in|w)\s*({word_re})\b", text, flags=re.IGNORECASE)
-        if m:
-            text = (text[:m.start()] + text[m.end() :]).strip(" ,")
-            text = wrap_with(text, left, right) if text else wrap_with("", left, right)
-            wrap_applied = True
-            break
-
-    if redo_applied or wrap_applied:
-        text = re.sub(r"^\s*use\s+(the\s+)?", "", text, flags=re.IGNORECASE).strip()
-
-    if corrections_path.exists():
-        entries = []
-        for line in corrections_path.read_text(encoding="utf-8").splitlines():
-            if "\t" not in line:
-                continue
-            wrong, correct = line.split("\t", 1)
-            wrong = wrong.strip()
-            correct = correct.strip()
-            if wrong and correct:
-                entries.append((wrong, correct))
-
-        entries.sort(key=lambda item: (-len(item[0].split()), item[0].casefold()))
-        for wrong, correct in entries:
-            text = re.sub(rf"(?<!\w){re.escape(wrong)}(?!\w)", correct, text, flags=re.IGNORECASE)
-
-    if dict_path.exists():
-        preferred_terms = [ln.strip() for ln in dict_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        preferred_terms.sort(key=lambda item: (-len(item.split()), item.casefold()))
-        for term in preferred_terms:
-            text = re.sub(rf"(?<!\w){re.escape(term)}(?!\w)", term, text, flags=re.IGNORECASE)
-
-    text = text.strip()
-    txt_path.write_text(text, encoding="utf-8")
-else:
-    txt_path.write_text("", encoding="utf-8")
-PY
+  if ! asr_transcribe "$wav_file" 2>"$log_file"; then
     hide_indicator
     flash_indicator "Whispr Flow" "Transcription failed. See $log_file" "error" 2600
     return 1
@@ -871,7 +677,7 @@ PY
   transcript_before_review="$(cat "$txt_file" 2>/dev/null || true)"
   focused_window="$(capture_active_window)"
 
-  if [[ "${WHISPER_REVIEW:-1}" != "0" ]] && [[ -n "$transcript_before_review" ]]; then
+  if [[ "${WHISPER_REVIEW:-0}" == "1" ]] && [[ -n "$transcript_before_review" ]]; then
     hide_indicator
     if reviewed_text="$(review_text_popup "$transcript_before_review")"; then
       reviewed_text="${reviewed_text%$'\n'}"
@@ -962,6 +768,7 @@ start_recording() {
     return 1
   fi
   ensure_source_unmuted "$source_name"
+  warmup_asr
   {
     echo "source: $source_name"
   } >>"$record_log" 2>/dev/null || true

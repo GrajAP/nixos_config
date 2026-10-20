@@ -37,6 +37,42 @@
     "%h/.local/state/nix/profile/bin"
     "%h/.nix-profile/bin"
   ];
+
+  # T3 downloads an unwrapped Chromium whose ELF loader has no Nix RPATH and
+  # NixOS has no ld.so.cache to fall back on, so the runtime libraries the
+  # browser needs have to come from an explicit LD_LIBRARY_PATH.
+  t3BrowserLibs = pkgs.buildEnv {
+    name = "t3-browser-libs";
+    paths = with pkgs; [
+      glib
+      nss
+      nspr
+      atk
+      at-spi2-core
+      at-spi2-atk
+      dbus
+      xorg.libX11
+      xorg.libXcomposite
+      xorg.libXdamage
+      xorg.libXext
+      xorg.libXrandr
+      xorg.libXfixes
+      xorg.libxcb
+      expat
+      libxkbcommon
+      systemd
+      alsa-lib
+      mesa
+      cairo
+      pango
+      fontconfig
+      freetype
+      wayland
+      libdrm
+      pkgs.stdenv.cc.cc.lib
+    ];
+    pathsToLink = ["/lib"];
+  };
 in {
   options.t3code = {
     enable = lib.mkEnableOption "T3 Code CLI, T3 Connect environment and theme publishing";
@@ -76,6 +112,7 @@ in {
         # dynamically linked provider binaries need the Nix loader.
         Environment=NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so
         Environment=NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib
+        Environment=LD_LIBRARY_PATH=${t3BrowserLibs}/lib
         # Antigravity's ACP ships its own Python and OpenSSL. Without a CA
         # bundle every Gemini request dies with SSL: CERTIFICATE_VERIFY_FAILED,
         # which the ACP surfaces as 502 Bad Gateway.
