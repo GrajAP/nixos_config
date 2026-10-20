@@ -49,10 +49,18 @@
       ''
       + builtins.readFile ./whisprflow;
   };
+  whisprflowServe = pkgs.writeShellApplication {
+    name = "whisprflow-serve";
+    runtimeInputs = [whisperPython];
+    text = ''
+      mkdir -p "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/whisper-record-v2"
+      exec ${whisperPython}/bin/python3 ${./asr.py} serve
+    '';
+  };
 in
   pkgs.symlinkJoin {
     name = "whisprflow-cli-0.1.0";
-    paths = [whisprflow];
+    paths = [whisprflow whisprflowServe];
     postBuild = ''
       ln -s whisprflow "$out/bin/whisper-record-v2"
       install -m644 ${./asr.py} "$out/bin/asr.py"

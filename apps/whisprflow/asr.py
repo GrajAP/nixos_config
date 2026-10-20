@@ -28,9 +28,47 @@ def _get_model(model_name):
 
 
 def load_audio(wav_path):
-    with wave.open(str(wav_path), "rb") as wf:
-        audio = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
-    return audio.astype(np.float32) / 32768.0
+    audio = None
+    try:
+        with wave.open(str(wav_path), "rb") as wf:
+            frames = wf.readframes(wf.getnframes())
+            if frames:
+                audio = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+    except Exception:
+        audio = None
+    if audio is None or audio.size == 0:
+        # Partial / in-flight WAVs may carry an unsettled RIFF header while the
+        # recording is still growing; parse the data payload directly.
+        audio = _load_audio_unsettled(Path(wav_path))
+    return audio
+
+
+def _load_audio_unsettled(wav_path):
+    try:
+        data = wav_path.read_bytes()
+    except OSError:
+        return np.empty(0, dtype=np.float32)
+    index = 0
+    payload = b""
+    while index + 8 <= len(data):
+        if index == 0:
+            if data[:4] != b"RIFF":
+                break
+            index = 12
+            continue
+        chunk_id = data[index : index + 4]
+        chunk_size = int.from_bytes(data[index + 4 : index + 8], "little")
+        start = index + 8
+        if chunk_id == b"data":
+            payload = data[start:] if chunk_size > len(data) - start else data[start : start + chunk_size]
+            break
+        step = chunk_size + (chunk_size & 1)
+        if step <= 0:
+            break
+        index = start + step
+    if not payload:
+        return np.empty(0, dtype=np.float32)
+    return np.frombuffer(payload, dtype=np.int16).astype(np.float32) / 32768.0
 
 
 def transcribe_file(wav_path):
@@ -71,6 +109,10 @@ def transcribe_file(wav_path):
     audio = load_audio(wav_path)
     if audio.size == 0:
         return finish("")
+
+    tail_seconds = float(os.environ.get("WHISPER_TAIL_SECONDS", "0") or 0)
+    if tail_seconds > 0:
+        audio = audio[-int(tail_seconds * 16000) :]
 
     audio -= audio.mean()
 
@@ -226,6 +268,23 @@ def transcribe_file(wav_path):
 
     stamped = datetime.now().strftime("%Y%m%d-%H%M%S")
     try:
+        if text:
+            stats_path = os.environ.get("WHISPER_STATS_PATH")
+            if stats_path:
+                stats_file = Path(stats_path)
+                stats_file.parent.mkdir(parents=True, exist_ok=True)
+                with stats_file.open("a", encoding="utf-8") as fh:
+                    fh.write(
+                        json.dumps(
+                            {
+                                "t": stamped,
+                                "durationS": round(duration_s, 2),
+                                "words": len(text.split()),
+                                "chars": len(text),
+                            }
+                        )
+                        + "\n"
+                    )
         if log_path:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open("a", encoding="utf-8") as fh:
@@ -302,6 +361,77 @@ def transcribe_file(wav_path):
 
     text = normalize(text)
     text, redo_applied = apply_redo(text)
+
+    structure_applied = False
+
+    # Order matters: a code-block cue claims everything after it, so it runs
+    # before the other cues. Spark handles these cues too; this is the local
+    # fallback for when the LLM pass is disabled or unavailable.
+    code_match = re.search(
+        r"(?<![\w\u0301])(?P<cue>blok kodu|code block|snippet)(?:\s+(?P<lang>[a-z0-9+#-]+))?(?![\w\u0301])",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if code_match:
+        language = code_match.group("lang") or ""
+        remainder = text[code_match.end() :].strip() if code_match.start() == 0 else None
+        if remainder is None or not remainder:
+            remainder = (text[: code_match.start()] + " " + text[code_match.end() :]).strip(" ,.:;")
+        text = "```" + language + ("\n" + remainder + "\n" if remainder else "") + "```"
+        structure_applied = True
+
+    paragraph_cue = r"(?<![\w\u0301])(nowy\s+akapit|new\s+paragraph|akapit)(?![\w\u0301])"
+    if re.search(paragraph_cue, text, flags=re.IGNORECASE):
+        text = re.sub(paragraph_cue, "\n\n", text, flags=re.IGNORECASE)
+        structure_applied = True
+
+    newline_cue = r"(?<![\w\u0301])(nowa\s+linia|new\s+line)(?![\w\u0301])"
+    if re.search(newline_cue, text, flags=re.IGNORECASE):
+        text = re.sub(newline_cue, "\n", text, flags=re.IGNORECASE)
+        structure_applied = True
+
+    pl_ordinals = {
+        "pierwszy": 1, "drugi": 2, "trzeci": 3, "czwarty": 4, "piąty": 5,
+        "piaty": 5, "szósty": 6, "szosty": 6, "siódmy": 7, "siodmy": 7,
+        "ósmy": 8, "osmy": 8, "dziewiąty": 9, "dziewiaty": 9, "dziesiąty": 10,
+        "dziesiaty": 10,
+    }
+    pl_ordinals.update({str(number): number for number in list(pl_ordinals.values())})
+    point_pattern = re.compile(
+        r"(?<![\w\u0301])(?:punkt\s+|point\s+)(?P<ord>[a-ząćęłńóśźż]{4,20}|\d+)(?![\w\u0301])",
+        re.IGNORECASE,
+    )
+
+    def render_point(match):
+        token = match.group("ord").lower()
+        number = pl_ordinals.get(token)
+        if number is None:
+            return match.group(0)
+        return f"\n{number}. "
+
+    if re.search(r"(?<![\w\u0301])(?:punkt|point)(?![\w\u0301])", text, flags=re.IGNORECASE):
+        numbered = point_pattern.sub(render_point, text)
+        if numbered != text:
+            text = numbered
+            structure_applied = True
+
+    list_match = re.search(
+        r"(?<![\w\u0301])(?:whisprflow\s*,?\s*)?lista\s*:?\s*(?P<rest>.+)$",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if list_match:
+        rest = list_match.group("rest").strip(" .,:;")
+        items = [item.strip() for item in re.split(r"[,;]|\.{3}", rest) if item.strip()]
+        if len(items) >= 2:
+            text = text[: list_match.start()] + "\n" + "\n".join(f"- {item}" for item in items)
+            structure_applied = True
+
+    if structure_applied:
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"\s*\n\s*\n\s*", "\n\n", text.strip())
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"^\s+", "", text, flags=re.MULTILINE)
 
     wrap_applied = False
     wrap_patterns = [

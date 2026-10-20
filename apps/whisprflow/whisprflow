@@ -24,6 +24,8 @@ asr_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 asr_py="$asr_dir/asr.py"
 serve_sock="$state_dir/serve.sock"
 serve_log="$state_dir/serve.log"
+partials_pid_file="$state_dir/partials.pid"
+stats_file="$data_dir/stats.jsonl"
 
 mkdir -p "$state_dir"
 mkdir -p "$data_dir"
@@ -527,9 +529,104 @@ warmup_asr() {
   return 0
 }
 
+stop_partials() {
+  local pid
+  pid="$(cat "$partials_pid_file" 2>/dev/null || true)"
+  if [[ -n "${pid:-}" ]]; then
+    kill "$pid" 2>/dev/null || true
+  fi
+  rm -f "$partials_pid_file"
+}
+
+asr_partial() {
+  local wav="$1"
+  WAV_REQUEST="$wav" WHISPR_SOCK="$serve_sock" WHISPER_PARTIAL_TAIL="${WHISPER_PARTIAL_TAIL:-8}" python3 - <<'PY'
+import json
+import os
+import socket
+import sys
+
+wanted = [
+    "WHISPER_LANGUAGE",
+    "WHISPER_LANGS",
+    "WHISPER_MODEL",
+    "WHISPER_BEAM_SIZE",
+    "WHISPER_DUAL",
+    "WHISPER_MIN_SCORE",
+    "WHISPER_VAD",
+    "DICT_PATH",
+    "CORRECTIONS_PATH",
+    "WHISPER_LOG_PATH",
+    "WHISPER_FAILED_DIR",
+]
+env = {key: os.environ[key] for key in wanted if key in os.environ}
+env.update(
+    {
+        "WHISPER_DUAL": "0",
+        "WHISPER_BEAM_SIZE": "1",
+        "WHISPER_MIN_SCORE": "1",
+        "WHISPER_TAIL_SECONDS": os.environ.get("WHISPER_PARTIAL_TAIL", "8"),
+        "WHISPER_LOG_PATH": "/dev/null",
+        "WHISPER_FAILED_DIR": "",
+        "TXT_PATH": "/dev/null",
+    }
+)
+request = {"wav": os.environ["WAV_REQUEST"], "env": env}
+try:
+    client = socket.socket(socket.AF_UNIX)
+    client.settimeout(120)
+    client.connect(os.environ["WHISPR_SOCK"])
+    client.sendall((json.dumps(request) + "\n").encode("utf-8"))
+    inbox = b""
+    while not inbox.endswith(b"\n"):
+        chunk = client.recv(65536)
+        if not chunk:
+            break
+        inbox += chunk
+    reply = json.loads(inbox.decode("utf-8"))
+    if "error" in reply:
+        raise SystemExit(1)
+    print(reply.get("text") or "", end="")
+except Exception:
+    raise SystemExit(1)
+PY
+}
+
+partial_loop() {
+  local wav="$1"
+  local text preview
+  for _ in 1 2 3; do
+    daemon_probe && break
+    sleep 2
+  done
+  daemon_probe || return 0
+  while :; do
+    sleep "${WHISPER_PARTIAL_INTERVAL:-3.5}"
+    [[ -f "$pid_file" ]] || return 0
+    [[ -s "$wav" ]] || continue
+    text="$(asr_partial "$wav" 2>/dev/null)" || continue
+    [[ -z "$text" ]] && continue
+    preview="$text"
+    if (( ${#preview} > 160 )); then
+      preview="${preview: -160}"
+    fi
+    notify_status "Whispr Flow" "≈ ${preview}" "listening" 4000
+  done
+}
+
+start_partial_loop() {
+  if [[ "${WHISPER_PARTIALS:-1}" == "0" ]]; then
+    return 0
+  fi
+  (
+    partial_loop "$wav_file" >/dev/null 2>&1
+  ) &
+  echo $! >"$partials_pid_file"
+}
+
 asr_transcribe() {
   local wav="$1"
-  TXT_PATH="$txt_file" WAV_REQUEST="$wav" WHISPR_SOCK="$serve_sock" python3 - <<'PY' && return 0
+  TXT_PATH="$txt_file" WAV_REQUEST="$wav" WHISPR_SOCK="$serve_sock" WHISPER_STATS_PATH="$stats_file" python3 - <<'PY' && return 0
 import json
 import os
 import socket
@@ -548,6 +645,7 @@ wanted = [
     "TXT_PATH",
     "WHISPER_LOG_PATH",
     "WHISPER_FAILED_DIR",
+    "WHISPER_STATS_PATH",
 ]
 request = {
     "wav": os.environ["WAV_REQUEST"],
@@ -587,6 +685,7 @@ PY
   CORRECTIONS_PATH="$corrections_file" \
   WHISPER_LOG_PATH="$data_dir/whisper.log" \
   WHISPER_FAILED_DIR="$data_dir/failed" \
+  WHISPER_STATS_PATH="$stats_file" \
   python3 - <<'PY'
 import os
 import sys
@@ -601,6 +700,7 @@ PY
 stop_recording() {
   local pid
   pid=$(cat "$pid_file" 2>/dev/null || true)
+  stop_partials
   if [[ -z "${pid:-}" ]]; then
     rm -f "$pid_file"
     return 1
@@ -674,6 +774,17 @@ PY
     return 1
   fi
 
+  if [[ "${WHISPER_SPARK_CORRECTION:-1}" != "0" ]] && command -v spark-corrector >/dev/null 2>&1; then
+    show_indicator "Whispr Flow" "Spark cleanup..." "working" 0
+    spark_out="$state_dir/spark-corrected.txt"
+    if spark-corrector filter --mode whisprflow <"$txt_file" >"$spark_out" 2>"$state_dir/spark.err" \
+      && [[ -s "$spark_out" ]]; then
+      mv "$spark_out" "$txt_file"
+    else
+      flash_indicator "Whispr Flow" "Spark cleanup failed; using raw transcript." "error" 2400
+    fi
+  fi
+
   transcript_before_review="$(cat "$txt_file" 2>/dev/null || true)"
   focused_window="$(capture_active_window)"
 
@@ -695,6 +806,10 @@ PY
     sleep 0.2
   fi
 
+  deliver_transcript
+}
+
+deliver_transcript() {
   if ! wl-copy < "$txt_file"; then
     flash_indicator "Whispr Flow" "Clipboard copy failed." "error" 2200
   fi
@@ -702,21 +817,31 @@ PY
   paste_ok=0
   sleep 0.2 # Give Hyprland time to restore focus and wl-copy to own the selection.
 
-  if command -v ydotool >/dev/null 2>&1; then
-    # Paste through the target application's clipboard handling. `ydotool type`
-    # maps characters to key codes and cannot reliably emit Polish Unicode.
-    if ydotool key 29:1 47:1 47:0 29:0 2>/dev/null; then
+  if [[ "${WHISPER_PASTE_MODE:-type}" == "type" ]]; then
+    # Type the transcript directly into the focused window, like Wispr Flow.
+    # Avoids clobbering the user's clipboard when possible.
+    if command -v wtype >/dev/null 2>&1 && wtype -s 15 -- "$(cat "$txt_file")" 2>/dev/null; then
       paste_ok=1
     fi
   fi
 
-  if [[ $paste_ok -eq 0 ]] && command -v wtype >/dev/null 2>&1; then
-    for _ in 1 2 3; do
-      wtype -M ctrl -k v -m ctrl 2>/dev/null && {
+  if [[ $paste_ok -eq 0 ]]; then
+    if command -v ydotool >/dev/null 2>&1; then
+      # Paste through the target application's clipboard handling. `ydotool type`
+      # maps characters to key codes and cannot reliably emit Polish Unicode.
+      if ydotool key 29:1 47:1 47:0 29:0 2>/dev/null; then
         paste_ok=1
-        break
-      }
-    done
+      fi
+    fi
+
+    if [[ $paste_ok -eq 0 ]] && command -v wtype >/dev/null 2>&1; then
+      for _ in 1 2 3; do
+        wtype -M ctrl -k v -m ctrl 2>/dev/null && {
+          paste_ok=1
+          break
+        }
+      done
+    fi
   fi
 
   if [[ $paste_ok -eq 0 ]]; then
@@ -769,6 +894,7 @@ start_recording() {
   fi
   ensure_source_unmuted "$source_name"
   warmup_asr
+  start_partial_loop
   {
     echo "source: $source_name"
   } >>"$record_log" 2>/dev/null || true
@@ -812,22 +938,157 @@ copy_last_transcript() {
 print_status() {
   if [[ -f "$pid_file" ]]; then
     echo "recording"
-    return 0
+  else
+    echo "idle"
+  fi
+  if daemon_probe; then
+    echo "daemon: ready (model ${WHISPER_MODEL:-large-v3-turbo})"
+  else
+    echo "daemon: cold (model ${WHISPER_MODEL:-large-v3-turbo})"
+  fi
+}
+
+cancel_recording() {
+  local pid
+  stop_partials
+  pid=$(cat "$pid_file" 2>/dev/null || true)
+  if [[ -z "${pid:-}" ]]; then
+    rm -f "$pid_file"
+    notify_whisper "WhisprFlow" "Nothing to cancel."
+    return 1
   fi
 
-  echo "idle"
+  kill -INT "$pid" 2>/dev/null || true
+  for _ in $(seq 1 60); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.05
+  done
+  rm -f "$pid_file" "$raw_file" "$wav_file" "$txt_file" "$record_err"
+  hide_indicator
+  flash_indicator "Whispr Flow" "Recording cancelled." "success" 1600
+}
+
+review_last() {
+  local transcript focused_window
+  transcript="$(cat "$txt_file" 2>/dev/null || true)"
+  if [[ -z "$transcript" ]]; then
+    notify_whisper "WhisprFlow" "No recent transcript to review."
+    return 1
+  fi
+
+  focused_window="$(capture_active_window)"
+  if reviewed_text="$(review_text_popup "$transcript")"; then
+    reviewed_text="${reviewed_text%$'\n'}"
+    printf '%s' "$reviewed_text" >"$txt_file"
+    learn_from_pair "$transcript" "$reviewed_text"
+  else
+    notify_whisper "WhisprFlow" "Review cancelled."
+    return 1
+  fi
+  refocus_window "$focused_window"
+  sleep 0.2
+  deliver_transcript
+}
+
+dict_command() {
+  local action="${1:-list}" term
+  shift || true
+  term="${*:-(missing)}"
+
+  case "$action" in
+    add)
+      if [[ -z "$term" || "$term" == "missing" ]]; then
+        echo "Usage: whisprflow dict add TERM [expansion]" >&2
+        return 2
+      fi
+      grep -Fxq "$term" "$dict_file" 2>/dev/null || {
+        if [[ -s "$dict_file" ]] && [[ "$(tail -c 1 "$dict_file")" != $'\n' ]]; then
+          printf '\n' >>"$dict_file"
+        fi
+        printf '%s\n' "$term" >>"$dict_file"
+      }
+      sort -o "$dict_file" "$dict_file"
+      echo "Dictionary now has $(wc -l <"$dict_file") entries."
+      ;;
+    remove)
+      if [[ ! -s "$dict_file" ]]; then
+        echo "Dictionary is empty." >&2
+        return 1
+      fi
+      grep -Fxv "$term" "$dict_file" >"$dict_file.tmp"
+      mv "$dict_file.tmp" "$dict_file"
+      echo "Dictionary now has $(( $(wc -l <"$dict_file") )) entries."
+      ;;
+    clear)
+      : >"$dict_file"
+      echo "Dictionary cleared."
+      ;;
+    list)
+      cat "$dict_file" 2>/dev/null || true
+      ;;
+    *)
+      echo "Usage: whisprflow dict [add TERM | remove TERM | clear | list]" >&2
+      return 2
+      ;;
+  esac
+}
+
+print_stats() {
+  [[ -s "$stats_file" ]] || { echo "No stats yet. Dictate something first."; return 0; }
+  python3 - "$stats_file" <<'PY'
+import json
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+
+def parse(stamp):
+    return datetime.strptime(stamp, "%Y%m%d-%H%M%S") if stamp else None
+
+entries = []
+for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        entry = json.loads(line)
+    except ValueError:
+        continue
+    entries.append(entry)
+if not entries:
+    print("No stats yet. Dictate something first.")
+    raise SystemExit
+
+now = datetime.now()
+buckets = {"today": timedelta(days=1), "week": timedelta(days=7), "all": None}
+print("span     words  sessions  dictation-min")
+for label, delta in buckets.items():
+    subset = [
+        e for e in entries
+        if delta is None or (parse(e.get("t")) or now) >= now - delta
+    ]
+    words = sum(int(e.get("words", 0)) for e in subset)
+    minutes = sum(float(e.get("durationS", 0)) for e in subset) / 60
+    print(f"{label:<8}{words:>7}{len(subset):>10}{minutes:>15.1f}")
+PY
 }
 
 print_usage() {
   cat <<EOF
-Usage: whisprflow [start|stop|toggle|status|copy|learn]
+Usage: whisprflow COMMAND [args]
 
-  start    Start recording
-  stop     Stop, transcribe, review, learn and paste
-  toggle   Start or stop recording
-  status   Print recording or idle
-  copy     Copy the last transcript to the clipboard
-  learn    Learn from the last transcript and current clipboard
+  start                          Start recording
+  stop                           Stop, transcribe, (Spark) clean up, and paste
+  toggle                         Start or stop recording
+  cancel                         Stop recording and discard the draft
+  review                         Re-edit the last transcript and re-paste it
+  status                         Print recording/idle plus daemon state
+  copy                           Copy the last transcript to the clipboard
+  learn                          Learn from the last transcript and clipboard
+  dict [add|remove|clear|list]   Manage dictionary entries
+  stats                          Dictation statistics (words, sessions)
 EOF
 }
 
@@ -840,26 +1101,38 @@ case "${1:-toggle}" in
   stop)
     stop_recording
     ;;
+  cancel)
+    cancel_recording
+    ;;
+  review)
+    review_last
+    ;;
   status)
     print_status
     ;;
   copy)
     copy_last_transcript
     ;;
+  dict)
+    dict_command "${2:-list}" "${@:3}"
+    ;;
+  stats)
+    print_stats
+    ;;
   learn)
     ensure_learn_script
     transcript="$(cat "$txt_file" 2>/dev/null || true)"
     clip="$(wl-paste --no-newline 2>/dev/null || true)"
     if [[ -z "$transcript" ]]; then
-      notify_whisper "Whisper" "No recent transcript to learn from."
+      notify_whisper "WhisprFlow" "No recent transcript to learn from."
       exit 1
     fi
     if [[ -z "$clip" ]] || [[ "$clip" == "$transcript" ]]; then
-      notify_whisper "Whisper" "Copy your corrected text first, then run learn."
+      notify_whisper "WhisprFlow" "Copy your corrected text first, then run learn."
       exit 1
     fi
     TRANSCRIPT="$transcript" CLIP="$clip" DICT_PATH="$dict_file" CORRECTIONS_PATH="$corrections_file" DICT_LOG="$dict_log" python3 "$learn_script"
-    notify_whisper "Whisper" "Learned from your corrected text."
+    notify_whisper "WhisprFlow" "Learned from your corrected text."
     ;;
   toggle)
     if [[ -f "$pid_file" ]]; then
