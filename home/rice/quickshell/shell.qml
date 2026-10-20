@@ -2793,13 +2793,15 @@ ShellRoot {
       // parks bottom-right next to the bar stack. Calendar keeps its own edges.
       anchors.top: root.widgetPage === "screenshot" ? parent.top : undefined
       anchors.horizontalCenter: root.widgetPage === "screenshot" ? parent.horizontalCenter : undefined
-      anchors.topMargin: root.widgetPage === "screenshot" ? 18 : 0
+      anchors.topMargin: 0
       anchors.right: root.widgetPage === "screenshot" ? undefined : parent.right
       anchors.bottom: root.widgetPage === "screenshot" ? undefined : parent.bottom
       anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
-      radius: root.widgetPage === "calendar" ? 0 : Theme.radiusLg
-      color: root.translucentPanel
+      // Screenshot page is flush against the screen top: square top corners,
+      // rounded bottom ones (drawn below, uniform alpha), no border.
+      radius: root.widgetPage === "screenshot" || root.widgetPage === "calendar" ? 0 : Theme.radiusLg
+      color: root.widgetPage === "screenshot" ? "transparent" : root.translucentPanel
       border.color: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? "transparent" : Theme.border
       border.width: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? 0 : 1
       clip: true
@@ -2829,6 +2831,33 @@ ShellRoot {
       Behavior on height {
         enabled: root.widgetPage !== "clipboard"
         NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic }
+      }
+      // Translucent panel color can't be double-stacked to square off top
+      // corners (alpha would compound), so the screenshot sheet paints its
+      // flush-top, rounded-bottom shape as a single uniform fill here.
+      Canvas {
+        visible: root.widgetPage === "screenshot"
+        anchors.fill: parent
+        onPaint: {
+          const ctx = getContext("2d");
+          ctx.clearRect(0, 0, width, height);
+          const r = Theme.radiusLg;
+          ctx.fillStyle = root.translucentPanel;
+          ctx.beginPath();
+          ctx.moveTo(0, height - r);
+          ctx.lineTo(0, 0);
+          ctx.lineTo(width, 0);
+          ctx.lineTo(width, height - r);
+          ctx.quadraticCurveTo(width, height, width - r, height);
+          ctx.lineTo(r, height);
+          ctx.quadraticCurveTo(0, height, 0, height - r);
+          ctx.closePath();
+          ctx.fill();
+        }
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onVisibleChanged: if (visible) requestPaint()
+        Component.onCompleted: requestPaint()
       }
       ColumnLayout {
         anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd

@@ -27,9 +27,16 @@ PanelWindow {
       width: 450; height: 140
       anchors.top: parent.top
       anchors.horizontalCenter: parent.horizontalCenter
-      anchors.topMargin: 18
+      anchors.topMargin: 0
       focus: shell.powerVisible
       radius: Theme.radiusLg; color: Theme.panel; border.width: 0
+      // Flush against the top edge: square off the top corners so the panel
+      // reads as hanging from it; only the bottom corners stay rounded.
+      Rectangle {
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+        height: parent.radius
+        color: parent.color
+      }
       RowLayout {
         anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         Repeater {

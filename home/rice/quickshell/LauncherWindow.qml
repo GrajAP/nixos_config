@@ -886,11 +886,16 @@ PanelWindow {
         height: 530
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: 18
+        anchors.topMargin: 0
         radius: Theme.radiusLg
         color: Theme.panel
-        border.color: Theme.border
-        border.width: 1
+        border.width: 0
+        // Same top-flush treatment as the power menu: square top corners.
+        Rectangle {
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: parent.radius
+            color: parent.color
+        }
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 18
