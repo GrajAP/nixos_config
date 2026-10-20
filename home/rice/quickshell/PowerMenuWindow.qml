@@ -24,7 +24,10 @@ PanelWindow {
     }
     Rectangle {
       id: powerPanel
-      width: 450; height: 140; anchors.centerIn: parent
+      width: 450; height: 140
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.topMargin: 18
       focus: shell.powerVisible
       radius: Theme.radiusLg; color: Theme.panel; border.width: 0
       RowLayout {

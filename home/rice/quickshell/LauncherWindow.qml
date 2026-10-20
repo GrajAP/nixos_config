@@ -884,7 +884,9 @@ PanelWindow {
         id: launcherPanel
         width: 500
         height: 530
-        anchors.centerIn: parent
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 18
         radius: Theme.radiusLg
         color: Theme.panel
         border.color: Theme.border
