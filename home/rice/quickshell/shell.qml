@@ -2871,11 +2871,11 @@ ShellRoot {
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
           Rectangle {
-            implicitWidth: 28
-            implicitHeight: 28
-            radius: Theme.radiusXs
-            color: closeMouse.containsMouse ? root.hoverSurface : "transparent"
-            Text { anchors.centerIn: parent; text: "×"; color: closeMouse.containsMouse ? Theme.text : Theme.muted; font.family: Theme.fontSans; font.pixelSize: 18 }
+            implicitWidth: 32
+            implicitHeight: 32
+            radius: Theme.radiusSm
+            color: closeMouse.containsMouse ? Theme.accentSoft : root.hoverSurface
+            Text { anchors.centerIn: parent; text: "×"; color: closeMouse.containsMouse ? Theme.text : root.secondaryText; font.family: Theme.fontSans; font.pixelSize: 20 }
             MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() }
           }
         }
