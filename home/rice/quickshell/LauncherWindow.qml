@@ -867,7 +867,7 @@ PanelWindow {
         if (!q)
             return "";
         if (isClipboardMode(q))
-            return "No clipboard matches — copy something first";
+            return "No clipboard matches, copy something first";
         return "No results for \"" + (q.length > 32 ? q.slice(0, 32) + "…" : q) + "\"";
     }
 

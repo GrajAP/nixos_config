@@ -3,6 +3,13 @@
 This repository manages the fleet configuration for the hosts `grajpap` (PC)
 and `lenovo` (24/7 laptop server). Follow these rules strictly when working here.
 
+## About the user
+
+- 20, Poland, autistic, ADHD, low attention span.
+- Fast, clear info only: short sentences, bullets, no long paragraphs.
+- Never write em dashes or en dashes, in prose, comments, docs or UI strings.
+  Use ",", ":" or "-". (Enforced by the `no-dashes` flake check.)
+
 ## Fleet
 
 One flake, three hosts:
@@ -10,18 +17,18 @@ One flake, three hosts:
 | Host | Flake attr | nixpkgs | Profile |
 | --- | --- | --- | --- |
 | PC | `grajpap` | unstable (`nixpkgs`) | desktop + `fleet.heavy.enable` (games, Android Studio, data disks) |
-| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` | headless server — no desktop, hosts Nextcloud |
-| Dell laptop | `dell` | unstable (same as PC) | desktop minus heavy — 1:1 with PC |
+| Laptop | `lenovo` | 25.11 stable (`nixpkgs-stable`), unstable via `specialArgs.unstablePkgs` | headless server: no desktop, hosts Nextcloud |
+| Dell laptop | `dell` | unstable (same as PC) | desktop minus heavy: 1:1 with PC |
 
 - Desktop hosts share `system/wayland`, `system/core`, `theme/` and `home/`;
   PC-only extras are gated by `fleet.heavy.enable` and host imports in
   `hosts/grajpap/default.nix`.
-- `rebuild` switches `#$(hostname)` — on each host it picks the right attribute.
+- `rebuild` switches `#$(hostname)`, on each host it picks the right attribute.
 - Access lenovo with `ssh lenovo-user` (LAN) / `ssh lenovo-user-ts` (tailnet),
   user `grajpap` + NOPASSWD sudo. Root SSH is disabled; the old
   `Host lenovo`/`lenovo-ts` aliases (`User root`) do not work.
 - Phone notes (POCO adb over USB on lenovo, Pixel 9a) and full inventory:
-  `fleet/` — start at `fleet/INVENTORY.md`. Health: `fleet/status.sh`.
+  `fleet/`, start at `fleet/INVENTORY.md`. Health: `fleet/status.sh`.
 - Agent skill for fleet questions: `home/agents/skills/fleet/` (symlinked
   into `.opencode/skills/fleet` for project sessions).
 
@@ -50,13 +57,13 @@ Do not embed a password or call `switch-to-configuration` directly.
 
 ## Repository Layout
 
-- `flake.nix` — Flake inputs, both host outputs, and checks.
-- `hosts/` — Per-host NixOS configuration (`grajpap/`, `lenovo/`).
-- `fleet/` — Device inventory, per-device notes, health script.
-- `system/` — NixOS system-level configuration (hardware, boot, networking, desktop).
-- `home/` — Home Manager user configuration (shell, desktop theme, apps).
-- `apps/` — Custom package derivations (e.g., quickshell, t3code).
-- `theme/` — System-wide color scheme and styling assets.
+- `flake.nix`, Flake inputs, both host outputs, and checks.
+- `hosts/`, Per-host NixOS configuration (`grajpap/`, `lenovo/`).
+- `fleet/`, Device inventory, per-device notes, health script.
+- `system/`, NixOS system-level configuration (hardware, boot, networking, desktop).
+- `home/`, Home Manager user configuration (shell, desktop theme, apps).
+- `apps/`, Custom package derivations (e.g., quickshell, t3code).
+- `theme/`, System-wide color scheme and styling assets.
 
 ## Git Rules
 

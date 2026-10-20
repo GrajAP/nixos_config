@@ -16,7 +16,7 @@
       ./voice.nix
     ]
     ++ lib.optionals heavy [
-      # Gaming workflows — fleet.heavy.enable, set per host
+      # Gaming workflows: fleet.heavy.enable, set per host
       ./gaming.nix
     ];
 }

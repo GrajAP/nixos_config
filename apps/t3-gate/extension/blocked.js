@@ -21,7 +21,7 @@ function render(result) {
     stateEl.textContent = "Nie mogę odczytać stanu agentów (t3-gate nie odpowiada).";
     stateEl.className = "no";
   } else if (result.busy) {
-    stateEl.textContent = "Agent pracuje — odblokowuję.";
+    stateEl.textContent = "Agent pracuje, odblokowuję.";
     stateEl.className = "ok";
   } else {
     stateEl.textContent = "Żaden agent nie pracuje.";

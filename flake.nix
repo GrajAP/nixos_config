@@ -67,6 +67,14 @@
     };
     formatter.${system} = pkgs.alejandra;
     checks.${system} = {
+      no-dashes = pkgs.runCommand "check-no-dashes" {nativeBuildInputs = [pkgs.gnugrep];} ''
+        if LC_ALL=C.UTF-8 grep -rIE ${''\''}—|–${''\''} ${inputs.self} >/dev/null 2>&1; then
+          LC_ALL=C.UTF-8 grep -rIE ${''\''}—|–${''\''} ${inputs.self}
+          echo "em or en dash found: supported punctuation is comma, colon, hyphen"
+          exit 1
+        fi
+        touch $out
+      '';
       formatting = pkgs.runCommand "check-alejandra" {nativeBuildInputs = [pkgs.alejandra];} ''
         alejandra --check ${inputs.self}
         touch $out

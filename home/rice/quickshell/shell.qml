@@ -1277,14 +1277,14 @@ ShellRoot {
     if (root.codexUsageError.length > 0) return "!";
     const codexUsed = root.codexUsageValue("codexPrimaryUsedPercent");
     const sparkUsed = root.codexUsageValue("sparkPrimaryUsedPercent");
-    if (codexUsed === null && sparkUsed === null) return "—";
-    if (codexUsed === null) return "— / " + Math.round(sparkUsed) + "%";
-    if (sparkUsed === null) return Math.round(codexUsed) + "% / —";
+    if (codexUsed === null && sparkUsed === null) return "-";
+    if (codexUsed === null) return ", / " + Math.round(sparkUsed) + "%";
+    if (sparkUsed === null) return Math.round(codexUsed) + "% /, ";
     return Math.round(codexUsed) + "% / " + Math.round(sparkUsed) + "%";
   }
   function codexUsageResetLabel(expiresAt) {
     const target = Number(expiresAt);
-    if (!Number.isFinite(target) || target <= 0) return "—";
+    if (!Number.isFinite(target) || target <= 0) return "-";
     const seconds = Math.floor(target - Date.now() / 1000);
     if (seconds <= 0) return "now";
     const days = Math.floor(seconds / 86400);
@@ -1307,12 +1307,12 @@ ShellRoot {
     const codexWindow = root.codexUsageWindowLabel(root.codexUsageValue("codexPrimaryWindowMinutes"));
     const sparkWindow = root.codexUsageWindowLabel(root.codexUsageValue("sparkPrimaryWindowMinutes"));
     return "Codex usage (" + planType + ")\n" +
-      "Codex: " + (codexUsed === null ? "—" : Math.round(codexUsed) + "% used, reset " + codexReset) + " (" + codexWindow + ")\n" +
-      "Spark: " + (sparkUsed === null ? "—" : Math.round(sparkUsed) + "% used, reset " + sparkReset) + " (" + sparkWindow + ")";
+      "Codex: " + (codexUsed === null ? "-" : Math.round(codexUsed) + "% used, reset " + codexReset) + " (" + codexWindow + ")\n" +
+      "Spark: " + (sparkUsed === null ? "-" : Math.round(sparkUsed) + "% used, reset " + sparkReset) + " (" + sparkWindow + ")";
   }
   function codexUsageWindowLabel(minutesValue) {
     const minutes = Number(minutesValue);
-    if (!Number.isFinite(minutes)) return "—";
+    if (!Number.isFinite(minutes)) return "-";
     const days = Math.floor(minutes / 1440);
     const hours = Math.floor((minutes % 1440) / 60);
     const rest = Math.round(minutes % 60);
@@ -1692,13 +1692,13 @@ ShellRoot {
     return Theme.surface;
   }
   function weatherShortDate(isoDate) {
-    if (!isoDate) return "—";
+    if (!isoDate) return "-";
     const parts = isoDate.split("-");
     if (parts.length === 3) return `${parts[2]}.${parts[1]}`;
     return isoDate;
   }
   function weatherHourLabel(isoTime) {
-    if (!isoTime || isoTime.length < 16) return "—";
+    if (!isoTime || isoTime.length < 16) return "-";
     return isoTime.substring(11, 16);
   }
   function weatherIsToday(isoDate) {
@@ -1830,7 +1830,7 @@ ShellRoot {
   }
   function calendarEventTimeRange(event) {
     if (!event || event.allDay || event.task || !event.startTime) return "";
-    return event.endTime ? event.startTime + "–" + event.endTime : event.startTime;
+    return event.endTime ? event.startTime + "-" + event.endTime : event.startTime;
   }
   function calendarEventChipHeight(event) {
     const minutes = root.calendarEventSpanMinutes(event);
@@ -2664,7 +2664,7 @@ ShellRoot {
             Text {
               width: parent.width
               height: 13
-              text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "—"
+              text: root.weatherData && root.weatherData.temperature !== null && root.weatherData.temperature !== undefined ? Math.round(root.weatherData.temperature) + "°" : "-"
               color: root.barWidgetText("weather", Theme.text)
               font.family: Theme.fontSans
               font.pixelSize: 10

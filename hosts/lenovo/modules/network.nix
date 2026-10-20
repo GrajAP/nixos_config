@@ -45,7 +45,14 @@
       enable = true;
       virtualHosts = {
         "http://" = {
-          extraConfig = "reverse_proxy localhost:3001";
+          extraConfig = ''
+            @plans path /plans/*
+            handle @plans {
+              root * /var/lib/html-plans
+              file_server browse
+            }
+            reverse_proxy localhost:3001
+          '';
         };
         "http://lenovo.local" = {
           extraConfig = "reverse_proxy localhost:3001";
@@ -56,6 +63,17 @@
       };
     };
   };
+
+  # ---------------------------------------------------------------------------
+  # HTML plan uploads: scp targets land in /var/lib/html-plans and are served
+  # under https://lenovo.tail138448.ts.net/plans/<name>.html through the
+  # catch-all vhost above (handle beats the reverse_proxy in directive order).
+  # Owned by grajpap so `scp lenovo-user-ts:...` writes directly; caddy only
+  # needs read (755). Same upload folder as desktop agents use fleetwide.
+  # ---------------------------------------------------------------------------
+  systemd.tmpfiles.rules = [
+    "d /var/lib/html-plans 0755 grajpap grajpap"
+  ];
 
   # ---------------------------------------------------------------------------
   # Real HTTPS on the tailnet

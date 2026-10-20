@@ -261,7 +261,7 @@ ColumnLayout {
 
       Repeater {
         model: [
-          {mode: "auto", label: "Auto — follow adapter"},
+          {mode: "auto", label: "Auto, follow adapter"},
           {mode: "ac", label: "Performance on AC"},
           {mode: "bat", label: "Battery saver"}
         ]

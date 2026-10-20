@@ -1,19 +1,5 @@
-# Pixel 9a — personal phone
+# Pixel 9a: personal phone
 
-Google Pixel 9a, Tailscale client.
-
-- **Tailscale**: `grajpap-9a` (100.106.96.44) — typically online
-- **adb**: available when docked (USB) to any fleet host — adb is installed
-  everywhere via `system/mobile/adb.nix`, which also has the Google vendor
-  rule (`idVendor=="18d1"`)
-- **Not NixOS** — no config in this repo beyond docs
-
-## adb
-
-```bash
-adb devices -l
-```
-
-Unlock the phone and accept the RSA prompt on first connect to a new host.
-Unlike the POCO (Xiaomi, always the same vendor id on the laptop), the Pixel
-is docked ad hoc — run `adb devices` on the machine it is plugged into.
+- Not NixOS. adb works when USB-docked to any fleet host (`system/mobile/adb.nix`, Google vendor rule).
+- Tailscale: `grajpap-9a`, 100.106.96.44, typically online.
+- Use: `adb devices -l` on the docked machine, accept the RSA prompt once.

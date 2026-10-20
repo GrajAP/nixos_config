@@ -24,7 +24,7 @@ data this runbook protects, and where it now lives.
 
 ### grajpap: /mnt/Storage only
 
-The PC used to host Nextcloud. It does not any more — `system/sync` is gone and
+The PC used to host Nextcloud. It does not any more, `system/sync` is gone and
 `system/desktop` is what replaced it. What is left on this host is the backup of
 `/mnt/Storage`, the 214 GiB external disk, which is grajpap's own data and has
 nothing to do with the Nextcloud move.

@@ -1,4 +1,4 @@
-# WhisprFlow — local Wispr Flow clone
+# WhisprFlow: local Wispr Flow clone
 
 Push-to-talk dictation for Wayland/Hyprland. Everything runs on your machine
 except one optional LLM cleanup pass (your own `codex` CLI plan, no extra API
@@ -35,19 +35,19 @@ commercial cloud dictation.
 | `whisprflow dict add TERM` / `remove TERM` / `clear` / `list` | Manage the dictionary |
 | `whisprflow stats` | Words, sessions and dictation minutes (today/week/all) |
 
-Default bindings (Sway/Hyprland differ — see `voice.nix`): `Pause` or `SRGR`
+Default bindings (Sway/Hyprland differ, see `voice.nix`): `Pause` or `SRGR`
 push-to-talk with `stop` on release.
 
 ## Voice structure commands
 
 Handled by Spark when it is on, and by a built-in local fallback otherwise:
 
-- "nowy akapit" / "new paragraph" — paragraph break
-- "nowa linia" / "new line" — line break
-- "punkt pierwszy|drugi|…", "point one|two" — numbered list items
-- "whisprflow lista: item one, item two, item three" — bullet list
-- "blok kodu [lang]" / "code block" / "snippet" — fenced code block
-- "redo"/"ponów", "use parentheses …" — last-chunk fixes
+- "nowy akapit" / "new paragraph", paragraph break
+- "nowa linia" / "new line", line break
+- "punkt pierwszy|drugi|…", "point one|two", numbered list items
+- "whisprflow lista: item one, item two, item three", bullet list
+- "blok kodu [lang]" / "code block" / "snippet", fenced code block
+- "redo"/"ponów", "use parentheses …", last-chunk fixes
 - Corrections & dictionary: `~/.config/whisprflow/corrections.txt` and
   `dictionary.txt` (learned automatically after you edit pasted text).
 
@@ -72,7 +72,7 @@ Handled by Spark when it is on, and by a built-in local fallback otherwise:
 | `WHISPER_GAIN` / `WHISPER_GAIN_CAP` | auto | Normalization gains |
 
 The daemon reads defaults from `~/.config/whisprflow/serve.env` (systemd unit
-sets sane fleet defaults) and accepts per-request overrides — that's how
+sets sane fleet defaults) and accepts per-request overrides, that's how
 partials use a cheaper fast pass (`beam=1`, single language, tail only).
 
 ## Daemon
@@ -85,14 +85,14 @@ on demand (flock-guarded); systemd users get
 
 ## Diagnostics
 
-- `~/.local/share/whisper-record-v2/whisper.log` — one JSON line per decode
+- `~/.local/share/whisper-record-v2/whisper.log`, one JSON line per decode
   attempt with duration/RMS/gain and language scores. Delete it when it
   exceeds ~5 MB.
-- `~/.local/share/whisper-record-v2/failed/` — any clip that produced no text
+- `~/.local/share/whisper-record-v2/failed/`, any clip that produced no text
   so you can replay exactly what failed.
-- `~/.local/share/whisper-record-v2/last-error.log` — stderr of the last
+- `~/.local/share/whisper-record-v2/last-error.log`, stderr of the last
   failing transcription.
-- `whisprflow stats` — a compact usage summary.
+- `whisprflow stats`, a compact usage summary.
 
 ## Build & deploy
 

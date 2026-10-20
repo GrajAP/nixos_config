@@ -155,7 +155,7 @@ ColumnLayout {
           anchors.margins: 12
           spacing: 2
           Text { text: "Feels like"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-          Text { text: shell.weatherData && shell.weatherData.apparentTemperature !== null && shell.weatherData.apparentTemperature !== undefined ? Math.round(shell.weatherData.apparentTemperature) + "°C" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+          Text { text: shell.weatherData && shell.weatherData.apparentTemperature !== null && shell.weatherData.apparentTemperature !== undefined ? Math.round(shell.weatherData.apparentTemperature) + "°C" : "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
         }
       }
 
@@ -169,7 +169,7 @@ ColumnLayout {
           anchors.margins: 12
           spacing: 2
           Text { text: "Wind"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-          Text { text: shell.weatherData && shell.weatherData.windSpeed !== null && shell.weatherData.windSpeed !== undefined ? Math.round(shell.weatherData.windSpeed) + " km/h" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+          Text { text: shell.weatherData && shell.weatherData.windSpeed !== null && shell.weatherData.windSpeed !== undefined ? Math.round(shell.weatherData.windSpeed) + " km/h" : "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
         }
       }
 
@@ -183,7 +183,7 @@ ColumnLayout {
           anchors.margins: 12
           spacing: 2
           Text { text: "Low"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-          Text { text: shell.weatherData && shell.weatherData.todayMin !== null && shell.weatherData.todayMin !== undefined ? Math.round(shell.weatherData.todayMin) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+          Text { text: shell.weatherData && shell.weatherData.todayMin !== null && shell.weatherData.todayMin !== undefined ? Math.round(shell.weatherData.todayMin) + "°" : "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
         }
       }
 
@@ -197,7 +197,7 @@ ColumnLayout {
           anchors.margins: 12
           spacing: 2
           Text { text: "High"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 11 }
-          Text { text: shell.weatherData && shell.weatherData.todayMax !== null && shell.weatherData.todayMax !== undefined ? Math.round(shell.weatherData.todayMax) + "°" : "—"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+          Text { text: shell.weatherData && shell.weatherData.todayMax !== null && shell.weatherData.todayMax !== undefined ? Math.round(shell.weatherData.todayMax) + "°" : "-"; color: Theme.text; font.family: Theme.font; font.pixelSize: 20; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
         }
       }
 
@@ -237,7 +237,7 @@ ColumnLayout {
           Text { text: parent.parent.isToday ? "Today" : shell.weatherShortDate(parent.parent.modelData.date); color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isToday; Layout.preferredWidth: 50 }
           Text { text: shell.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isToday ? Theme.background : Theme.accent; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
           Item { Layout.fillWidth: true }
-          Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "—"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
+          Text { text: parent.parent.modelData.minTemperature !== null && parent.parent.modelData.minTemperature !== undefined && parent.parent.modelData.maxTemperature !== null && parent.parent.modelData.maxTemperature !== undefined ? Math.round(parent.parent.modelData.minTemperature) + "°  " + Math.round(parent.parent.modelData.maxTemperature) + "°" : "-"; color: parent.parent.isToday ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.preferredWidth: 74; horizontalAlignment: Text.AlignRight }
         }
       }
 
@@ -277,8 +277,8 @@ ColumnLayout {
           spacing: 10
           Text { text: parent.parent.isCurrentHour ? "Now" : shell.weatherHourLabel(parent.parent.modelData.time); color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.font; font.bold: parent.parent.isCurrentHour; Layout.preferredWidth: 46 }
           Text { text: shell.weatherGlyphForCode(parent.parent.modelData.weatherCode); color: parent.parent.isCurrentHour ? Theme.background : shell.secondaryText; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter }
-          Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "—"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-          Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "—"; color: parent.parent.isCurrentHour ? Theme.background : shell.secondaryText; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+          Text { text: parent.parent.modelData.temperature !== null && parent.parent.modelData.temperature !== undefined ? Math.round(parent.parent.modelData.temperature) + "°C" : "-"; color: parent.parent.isCurrentHour ? Theme.background : Theme.text; font.family: Theme.fontSans; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+          Text { text: parent.parent.modelData.windSpeed !== null && parent.parent.modelData.windSpeed !== undefined ? Math.round(parent.parent.modelData.windSpeed) + " km/h" : "-"; color: parent.parent.isCurrentHour ? Theme.background : shell.secondaryText; font.family: Theme.font; font.pixelSize: 11; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
         }
       }
 

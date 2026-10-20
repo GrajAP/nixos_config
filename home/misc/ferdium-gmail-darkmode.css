@@ -2232,7 +2232,7 @@ body {
 @namespace github.com/grajpap/gmail-catppuccin
 @homepageURL https://github.com/grajpap/gmail-catppuccin
 @version 2026.09.15
-@description Proton-style semantic CSS custom properties and extra selectors — use alongside the official catppuccin Gmail userstyle
+@description Proton-style semantic CSS custom properties and extra selectors, use alongside the official catppuccin Gmail userstyle
 @author grajpap
 @license MIT
 
@@ -2290,20 +2290,20 @@ body {
     --ctp-info-major-2: #b0cdfc;
     /* -----------------------------------------------------------
        Extra selectors not covered by the official catppuccin Gmail
-       userstyle — fills gaps for a more complete theme.
+       userstyle, fills gaps for a more complete theme.
        ----------------------------------------------------------- */
     /* Email bodies: light surface + dark text so newsletters stay readable
        (transparent-bg mails would show the dark UI through dark text). */
     /* Input caret */
     /* Kill text shadows */
     /* Gmail logo replacement (substring match: covers 1x/2x retina assets) */
-    /* Compose FAB — extra emphasis */
+    /* Compose FAB: extra emphasis */
     /* Draft text */
     /* Compose window backgrounds */
     /* Contact chip */
-    /* Unread email row — slightly tinted */
+    /* Unread email row: slightly tinted */
     /* Attachment hover */
-    /* Settings page — extra overrides */
+    /* Settings page: extra overrides */
     /* Material 3 dialog buttons */
     /* Checkbox/radio inputs in settings */
     /* Scrollbar theming */
@@ -2438,20 +2438,20 @@ body {
     --ctp-info-major-2: #b0cdfc;
     /* -----------------------------------------------------------
        Extra selectors not covered by the official catppuccin Gmail
-       userstyle — fills gaps for a more complete theme.
+       userstyle, fills gaps for a more complete theme.
        ----------------------------------------------------------- */
     /* Email bodies: light surface + dark text so newsletters stay readable
        (transparent-bg mails would show the dark UI through dark text). */
     /* Input caret */
     /* Kill text shadows */
     /* Gmail logo replacement (substring match: covers 1x/2x retina assets) */
-    /* Compose FAB — extra emphasis */
+    /* Compose FAB: extra emphasis */
     /* Draft text */
     /* Compose window backgrounds */
     /* Contact chip */
-    /* Unread email row — slightly tinted */
+    /* Unread email row: slightly tinted */
     /* Attachment hover */
-    /* Settings page — extra overrides */
+    /* Settings page: extra overrides */
     /* Material 3 dialog buttons */
     /* Checkbox/radio inputs in settings */
     /* Scrollbar theming */

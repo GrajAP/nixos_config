@@ -2,7 +2,7 @@
 
 T3 Code as a standalone flake: the desktop AppImage on workstations, the `t3`
 CLI on headless servers, plus the two per-environment features that have no
-store path and therefore are easy to miss — `t3 theme` and T3 Connect.
+store path and therefore are easy to miss, `t3 theme` and T3 Connect.
 
 ## Layout
 
@@ -19,7 +19,7 @@ own nixpkgs (unstable on `grajpap`, unstable on `lenovo` via
 That is why the modules are plain files rather than functions of the flake
 inputs: the same file is imported by the fleet and by `flake.nix` here.
 
-`package.nix` also takes an optional `cli` argument — which `t3` the
+`package.nix` also takes an optional `cli` argument, which `t3` the
 non-desktop commands drive. Left unset it uses the nixpkgs `t3`, which is a
 3.2 GB Electron closure; `modules/nixos.nix` passes `cli.nix` instead, and a
 server ends up with a few hundred kilobytes of shell.
@@ -63,12 +63,12 @@ runtime under `~/.t3/runtime` that `t3 update` replaces under the running
 system; expressing that in NixOS would pin every switch to a version the user
 already moved past. The flake writes the drop-in only, and `cli.nix` resolves
 `t3` to whatever version `service-state.json` calls active, so the shell and the
-service stop disagreeing — `t3 service status` was warning about exactly that
+service stop disagreeing, `t3 service status` was warning about exactly that
 before.
 
 The same holds for T3 Connect authorization: `t3connect login` / `t3connect
 link` is an interactive Clerk OAuth flow and the credential lands in `~/.t3`.
-`apps/whisprflow` and `apps/spark-corrector` follow the same split — flake
+`apps/whisprflow` and `apps/spark-corrector` follow the same split, flake
 provides the derivation, the host decides when it runs.
 
 ## Commands

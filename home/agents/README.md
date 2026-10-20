@@ -23,7 +23,7 @@ Everything is a symlink into the Nix store: edit here, run `./rebuild.sh`, done.
 ## Heads without home-manager
 
 `lenovo` is headless and has no home-manager, so `default.nix` above never runs
-there and it used to get nothing at all — the one gap that let a skill silently
+there and it used to get nothing at all, the one gap that let a skill silently
 exist on two machines and not the others.
 
 `system/agents/default.nix` is the same deployment in system scope, reading the

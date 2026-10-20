@@ -75,14 +75,14 @@ Each host also updates itself once a day from the same repo, driven by
 
 | Host | Time | Behaviour |
 | --- | --- | --- |
-| `lenovo` | 04:40 + up to 20 min | `switch` — activates immediately |
+| `lenovo` | 04:40 + up to 20 min | `switch`: activates immediately |
 | `grajpap` | 05:20 + up to 2 h | `switch`, but skipped while a graphical session is logged in |
 
 The run pulls `main`, runs the lint checks, commits anything authored locally,
 switches, checks that `tailscaled` (plus `sshd` and `caddy` on `lenovo`) came
 back, and only then publishes:
 
-- changes that arrived from GitHub are **not** pushed back — otherwise every
+- changes that arrived from GitHub are **not** pushed back, otherwise every
   host re-pushes the others' commits at each other;
 - commits this host authored **are** pushed, including ones you made by hand.
 
