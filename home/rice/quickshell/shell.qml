@@ -849,7 +849,7 @@ ShellRoot {
     return root.barWidgetActive(page) ? Theme.accentSoft : "transparent";
   }
   function barWidgetBorder(page) {
-    return root.barWidgetActive(page) ? Theme.accent : "transparent";
+    return "transparent";
   }
   function barWidgetText(page, inactiveColor) {
     return root.barWidgetActive(page) ? Theme.accent : inactiveColor;
@@ -1754,7 +1754,7 @@ ShellRoot {
         const copy = Object.assign({}, event);
         copy.nowMarker = false;
         copy.nowThrough = false;
-        copy.sortMinutes = event.startTime && !event.task ? root.calendarMinutesFromClock(event.startTime, 0) : (event.task ? 1500 : -1);
+        copy.sortMinutes = root.calendarAgendaSortMinutes(event);
         return copy;
       });
     if (date === root.dateKey(clock.date)) {
@@ -1871,6 +1871,13 @@ ShellRoot {
     if (event.allDay) return -1;
     return root.calendarMinutesFromClock(event.startTime, 0);
   }
+  // Timed items sort by their own start minute so the now-line lands between
+  // past and upcoming, not before morning items; untimed tasks sink to the end.
+  function calendarAgendaSortMinutes(event) {
+    if (!event.task && event.allDay) return -1;
+    if (event.startTime) return root.calendarMinutesFromClock(event.startTime, 0);
+    return event.task ? 1500 : -1;
+  }
   function calendarTaskIsGeneral(event) {
     if (!event || !Boolean(event.task)) return false;
     const category = String(event.source || event.taskListName || "").trim().toLowerCase();
@@ -1952,42 +1959,35 @@ ShellRoot {
       .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
       .slice(0, limit || 10);
   }
-	  function selectedDayEvents() {
-	    const list = root.calendarEvents
-	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
-	      .slice();
-	    if (root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
-	      const nowTime = root.calendarNowKey.substring(11, 16);
-	      const nowMinutes = root.calendarMinutesFromClock(nowTime, -1);
-	      let ongoingEvent = null;
-	      for (const item of list) {
-	        if (item.task || item.completed || item.allDay || !item.startTime) continue;
-	        const start = root.calendarMinutesFromClock(item.startTime, -1);
-	        const end = item.endTime ? root.calendarMinutesFromClock(item.endTime, -1) : start + 60;
-	        if (start >= 0 && start <= nowMinutes && nowMinutes < end) {
-	          ongoingEvent = item;
-	          break;
-	        }
-	      }
-	      const sortTime = ongoingEvent ? (ongoingEvent.startTime || nowTime) : nowTime;
-	      list.push({ nowMarker: true, task: false, completed: false, startTime: nowTime, sortTime: sortTime, title: "" });
-	    }
-	    list.sort((a, b) => {
-	      const aIsTask = Boolean(a.task);
-	      const bIsTask = Boolean(b.task);
-	      if (aIsTask !== bIsTask) return Number(bIsTask) - Number(aIsTask);
-	      const aCompleted = Boolean(a.completed);
-	      const bCompleted = Boolean(b.completed);
-	      if (aCompleted !== bCompleted) return Number(aCompleted) - Number(bCompleted);
-	      const aSort = a.nowMarker ? (a.sortTime || a.startTime || "") : (a.startTime || "");
-	      const bSort = b.nowMarker ? (b.sortTime || b.startTime || "") : (b.startTime || "");
-	      if (aSort !== bSort) return aSort.localeCompare(bSort);
-	      if (a.nowMarker) return -1;
-	      if (b.nowMarker) return 1;
-	      return String(a.title || "").localeCompare(String(b.title || ""));
-	    });
-	    return list;
-	  }
+ 	  function selectedDayEvents() {
+ 	    const list = root.calendarEvents
+ 	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
+ 	      .slice()
+ 	      .map(event => {
+ 	        const copy = Object.assign({}, event);
+ 	        copy.nowMarker = false;
+ 	        copy.nowThrough = false;
+ 	        copy.sortMinutes = root.calendarAgendaSortMinutes(copy);
+ 	        return copy;
+ 	      });
+ 	    if (root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
+ 	      const nowTime = root.calendarNowKey.substring(11, 16);
+ 	      const nowMinutes = root.calendarMinutesFromClock(nowTime, -1);
+ 	      let ongoingEvent = null;
+ 	      for (const item of list) {
+ 	        if (item.task || item.completed || item.allDay || !item.startTime) continue;
+ 	        const start = root.calendarMinutesFromClock(item.startTime, -1);
+ 	        const end = item.endTime ? root.calendarMinutesFromClock(item.endTime, -1) : start + 60;
+ 	        if (start >= 0 && start <= nowMinutes && nowMinutes < end) {
+ 	          ongoingEvent = item;
+ 	          break;
+ 	        }
+ 	      }
+ 	      list.push({ nowMarker: true, nowThrough: false, task: false, completed: false, startTime: nowTime, sortTime: nowTime, title: "", sortMinutes: ongoingEvent ? root.calendarAgendaSortMinutes(ongoingEvent) - 0.5 : nowMinutes });
+ 	    }
+ 	    list.sort((a, b) => a.sortMinutes - b.sortMinutes || Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || String(a.title || "").localeCompare(String(b.title || "")));
+ 	    return list;
+ 	  }
   function overallTodos() {
     return root.calendarEvents
       .filter(event => Boolean(event.task)
@@ -2789,14 +2789,19 @@ ShellRoot {
       id: widgetPanel
       width: Math.min(root.widgetPreferredWidth(), root.widgetPage === "calendar" ? parent.width : parent.width - 20)
       height: Math.min(root.widgetPreferredHeight(), root.widgetPage === "calendar" ? parent.height : parent.height - 36)
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
+      // Screenshot page floats top-center like the launcher; every other page
+      // parks bottom-right next to the bar stack. Calendar keeps its own edges.
+      anchors.top: root.widgetPage === "screenshot" ? parent.top : undefined
+      anchors.horizontalCenter: root.widgetPage === "screenshot" ? parent.horizontalCenter : undefined
+      anchors.topMargin: root.widgetPage === "screenshot" ? 18 : 0
+      anchors.right: root.widgetPage === "screenshot" ? undefined : parent.right
+      anchors.bottom: root.widgetPage === "screenshot" ? undefined : parent.bottom
       anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
       radius: root.widgetPage === "calendar" ? 0 : Theme.radiusLg
       color: root.translucentPanel
-      border.color: root.widgetPage === "calendar" ? "transparent" : Theme.border
-      border.width: root.widgetPage === "calendar" ? 0 : 1
+      border.color: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? "transparent" : Theme.border
+      border.width: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? 0 : 1
       clip: true
       focus: root.widgetVisible
       opacity: root.widgetVisible ? 1 : 0
