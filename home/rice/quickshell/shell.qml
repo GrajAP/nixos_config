@@ -2214,7 +2214,9 @@ ShellRoot {
     id: notificationCenter
     onReceived: notification => {
       root.latestNotification = notification;
-      if (root.notificationsSilenced) return;
+      // Auto shutdown (and any other critical) warnings must get through
+      // even with DND on, so the machine never dies without a warning.
+      if (root.notificationsSilenced && !root.notificationIsCritical(notification)) return;
       root.notificationPopupVisible = true;
       popupTimer.restart();
     }
