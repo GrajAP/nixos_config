@@ -16,8 +16,6 @@ ColumnLayout {
     Layout.preferredHeight: 118
     radius: 12
     color: Theme.surfaceAlt
-    border.color: Theme.border
-    border.width: 1
     clip: true
 
     RowLayout {

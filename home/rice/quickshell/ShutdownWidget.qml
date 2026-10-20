@@ -342,8 +342,7 @@ ScrollView {
       implicitHeight: 58
       radius: 10
       color: timerScroll.active ? Qt.rgba(timerScroll.modeColor.r, timerScroll.modeColor.g, timerScroll.modeColor.b, 0.16) : Theme.surface
-      border.color: timerScroll.active ? timerScroll.modeColor : Theme.border
-      border.width: 1
+      border.width: 0
 
       ColumnLayout {
         anchors.fill: parent

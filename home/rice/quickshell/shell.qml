@@ -849,7 +849,7 @@ ShellRoot {
     return root.barWidgetActive(page) ? Theme.accentSoft : "transparent";
   }
   function barWidgetBorder(page) {
-    return root.barWidgetActive(page) ? Theme.accent : "transparent";
+    return "transparent";
   }
   function barWidgetText(page, inactiveColor) {
     return root.barWidgetActive(page) ? Theme.accent : inactiveColor;
@@ -1754,7 +1754,7 @@ ShellRoot {
         const copy = Object.assign({}, event);
         copy.nowMarker = false;
         copy.nowThrough = false;
-        copy.sortMinutes = event.startTime && !event.task ? root.calendarMinutesFromClock(event.startTime, 0) : (event.task ? 1500 : -1);
+        copy.sortMinutes = root.calendarAgendaSortMinutes(event);
         return copy;
       });
     if (date === root.dateKey(clock.date)) {
@@ -1848,20 +1848,6 @@ ShellRoot {
     if (!date) return null;
     return Math.ceil((date.getTime() - clock.date.getTime()) / 60000);
   }
-  function calendarUpcomingAlert() {
-    const candidates = root.calendarEvents
-      .map(event => ({ event: event, minutes: root.calendarEventMinutesUntil(event) }))
-      .filter(item => item.minutes !== null && item.minutes >= 0 && item.minutes <= 30)
-      .sort((a, b) => a.minutes - b.minutes || String(a.event.title || "").localeCompare(String(b.event.title || "")));
-    if (candidates.length === 0) return null;
-    const item = candidates[0];
-    return {
-      title: item.event.title || "Event",
-      date: item.event.date,
-      startTime: item.event.startTime || "",
-      minutes: item.minutes
-    };
-  }
   function todayActiveTasks(limit) {
     const today = root.dateKey(clock.date);
     const tasks = root.calendarEvents
@@ -1870,11 +1856,6 @@ ShellRoot {
       .slice()
       .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? tasks : tasks.slice(0, limit);
-  }
-  function calendarAlertTimeLabel(alert) {
-    if (!alert) return "";
-    if (alert.minutes <= 0) return "now";
-    return alert.minutes + "m";
   }
   function calendarDateLabel(date) {
     if (!date) return "";
@@ -1889,6 +1870,13 @@ ShellRoot {
     if (!event || event.task) return 2400;
     if (event.allDay) return -1;
     return root.calendarMinutesFromClock(event.startTime, 0);
+  }
+  // Timed items sort by their own start minute so the now-line lands between
+  // past and upcoming, not before morning items; untimed tasks sink to the end.
+  function calendarAgendaSortMinutes(event) {
+    if (!event.task && event.allDay) return -1;
+    if (event.startTime) return root.calendarMinutesFromClock(event.startTime, 0);
+    return event.task ? 1500 : -1;
   }
   function calendarTaskIsGeneral(event) {
     if (!event || !Boolean(event.task)) return false;
@@ -1929,18 +1917,6 @@ ShellRoot {
     if (event.date === root.dateKey(clock.date)) return event.startTime || "--:--";
     return root.agendaCompactDateLabel(event.date);
   }
-  function agendaEventSecondaryLabel(event) {
-    if (!event) return "event";
-    const minutes = root.calendarEventMinutesUntil(event);
-    if (minutes !== null && event.date === root.dateKey(clock.date)) {
-      if (minutes <= 0) return "now";
-      if (minutes < 60) return minutes + "m";
-      return Math.floor(minutes / 60) + "h";
-    }
-    if (event.allDay) return root.agendaCompactDateLabel(event.date) || "today";
-    if (event.endTime) return "→ " + event.endTime;
-    return event.startTime || root.agendaCompactDateLabel(event.date);
-  }
   function agendaEventRelativeLabel(event) {
     if (!event) return "";
     const minutes = root.calendarEventMinutesUntil(event);
@@ -1957,9 +1933,6 @@ ShellRoot {
       .slice()
       .sort((a, b) => root.calendarTaskSortKey(a).localeCompare(root.calendarTaskSortKey(b)) || String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? tasks : tasks.slice(0, limit);
-  }
-  function agendaTaskCount() {
-    return root.calendarEvents.filter(event => Boolean(event.task) && !Boolean(event.completed)).length;
   }
   function agendaOverdueTaskCount() {
     const today = root.dateKey(clock.date);
@@ -1986,42 +1959,35 @@ ShellRoot {
       .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
       .slice(0, limit || 10);
   }
-	  function selectedDayEvents() {
-	    const list = root.calendarEvents
-	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
-	      .slice();
-	    if (root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
-	      const nowTime = root.calendarNowKey.substring(11, 16);
-	      const nowMinutes = root.calendarMinutesFromClock(nowTime, -1);
-	      let ongoingEvent = null;
-	      for (const item of list) {
-	        if (item.task || item.completed || item.allDay || !item.startTime) continue;
-	        const start = root.calendarMinutesFromClock(item.startTime, -1);
-	        const end = item.endTime ? root.calendarMinutesFromClock(item.endTime, -1) : start + 60;
-	        if (start >= 0 && start <= nowMinutes && nowMinutes < end) {
-	          ongoingEvent = item;
-	          break;
-	        }
-	      }
-	      const sortTime = ongoingEvent ? (ongoingEvent.startTime || nowTime) : nowTime;
-	      list.push({ nowMarker: true, task: false, completed: false, startTime: nowTime, sortTime: sortTime, title: "" });
-	    }
-	    list.sort((a, b) => {
-	      const aIsTask = Boolean(a.task);
-	      const bIsTask = Boolean(b.task);
-	      if (aIsTask !== bIsTask) return Number(bIsTask) - Number(aIsTask);
-	      const aCompleted = Boolean(a.completed);
-	      const bCompleted = Boolean(b.completed);
-	      if (aCompleted !== bCompleted) return Number(aCompleted) - Number(bCompleted);
-	      const aSort = a.nowMarker ? (a.sortTime || a.startTime || "") : (a.startTime || "");
-	      const bSort = b.nowMarker ? (b.sortTime || b.startTime || "") : (b.startTime || "");
-	      if (aSort !== bSort) return aSort.localeCompare(bSort);
-	      if (a.nowMarker) return -1;
-	      if (b.nowMarker) return 1;
-	      return String(a.title || "").localeCompare(String(b.title || ""));
-	    });
-	    return list;
-	  }
+ 	  function selectedDayEvents() {
+ 	    const list = root.calendarEvents
+ 	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
+ 	      .slice()
+ 	      .map(event => {
+ 	        const copy = Object.assign({}, event);
+ 	        copy.nowMarker = false;
+ 	        copy.nowThrough = false;
+ 	        copy.sortMinutes = root.calendarAgendaSortMinutes(copy);
+ 	        return copy;
+ 	      });
+ 	    if (root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
+ 	      const nowTime = root.calendarNowKey.substring(11, 16);
+ 	      const nowMinutes = root.calendarMinutesFromClock(nowTime, -1);
+ 	      let ongoingEvent = null;
+ 	      for (const item of list) {
+ 	        if (item.task || item.completed || item.allDay || !item.startTime) continue;
+ 	        const start = root.calendarMinutesFromClock(item.startTime, -1);
+ 	        const end = item.endTime ? root.calendarMinutesFromClock(item.endTime, -1) : start + 60;
+ 	        if (start >= 0 && start <= nowMinutes && nowMinutes < end) {
+ 	          ongoingEvent = item;
+ 	          break;
+ 	        }
+ 	      }
+ 	      list.push({ nowMarker: true, nowThrough: false, task: false, completed: false, startTime: nowTime, sortTime: nowTime, title: "", sortMinutes: ongoingEvent ? root.calendarAgendaSortMinutes(ongoingEvent) - 0.5 : nowMinutes });
+ 	    }
+ 	    list.sort((a, b) => a.sortMinutes - b.sortMinutes || Number(Boolean(b.task)) - Number(Boolean(a.task)) || Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || String(a.title || "").localeCompare(String(b.title || "")));
+ 	    return list;
+ 	  }
   function overallTodos() {
     return root.calendarEvents
       .filter(event => Boolean(event.task)
@@ -2313,25 +2279,22 @@ ShellRoot {
           anchors.centerIn: parent
           width: 38
           spacing: 7
-          visible: calendarBarRegion.height >= 92
+          visible: calendarBarRegion.height >= 56
 
-          Rectangle {
+          Item {
             id: agendaEventCard
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 36
             Layout.preferredHeight: 48
             readonly property var nextEvent: root.nextAgendaEvent()
-            readonly property var alert: root.calendarUpcomingAlert()
-            readonly property bool urgent: alert !== null
-            radius: 8
-            color: urgent ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18) : (nextEvent ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.035))
-            border.color: urgent ? Theme.danger : (nextEvent ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.34) : "transparent")
-            border.width: nextEvent ? 1 : 0
-            clip: true
+            readonly property bool urgent: {
+              const minutes = nextEvent ? root.calendarEventMinutesUntil(nextEvent) : null;
+              return minutes !== null && nextEvent.date === root.dateKey(clock.date) && minutes < 60;
+            }
+            readonly property int todayCount: root.agendaTodayTaskCount()
 
             ColumnLayout {
               anchors.fill: parent
-              anchors.margins: 3
               spacing: 0
               Text {
                 Layout.fillWidth: true
@@ -2344,22 +2307,29 @@ ShellRoot {
               Text {
                 Layout.fillWidth: true
                 text: root.agendaEventPrimaryLabel(agendaEventCard.nextEvent)
-                color: agendaEventCard.nextEvent ? Theme.text : Theme.muted
+                color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.nextEvent ? Theme.text : Theme.muted)
                 font.family: Theme.fontMono
                 font.pixelSize: 9
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
               }
-              Text {
-                Layout.fillWidth: true
-                text: agendaEventCard.urgent ? root.calendarAlertTimeLabel(agendaEventCard.alert) : root.agendaEventSecondaryLabel(agendaEventCard.nextEvent)
-                color: agendaEventCard.urgent ? Theme.danger : root.secondaryText
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                font.bold: agendaEventCard.urgent
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+              Row {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 2
+                Text {
+                  text: "󰄬"
+                  color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.todayCount > 0 ? Theme.accent : Theme.muted)
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 9
+                }
+                Text {
+                  text: String(agendaEventCard.todayCount)
+                  color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.todayCount > 0 ? Theme.text : Theme.muted)
+                  font.family: Theme.fontMono
+                  font.pixelSize: 9
+                  font.bold: true
+                }
               }
             }
             MouseArea {
@@ -2368,63 +2338,6 @@ ShellRoot {
               onClicked: {
                 if (agendaEventCard.nextEvent && agendaEventCard.nextEvent.date)
                   root.selectCalendarDate(agendaEventCard.nextEvent.date, true);
-                root.toggleWidget("calendar");
-              }
-            }
-          }
-
-          Rectangle {
-            id: agendaTaskCard
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 36
-            Layout.preferredHeight: 46
-            readonly property int taskCount: root.agendaTaskCount()
-            readonly property int todayCount: root.agendaTodayTaskCount()
-            readonly property bool hasTodayTasks: todayCount > 0
-            visible: taskCount > 0
-            radius: 8
-            color: hasTodayTasks ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.055)
-            border.color: hasTodayTasks ? Theme.danger : "transparent"
-            border.width: hasTodayTasks ? 1 : 0
-            clip: true
-
-            ColumnLayout {
-              anchors.fill: parent
-              anchors.margins: 3
-              spacing: 0
-              Text {
-                Layout.fillWidth: true
-                text: "󰄬"
-                color: agendaTaskCard.hasTodayTasks ? Theme.danger : Theme.accent
-                font.family: Theme.fontIcon
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter
-              }
-              Text {
-                Layout.fillWidth: true
-                text: String(agendaTaskCard.todayCount)
-                color: Theme.text
-                font.family: Theme.fontMono
-                font.pixelSize: 12
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-              }
-              Text {
-                Layout.fillWidth: true
-                text: "today"
-                color: agendaTaskCard.hasTodayTasks ? Theme.danger : root.secondaryText
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                font.bold: agendaTaskCard.hasTodayTasks
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-              }
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.selectCalendarDate(root.dateKey(clock.date), true);
                 root.toggleWidget("calendar");
               }
             }
@@ -2774,69 +2687,6 @@ ShellRoot {
             onClicked: root.showHoverWidget("weather", false)
           }
         }
-
-        // Item {
-        //   Layout.alignment: Qt.AlignHCenter
-        //   Layout.preferredWidth: 24
-        //   Layout.preferredHeight: 42
-        //   implicitWidth: 24
-        //   implicitHeight: 42
-        //   id: codexButton
-        //   Rectangle {
-        //     anchors.fill: parent
-        //     radius: 7
-        //     color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : "transparent"
-        //   }
-        //
-        //   Column {
-        //     anchors.centerIn: parent
-        //     width: 14
-        //     spacing: 4
-        //
-        //     Image {
-        //       anchors.horizontalCenter: parent.horizontalCenter
-        //       width: 13
-        //       height: 13
-        //       source: root.barWidgetActive("codex") || codexMouse.containsMouse
-        //         ? "assets/codex-accent.svg"
-        //         : "assets/codex.svg"
-        //       fillMode: Image.PreserveAspectFit
-        //       smooth: true
-        //     }
-        //
-        //     Rectangle {
-        //       anchors.horizontalCenter: parent.horizontalCenter
-        //       width: 6
-        //       height: 19
-        //       radius: 3
-        //       color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
-        //       clip: true
-        //
-        //       Rectangle {
-        //         anchors.bottom: parent.bottom
-        //         width: parent.width
-        //         height: {
-        //           const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
-        //           return percent <= 0 ? 0 : Math.max(2, parent.height * percent / 100);
-        //         }
-        //         radius: parent.radius
-        //         color: root.codexUsageBarColor("codexPrimaryUsedPercent")
-        //         Behavior on height { NumberAnimation { duration: Theme.motionMedium } }
-        //       }
-        //     }
-        //   }
-        //
-        //   MouseArea {
-        //     id: codexMouse
-        //     anchors.fill: parent
-        //     hoverEnabled: true
-        //     cursorShape: Qt.PointingHandCursor
-        //     onEntered: root.showHoverWidget("codex")
-        //     onExited: root.leaveHoverWidgetButton("codex")
-        //     onClicked: root.showHoverWidget("codex", false)
-        //   }
-        // }
-
         Item {
           Layout.alignment: Qt.AlignHCenter
           id: shutdownButton
@@ -2939,14 +2789,21 @@ ShellRoot {
       id: widgetPanel
       width: Math.min(root.widgetPreferredWidth(), root.widgetPage === "calendar" ? parent.width : parent.width - 20)
       height: Math.min(root.widgetPreferredHeight(), root.widgetPage === "calendar" ? parent.height : parent.height - 36)
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
+      // Screenshot page floats top-center like the launcher; every other page
+      // parks bottom-right next to the bar stack. Calendar keeps its own edges.
+      anchors.top: root.widgetPage === "screenshot" ? parent.top : undefined
+      anchors.horizontalCenter: root.widgetPage === "screenshot" ? parent.horizontalCenter : undefined
+      anchors.topMargin: 0
+      anchors.right: root.widgetPage === "screenshot" ? undefined : parent.right
+      anchors.bottom: root.widgetPage === "screenshot" ? undefined : parent.bottom
       anchors.rightMargin: root.widgetPage === "calendar" ? 0 : 10
       anchors.bottomMargin: root.widgetPage === "calendar" ? 0 : 18
-      radius: root.widgetPage === "calendar" ? 0 : Theme.radiusLg
-      color: root.translucentPanel
-      border.color: root.widgetPage === "calendar" ? "transparent" : Theme.border
-      border.width: root.widgetPage === "calendar" ? 0 : 1
+      // Screenshot page is flush against the screen top: square top corners,
+      // rounded bottom ones (drawn below, uniform alpha), no border.
+      radius: root.widgetPage === "screenshot" || root.widgetPage === "calendar" ? 0 : Theme.radiusLg
+      color: root.widgetPage === "screenshot" ? "transparent" : root.translucentPanel
+      border.color: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? "transparent" : Theme.border
+      border.width: root.widgetPage === "calendar" || root.widgetPage === "screenshot" ? 0 : 1
       clip: true
       focus: root.widgetVisible
       opacity: root.widgetVisible ? 1 : 0
@@ -2975,6 +2832,33 @@ ShellRoot {
         enabled: root.widgetPage !== "clipboard"
         NumberAnimation { duration: root.widgetMotionMs; easing.type: Easing.OutCubic }
       }
+      // Translucent panel color can't be double-stacked to square off top
+      // corners (alpha would compound), so the screenshot sheet paints its
+      // flush-top, rounded-bottom shape as a single uniform fill here.
+      Canvas {
+        visible: root.widgetPage === "screenshot"
+        anchors.fill: parent
+        onPaint: {
+          const ctx = getContext("2d");
+          ctx.clearRect(0, 0, width, height);
+          const r = Theme.radiusLg;
+          ctx.fillStyle = root.translucentPanel;
+          ctx.beginPath();
+          ctx.moveTo(0, height - r);
+          ctx.lineTo(0, 0);
+          ctx.lineTo(width, 0);
+          ctx.lineTo(width, height - r);
+          ctx.quadraticCurveTo(width, height, width - r, height);
+          ctx.lineTo(r, height);
+          ctx.quadraticCurveTo(0, height, 0, height - r);
+          ctx.closePath();
+          ctx.fill();
+        }
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onVisibleChanged: if (visible) requestPaint()
+        Component.onCompleted: requestPaint()
+      }
       ColumnLayout {
         anchors.fill: parent; anchors.margins: root.widgetPage === "calendar" ? 28 : Theme.padLg; spacing: Theme.gapMd
         RowLayout {
@@ -2986,7 +2870,14 @@ ShellRoot {
             text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", battery: "Battery", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
-          Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
+          Rectangle {
+            implicitWidth: 32
+            implicitHeight: 32
+            radius: Theme.radiusSm
+            color: closeMouse.containsMouse ? Theme.accentSoft : root.hoverSurface
+            Text { anchors.centerIn: parent; text: "×"; color: closeMouse.containsMouse ? Theme.text : root.secondaryText; font.family: Theme.fontSans; font.pixelSize: 20 }
+            MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() }
+          }
         }
 
         ColumnLayout {
@@ -5356,13 +5247,13 @@ ShellRoot {
 
     Rectangle {
       id: notificationPanel
-      width: Math.min(500, parent.width - 24)
+      width: Math.min(560, parent.width - 20)
       anchors {
         top: parent.top
         right: parent.right
         bottom: parent.bottom
         topMargin: 18
-        rightMargin: 56
+        rightMargin: 54
         bottomMargin: 18
       }
       radius: Theme.radiusXl; color: Theme.panel; border.color: Theme.border; border.width: 1
