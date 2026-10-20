@@ -404,6 +404,15 @@ ShellRoot {
     }
   }
   IpcHandler {
+    target: "widgets"
+    function open(page: string): void { root.showHoverWidget(page, false); }
+    function close(): void { root.closeWidget(); }
+  }
+  IpcHandler {
+    target: "calendar"
+    function toggle(): void { root.toggleWidget("calendar"); }
+  }
+  IpcHandler {
     target: "clipboard"
     function clear(): void { root.runClipboardAction("wipe", null); }
     function toggle(): void { root.toggleClipboardHistory(); }

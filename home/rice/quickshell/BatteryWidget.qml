@@ -244,7 +244,9 @@ ColumnLayout {
 
     Menu {
       id: profileMenu
-      y: profilePicker.height + 4
+      // Open upward: the picker sits at the bottom of the page, and the page
+      // clips overflow, so a downward dropdown disappears off the panel edge.
+      y: -profileMenu.height - 4
       width: profilePicker.width
       height: 3 * 38 + 10
       topPadding: 5
