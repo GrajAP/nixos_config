@@ -117,11 +117,12 @@ PanelWindow {
 
           Rectangle {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: 604
+            Layout.maximumHeight: 604
+            Layout.minimumHeight: 420
             radius: Theme.radiusMd
             color: "transparent"
-            border.color: Theme.border
-            border.width: 1
 
             RowLayout {
               anchors.fill: parent
@@ -133,24 +134,27 @@ PanelWindow {
               Layout.preferredWidth: 760
               spacing: 6
 
-              Repeater {
-                model: shell.keyboardMainRows
-                RowLayout {
-                  required property var modelData
-                  Layout.fillWidth: true
-                  spacing: 6
+                Repeater {
+                  model: shell.keyboardMainRows
+                  RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredHeight: 82
+                    spacing: 6
 
-                  Repeater {
-                    model: parent.modelData
-                    Rectangle {
-                      required property string modelData
-                      readonly property var matches: shell.keybindsForKey(modelData)
-                      readonly property bool selected: shell.keybindHelpSelectedKey === modelData
-                      readonly property bool isSpacer: modelData.length === 0
-                      Layout.fillWidth: true
-                      Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
-                      Layout.preferredHeight: 82
-                      radius: Theme.radiusSm
+                    Repeater {
+                      model: parent.modelData
+                      Rectangle {
+                        required property string modelData
+                        readonly property var matches: shell.keybindsForKey(modelData)
+                        readonly property bool selected: shell.keybindHelpSelectedKey === modelData
+                        readonly property bool isSpacer: modelData.length === 0
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: 54 * shell.keyWidthUnits(modelData)
+                        Layout.preferredHeight: 82
+                        radius: Theme.radiusSm
                       color: selected ? Theme.accent : (matches.length > 0 ? Theme.accentSoft : Theme.surface)
                       border.color: selected ? Theme.accent : (matches.length > 0 ? Theme.accent : Theme.border)
                       border.width: 1

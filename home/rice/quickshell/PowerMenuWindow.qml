@@ -26,7 +26,7 @@ PanelWindow {
       id: powerPanel
       width: 450; height: 140; anchors.centerIn: parent
       focus: shell.powerVisible
-      radius: Theme.radiusLg; color: Theme.panel; border.color: Theme.border; border.width: 1
+      radius: Theme.radiusLg; color: Theme.panel; border.width: 0
       RowLayout {
         anchors.fill: parent; anchors.margins: Theme.padLg; spacing: Theme.gapMd
         Repeater {

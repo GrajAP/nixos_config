@@ -1848,20 +1848,6 @@ ShellRoot {
     if (!date) return null;
     return Math.ceil((date.getTime() - clock.date.getTime()) / 60000);
   }
-  function calendarUpcomingAlert() {
-    const candidates = root.calendarEvents
-      .map(event => ({ event: event, minutes: root.calendarEventMinutesUntil(event) }))
-      .filter(item => item.minutes !== null && item.minutes >= 0 && item.minutes <= 30)
-      .sort((a, b) => a.minutes - b.minutes || String(a.event.title || "").localeCompare(String(b.event.title || "")));
-    if (candidates.length === 0) return null;
-    const item = candidates[0];
-    return {
-      title: item.event.title || "Event",
-      date: item.event.date,
-      startTime: item.event.startTime || "",
-      minutes: item.minutes
-    };
-  }
   function todayActiveTasks(limit) {
     const today = root.dateKey(clock.date);
     const tasks = root.calendarEvents
@@ -1870,11 +1856,6 @@ ShellRoot {
       .slice()
       .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? tasks : tasks.slice(0, limit);
-  }
-  function calendarAlertTimeLabel(alert) {
-    if (!alert) return "";
-    if (alert.minutes <= 0) return "now";
-    return alert.minutes + "m";
   }
   function calendarDateLabel(date) {
     if (!date) return "";
@@ -1929,18 +1910,6 @@ ShellRoot {
     if (event.date === root.dateKey(clock.date)) return event.startTime || "--:--";
     return root.agendaCompactDateLabel(event.date);
   }
-  function agendaEventSecondaryLabel(event) {
-    if (!event) return "event";
-    const minutes = root.calendarEventMinutesUntil(event);
-    if (minutes !== null && event.date === root.dateKey(clock.date)) {
-      if (minutes <= 0) return "now";
-      if (minutes < 60) return minutes + "m";
-      return Math.floor(minutes / 60) + "h";
-    }
-    if (event.allDay) return root.agendaCompactDateLabel(event.date) || "today";
-    if (event.endTime) return "→ " + event.endTime;
-    return event.startTime || root.agendaCompactDateLabel(event.date);
-  }
   function agendaEventRelativeLabel(event) {
     if (!event) return "";
     const minutes = root.calendarEventMinutesUntil(event);
@@ -1957,9 +1926,6 @@ ShellRoot {
       .slice()
       .sort((a, b) => root.calendarTaskSortKey(a).localeCompare(root.calendarTaskSortKey(b)) || String(a.title || "").localeCompare(String(b.title || "")));
     return limit === undefined ? tasks : tasks.slice(0, limit);
-  }
-  function agendaTaskCount() {
-    return root.calendarEvents.filter(event => Boolean(event.task) && !Boolean(event.completed)).length;
   }
   function agendaOverdueTaskCount() {
     const today = root.dateKey(clock.date);
@@ -2313,25 +2279,22 @@ ShellRoot {
           anchors.centerIn: parent
           width: 38
           spacing: 7
-          visible: calendarBarRegion.height >= 92
+          visible: calendarBarRegion.height >= 56
 
-          Rectangle {
+          Item {
             id: agendaEventCard
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 36
             Layout.preferredHeight: 48
             readonly property var nextEvent: root.nextAgendaEvent()
-            readonly property var alert: root.calendarUpcomingAlert()
-            readonly property bool urgent: alert !== null
-            radius: 8
-            color: urgent ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18) : (nextEvent ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.035))
-            border.color: urgent ? Theme.danger : (nextEvent ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.34) : "transparent")
-            border.width: nextEvent ? 1 : 0
-            clip: true
+            readonly property bool urgent: {
+              const minutes = nextEvent ? root.calendarEventMinutesUntil(nextEvent) : null;
+              return minutes !== null && nextEvent.date === root.dateKey(clock.date) && minutes < 60;
+            }
+            readonly property int todayCount: root.agendaTodayTaskCount()
 
             ColumnLayout {
               anchors.fill: parent
-              anchors.margins: 3
               spacing: 0
               Text {
                 Layout.fillWidth: true
@@ -2344,22 +2307,29 @@ ShellRoot {
               Text {
                 Layout.fillWidth: true
                 text: root.agendaEventPrimaryLabel(agendaEventCard.nextEvent)
-                color: agendaEventCard.nextEvent ? Theme.text : Theme.muted
+                color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.nextEvent ? Theme.text : Theme.muted)
                 font.family: Theme.fontMono
                 font.pixelSize: 9
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
               }
-              Text {
-                Layout.fillWidth: true
-                text: agendaEventCard.urgent ? root.calendarAlertTimeLabel(agendaEventCard.alert) : root.agendaEventSecondaryLabel(agendaEventCard.nextEvent)
-                color: agendaEventCard.urgent ? Theme.danger : root.secondaryText
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                font.bold: agendaEventCard.urgent
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+              Row {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 2
+                Text {
+                  text: "󰄬"
+                  color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.todayCount > 0 ? Theme.accent : Theme.muted)
+                  font.family: Theme.fontIcon
+                  font.pixelSize: 9
+                }
+                Text {
+                  text: String(agendaEventCard.todayCount)
+                  color: agendaEventCard.urgent ? Theme.danger : (agendaEventCard.todayCount > 0 ? Theme.text : Theme.muted)
+                  font.family: Theme.fontMono
+                  font.pixelSize: 9
+                  font.bold: true
+                }
               }
             }
             MouseArea {
@@ -2368,63 +2338,6 @@ ShellRoot {
               onClicked: {
                 if (agendaEventCard.nextEvent && agendaEventCard.nextEvent.date)
                   root.selectCalendarDate(agendaEventCard.nextEvent.date, true);
-                root.toggleWidget("calendar");
-              }
-            }
-          }
-
-          Rectangle {
-            id: agendaTaskCard
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 36
-            Layout.preferredHeight: 46
-            readonly property int taskCount: root.agendaTaskCount()
-            readonly property int todayCount: root.agendaTodayTaskCount()
-            readonly property bool hasTodayTasks: todayCount > 0
-            visible: taskCount > 0
-            radius: 8
-            color: hasTodayTasks ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.055)
-            border.color: hasTodayTasks ? Theme.danger : "transparent"
-            border.width: hasTodayTasks ? 1 : 0
-            clip: true
-
-            ColumnLayout {
-              anchors.fill: parent
-              anchors.margins: 3
-              spacing: 0
-              Text {
-                Layout.fillWidth: true
-                text: "󰄬"
-                color: agendaTaskCard.hasTodayTasks ? Theme.danger : Theme.accent
-                font.family: Theme.fontIcon
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter
-              }
-              Text {
-                Layout.fillWidth: true
-                text: String(agendaTaskCard.todayCount)
-                color: Theme.text
-                font.family: Theme.fontMono
-                font.pixelSize: 12
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-              }
-              Text {
-                Layout.fillWidth: true
-                text: "today"
-                color: agendaTaskCard.hasTodayTasks ? Theme.danger : root.secondaryText
-                font.family: Theme.fontSans
-                font.pixelSize: 8
-                font.bold: agendaTaskCard.hasTodayTasks
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
-              }
-            }
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.selectCalendarDate(root.dateKey(clock.date), true);
                 root.toggleWidget("calendar");
               }
             }
@@ -2774,69 +2687,6 @@ ShellRoot {
             onClicked: root.showHoverWidget("weather", false)
           }
         }
-
-        // Item {
-        //   Layout.alignment: Qt.AlignHCenter
-        //   Layout.preferredWidth: 24
-        //   Layout.preferredHeight: 42
-        //   implicitWidth: 24
-        //   implicitHeight: 42
-        //   id: codexButton
-        //   Rectangle {
-        //     anchors.fill: parent
-        //     radius: 7
-        //     color: root.barWidgetActive("codex") || codexMouse.containsMouse ? Theme.accentSoft : "transparent"
-        //   }
-        //
-        //   Column {
-        //     anchors.centerIn: parent
-        //     width: 14
-        //     spacing: 4
-        //
-        //     Image {
-        //       anchors.horizontalCenter: parent.horizontalCenter
-        //       width: 13
-        //       height: 13
-        //       source: root.barWidgetActive("codex") || codexMouse.containsMouse
-        //         ? "assets/codex-accent.svg"
-        //         : "assets/codex.svg"
-        //       fillMode: Image.PreserveAspectFit
-        //       smooth: true
-        //     }
-        //
-        //     Rectangle {
-        //       anchors.horizontalCenter: parent.horizontalCenter
-        //       width: 6
-        //       height: 19
-        //       radius: 3
-        //       color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20)
-        //       clip: true
-        //
-        //       Rectangle {
-        //         anchors.bottom: parent.bottom
-        //         width: parent.width
-        //         height: {
-        //           const percent = root.codexUsagePercent("codexPrimaryUsedPercent");
-        //           return percent <= 0 ? 0 : Math.max(2, parent.height * percent / 100);
-        //         }
-        //         radius: parent.radius
-        //         color: root.codexUsageBarColor("codexPrimaryUsedPercent")
-        //         Behavior on height { NumberAnimation { duration: Theme.motionMedium } }
-        //       }
-        //     }
-        //   }
-        //
-        //   MouseArea {
-        //     id: codexMouse
-        //     anchors.fill: parent
-        //     hoverEnabled: true
-        //     cursorShape: Qt.PointingHandCursor
-        //     onEntered: root.showHoverWidget("codex")
-        //     onExited: root.leaveHoverWidgetButton("codex")
-        //     onClicked: root.showHoverWidget("codex", false)
-        //   }
-        // }
-
         Item {
           Layout.alignment: Qt.AlignHCenter
           id: shutdownButton
@@ -2986,7 +2836,14 @@ ShellRoot {
             text: ({audio: "Audio", media: "Spotify", weather: "Weather", clipboard: "Clipboard", calendar: "Calendar", battery: "Battery", tools: "Tools", shutdown: root.shutdownTimerMode === "break" ? "Break timer" : (root.shutdownTimerMode === "alarm" ? "Alarm" : "Shutdown"), screenshot: "Screenshot", codex: "Codex usage", tray: "Tray"})[root.widgetPage]
             color: Theme.text; font.family: Theme.fontSans; font.bold: true; font.pixelSize: 18; Layout.fillWidth: true
           }
-          Text { text: "×"; color: Theme.muted; font.pixelSize: 22; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() } }
+          Rectangle {
+            implicitWidth: 28
+            implicitHeight: 28
+            radius: Theme.radiusXs
+            color: closeMouse.containsMouse ? root.hoverSurface : "transparent"
+            Text { anchors.centerIn: parent; text: "×"; color: closeMouse.containsMouse ? Theme.text : Theme.muted; font.family: Theme.fontSans; font.pixelSize: 18 }
+            MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closeWidget() }
+          }
         }
 
         ColumnLayout {
@@ -5356,13 +5213,13 @@ ShellRoot {
 
     Rectangle {
       id: notificationPanel
-      width: Math.min(500, parent.width - 24)
+      width: Math.min(560, parent.width - 20)
       anchors {
         top: parent.top
         right: parent.right
         bottom: parent.bottom
         topMargin: 18
-        rightMargin: 56
+        rightMargin: 54
         bottomMargin: 18
       }
       radius: Theme.radiusXl; color: Theme.panel; border.color: Theme.border; border.width: 1

@@ -246,6 +246,9 @@ ColumnLayout {
       id: profileMenu
       y: profilePicker.height + 4
       width: profilePicker.width
+      height: 3 * 38 + 10
+      topPadding: 5
+      bottomPadding: 5
       onOpened: shell.setHoverWidgetMenuOpen(true)
       onClosed: shell.setHoverWidgetMenuOpen(false)
 
