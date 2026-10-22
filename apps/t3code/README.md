@@ -82,6 +82,40 @@ provides the derivation, the host decides when it runs.
 | `t3connect <login\|link\|status\|unlink\|logout\|publish>` | T3 Connect: the relay tunnel that makes this machine reachable from the phone and the other desktops. |
 | `t3code-theme <show\|publish <file.json> [id]\|set <theme>\|clear>` | Environment-wide theme, published into `~/.t3/userdata/themes`. |
 
+## Desktop will not open: migration history error
+
+2026-10-22. Symptom: `t3code-desktop` starts Electron, no window appears, and
+`~/.t3/userdata/logs/server-child.log` fills with
+`MigrationError: This database's migration history would skip required schema
+migrations: 64_CanonicalizeThreadPullRequestLinks (recorded: PeerLinks), ...`.
+The backend binaries are fine; the server DB's migration history contains ids
+the current build renumbered: `statev2.sqlite` had recorded 64/65/66 as
+PeerLinks/PeerLinkFence/WaitingLinkRequestIndex, while the current build
+renumbered those into 68/69/70 and inserted new migrations 64 (Canonicalize),
+65 (CodexUsageNativeTurnIndex), 66 (RepairClientSettlementTimestamps) and 67
+(WebhookDedupe). The migrator skips every id up to the highest recorded id
+regardless of name, so it would skip the inserted ones and asserts instead of
+migrating. T3's error text asks to "report this migration history so an
+upgrade path can be added".
+
+Permanent shape of the fix, applied for this case: with all t3code processes
+stopped, take a backup copy of `statev2.sqlite` (sqlite backup API, not `cp`,
+so the WAL is checkpointed), then delete the divergent rows
+(`DELETE FROM effect_sql_migrations WHERE migration_id IN (64,65,66)`) plus
+drop the schema objects those migrations created but are not re-run-safe:
+`DROP INDEX IF EXISTS orchestration_v2_projection_turn_items_waiting_link_idx`
+and `ALTER TABLE peer_environment_links DROP COLUMN fenced` (the table was
+empty, so nothing was lost). Then let the app migrate 64..70 itself. Verify
+with
+`sqlite3 ~/.t3/userdata/statev2.sqlite 'SELECT * FROM effect_sql_migrations
+WHERE migration_id >= 64'`, which must list all 68..70 entries including
+WebhookDedupe, and by a clean start in
+`~/.t3/userdata/logs/server-child.log`. If a future update renumbers again,
+the same recipe applies: diff `SELECT migration_id, name FROM
+effect_sql_migrations` against the current build's `migrationEntries` list,
+delete rows whose ids moved, drop only what the new ids create with
+`CREATE TABLE`/`ADD COLUMN`, and let the migrator redo the rest.
+
 ## Verification
 
 ```sh
