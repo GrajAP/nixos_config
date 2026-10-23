@@ -101,6 +101,7 @@ in {
       t3Cli
       t3code.connect
       t3code.theme
+      t3code.providerOpencode
     ];
 
     environment.etc = lib.mkIf cfg.serviceDropIn {
