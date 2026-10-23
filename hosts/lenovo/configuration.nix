@@ -24,6 +24,7 @@
 
     ./modules/packages.nix # system + per-user package sets
     ./modules/shell.nix # zsh, starship, aliases
+    ./modules/poco-adb.nix # restore POCO ADB TCP after phone reboot
 
     # Shared with grajpap: t3 CLI, T3 Connect environment, theme publishing
     ../../apps/t3code/modules/nixos.nix

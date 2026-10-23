@@ -2,7 +2,28 @@
   pkgs,
   lib,
   ...
-}: {
+}: let
+  connectPoco = pkgs.writeShellApplication {
+    name = "connect-poco";
+    runtimeInputs = with pkgs; [android-tools scrcpy];
+    text = ''
+      serial="100.110.155.84:5555"
+
+      adb connect "$serial"
+      if ! adb -s "$serial" get-state >/dev/null 2>&1; then
+        echo "Nie mogę połączyć z POCO ($serial). Sprawdź, czy telefon jest online w Tailscale." >&2
+        exit 1
+      fi
+
+      if [[ -n "''${DISPLAY:-}''${WAYLAND_DISPLAY:-}" ]]; then
+        exec scrcpy --serial="$serial"
+      fi
+
+      echo "POCO połączony przez ADB: $serial"
+      echo "Na komputerze z ekranem uruchom: scrcpy --serial=$serial"
+    '';
+  };
+in {
   # ===========================================================================
   # ADB (fleet-wide)
   #
@@ -24,6 +45,7 @@
   environment.systemPackages = [
     pkgs.android-tools
     pkgs.scrcpy
+    connectPoco
   ];
 
   users.groups.adbusers = {};

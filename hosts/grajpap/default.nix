@@ -50,6 +50,12 @@ in {
     ../../system/monitoring
   ];
 
+  # Keep the user's systemd services alive after the graphical session ends.
+  # T3's independently installed `t3code.service` is enabled under
+  # default.target and uses Restart=always, so lingering makes it survive both
+  # closing the desktop app and logging out of the compositor.
+  users.users.grajpap.linger = true;
+
   fleet = {
     # The PC dual-boots Windows and has always been on GRUB. The fleet-wide
     # bootloader module defaults this to false, so without it here a switch
