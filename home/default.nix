@@ -45,7 +45,10 @@ in {
 
   # Every desktop host gets T3 Code; the module only supplies packages and
   # timers, the autostart stays with the compositor in home/rice/hyprland.
-  t3code.enable = true;
+  t3code = {
+    enable = true;
+    channel = "nightly";
+  };
 
   # Local gate the T3 Gate browser extension polls. Each desktop checks the two
   # hosts that are not itself; the heavy PC is grajpap, the other desktop is

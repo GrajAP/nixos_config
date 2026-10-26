@@ -2,9 +2,9 @@
 #
 # Desktop profile of the flake: the wrapped AppImage launcher, the notify
 # wrapper the shell aliases to `t3code`, and the timer that keeps the AppImage
-# on the newest preview release. Everything the app needs at runtime is inside
-# the wrapper; this module only decides what lands in the profile and which
-# timers run.
+# on the newest configured release (defaults to nightly). Everything the app
+# needs at runtime is inside the wrapper; this module only decides what lands
+# in the profile and which timers run.
 #
 # The session autostart lives with the compositor, in home/rice/hyprland, so
 # there is one owner for it.
@@ -15,10 +15,18 @@
   ...
 }: let
   cfg = config.t3code;
-  t3code = pkgs.callPackage ../package.nix {};
+  t3code = pkgs.callPackage ../package.nix {
+    inherit (cfg) channel;
+  };
 in {
   options.t3code = {
     enable = lib.mkEnableOption "T3 Code desktop app, CLI and update timers";
+
+    channel = lib.mkOption {
+      type = lib.types.enum ["nightly" "preview" "stable"];
+      default = "nightly";
+      description = "Release channel to track for the desktop AppImage.";
+    };
 
     # Published into ~/.t3/userdata/themes, where `t3 theme` looks for it.
     # Applies to every client that follows this environment.
@@ -65,7 +73,7 @@ in {
 
     systemd.user = {
       services.t3code-update = {
-        Unit.Description = "Download the newest preview T3 Code desktop build";
+        Unit.Description = "Download the newest ${cfg.channel} T3 Code desktop build";
         Service = {
           Type = "oneshot";
           ExecStart = lib.getExe t3code.update;
@@ -73,7 +81,7 @@ in {
       };
 
       timers.t3code-update = lib.mkIf (cfg.updateInterval != null) {
-        Unit.Description = "Keep T3 Code on the latest preview release";
+        Unit.Description = "Keep T3 Code on the latest ${cfg.channel} release";
         Timer = {
           OnStartupSec = "2min";
           OnUnitActiveSec = cfg.updateInterval;

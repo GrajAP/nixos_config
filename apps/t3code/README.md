@@ -76,7 +76,7 @@ provides the derivation, the host decides when it runs.
 | Command | What it does |
 | --- | --- |
 | `t3code-desktop` | Refresh the AppImage if needed, then run it. |
-| `t3code-update` | Download the newest preview AppImage release (SHA-256 checked). |
+| `t3code-update [channel]` | Download the newest AppImage release for the configured channel (nightly/preview/stable; default: nightly; SHA-256 checked). |
 | `t3code-notify` | Run a command, then report duration and exit status via notify-send and ntfy. Aliased to `t3code`. |
 | `t3` | The CLI. On a desktop, nixpkgs' build wrapped with the provider toolchain, relay, cloudflared and CA environment. On a server, `cli.nix`: the runtime the service is running, with cloudflared and the CA bundle. |
 | `t3connect <login\|link\|status\|unlink\|logout\|publish>` | T3 Connect: the relay tunnel that makes this machine reachable from the phone and the other desktops. |

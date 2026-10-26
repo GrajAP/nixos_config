@@ -5,6 +5,7 @@
   # the full provider toolchain, which is what a desktop wants. A headless host
   # passes `cli.nix` instead, to avoid a 3.2 GB Electron closure for a CLI.
   cli ? null,
+  channel ? "nightly",
 }: let
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
@@ -174,6 +175,7 @@
     text = ''
       set -euo pipefail
 
+      channel="''${1:-''${T3CODE_CHANNEL:-${channel}}}"
       state_dir="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop"
       app="$state_dir/T3-Code.AppImage"
       version_file="$state_dir/version"
@@ -194,24 +196,50 @@
         --user-agent 't3code-update-nixos' \
         'https://api.github.com/repos/pingdotgg/t3code/releases?per_page=100')"
 
-      # Keep the desktop on the preview channel so features like thread snooze
-      # and the modern orchestration protocol remain available and persist across
-      # updates. Fall back to stable if no preview release is published.
-      release="$(${lib.getExe pkgs.jq} --raw-output '
+      # Select release matching the configured channel (nightly, preview, or stable).
+      release="$(${lib.getExe pkgs.jq} --raw-output --arg channel "$channel" '
         def appimage:
           . as $release
           | $release.assets[]
           | select(.name | endswith("-x86_64.AppImage"))
           | [$release.tag_name, .browser_download_url, .digest]
           | @tsv;
-        (
-          first(
-            .[]
-            | select(.draft | not)
-            | select(.tag_name | test("preview"; "i"))
-            | appimage
+        if $channel == "nightly" then
+          (
+            first(
+              .[]
+              | select(.draft | not)
+              | select(.tag_name | test("nightly"; "i"))
+              | appimage
+            )
+          ) // (
+            first(
+              .[]
+              | select(.draft | not)
+              | select(.tag_name | test("preview"; "i"))
+              | appimage
+            )
           )
-        ) // (
+        elif $channel == "preview" then
+          (
+            first(
+              .[]
+              | select(.draft | not)
+              | select(.tag_name | test("preview"; "i"))
+              | appimage
+            )
+          )
+        else
+          (
+            first(
+              .[]
+              | select(.draft | not)
+              | select(.prerelease | not)
+              | select(.tag_name | test("preview|nightly"; "i") | not)
+              | appimage
+            )
+          )
+        end // (
           first(
             .[]
             | select(.draft | not)
@@ -229,7 +257,7 @@
       ' <<<"$metadata")"
 
       if [[ -z "$release" ]]; then
-        echo "No current x86_64 AppImage release found for T3 Code" >&2
+        echo "No current x86_64 AppImage release found for T3 Code ($channel)" >&2
         exit 1
       fi
 
