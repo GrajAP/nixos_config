@@ -61,11 +61,14 @@ Item {
   }
 
   function streamTargetDeviceLabel(streamNode) {
-    if (!streamNode || !streamNode.properties) return "Default";
-    const driverId = Number(streamNode.properties["node.driver-id"] || streamNode.properties["target.node"]);
-    if (!driverId) return "Default";
-    const dev = Pipewire.nodes.values.find(n => n.id === driverId);
-    return dev ? shell.audioNodeLabel(dev) : "Default";
+    if (!streamNode) return "Default";
+    const driverId = Number(streamNode.properties && (streamNode.properties["node.driver-id"] || streamNode.properties["target.node"]));
+    if (driverId) {
+      const dev = Pipewire.nodes.values.find(n => n.id === driverId);
+      if (dev) return shell.audioNodeLabel(dev);
+    }
+    const defaultDev = streamIsInput(streamNode) ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
+    return defaultDev ? shell.audioNodeLabel(defaultDev) : "Default";
   }
 
   function moveStream(streamNode, targetDevice) {
@@ -614,8 +617,15 @@ Item {
                   Menu {
                     id: targetPickerMenu
                     y: targetDeviceBadge.height + 4
+                    x: targetDeviceBadge.width - width
+                    width: 250
+                    topPadding: 5
+                    bottomPadding: 5
+                    leftPadding: 5
+                    rightPadding: 5
                     onOpened: shell.setHoverWidgetMenuOpen(true)
                     onClosed: shell.setHoverWidgetMenuOpen(false)
+
                     background: Rectangle {
                       color: Theme.background
                       border.color: Theme.border
@@ -633,35 +643,39 @@ Item {
                         checkable: true
                         checked: {
                           const driverId = Number(streamCard.modelData.properties && (streamCard.modelData.properties["node.driver-id"] || streamCard.modelData.properties["target.node"]));
-                          return driverId === targetMenuItem.modelData.id;
+                          if (driverId) return driverId === targetMenuItem.modelData.id;
+                          const defaultDev = streamCard.isInput ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
+                          return targetMenuItem.modelData === defaultDev;
                         }
                         onTriggered: audioRoot.moveStream(streamCard.modelData, targetMenuItem.modelData)
-                        implicitHeight: 34
-                        leftPadding: 10
-                        rightPadding: 10
+                        implicitHeight: 38
+                        leftPadding: 12
+                        rightPadding: 12
+                        topPadding: 6
+                        bottomPadding: 6
 
                         indicator: Text {
-                          x: 10
+                          x: 12
                           anchors.verticalCenter: parent.verticalCenter
                           text: targetMenuItem.checked ? "✓" : ""
                           color: targetMenuItem.highlighted ? Theme.background : Theme.accent
                           font.family: Theme.font
-                          font.pixelSize: 12
+                          font.pixelSize: 13
                         }
 
                         contentItem: Text {
-                          leftPadding: 20
-                          rightPadding: 6
+                          leftPadding: targetMenuItem.checkable ? 24 : 0
+                          rightPadding: 8
                           text: targetMenuItem.text
                           color: targetMenuItem.highlighted || targetMenuItem.checked ? Theme.background : Theme.text
                           font.family: Theme.font
-                          font.pixelSize: 12
+                          font.pixelSize: 13
                           elide: Text.ElideRight
                           verticalAlignment: Text.AlignVCenter
                         }
 
                         background: Rectangle {
-                          radius: 6
+                          radius: 7
                           color: targetMenuItem.highlighted || targetMenuItem.checked ? Theme.accent : "transparent"
                         }
                       }
