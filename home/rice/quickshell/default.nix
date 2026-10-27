@@ -296,6 +296,7 @@
   qmldirConfig = pkgs.writeText "qmldir" ''
     singleton Theme 1.0 Theme.qml
     singleton WorkspaceState 1.0 WorkspaceState.qml
+    AudioWidget 1.0 AudioWidget.qml
     BarWorkspaceList 1.0 BarWorkspaceList.qml
     BatteryWidget 1.0 BatteryWidget.qml
     ClipboardWidget 1.0 ClipboardWidget.qml
@@ -340,6 +341,10 @@
     {
       name = "Theme.qml";
       path = themeConfig;
+    }
+    {
+      name = "AudioWidget.qml";
+      path = ./AudioWidget.qml;
     }
     {
       name = "BarWorkspaceList.qml";
@@ -430,6 +435,7 @@ in {
   xdg.configFile = {
     "quickshell/shell.qml".source = shellConfig;
     "quickshell/Theme.qml".source = themeConfig;
+    "quickshell/AudioWidget.qml".source = ./AudioWidget.qml;
     "quickshell/BarWorkspaceList.qml".source = ./BarWorkspaceList.qml;
     "quickshell/BatteryWidget.qml".source = ./BatteryWidget.qml;
     "quickshell/ClipboardWidget.qml".source = ./ClipboardWidget.qml;

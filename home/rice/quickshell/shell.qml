@@ -60,6 +60,7 @@ ShellRoot {
   property bool widgetWindowShown: false
   property string widgetPage: "audio"
   property string weatherForecastMode: "current"
+  property string audioTabMode: "devices"
   property string weatherError: ""
   property string weatherLastUpdated: ""
   readonly property bool weatherLoading: weatherQuery.running
@@ -2891,190 +2892,12 @@ ShellRoot {
           }
         }
 
-        ColumnLayout {
-          visible: root.widgetPage === "audio"; Layout.fillWidth: true; spacing: 14
-          Text { text: "Output device"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
-          Rectangle {
-            id: outputPicker
-            Layout.fillWidth: true
-            implicitHeight: 44
-            radius: Theme.radiusSm
-            color: outputMenu.opened ? Theme.surfaceAlt : Theme.surface
-            border.color: outputMenu.opened ? Theme.accent : Theme.border
-            border.width: 1
-            opacity: Pipewire.defaultAudioSink ? 1 : 0.55
-            RowLayout {
-              anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
-              Text { text: ""; color: outputMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
-              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSink); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-              Text { text: outputMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
-            }
-            MouseArea {
-              anchors.fill: parent
-              enabled: Pipewire.defaultAudioSink || root.audioSinks().length > 0
-              cursorShape: Qt.PointingHandCursor
-              onClicked: outputMenu.opened ? outputMenu.close() : outputMenu.open()
-            }
-            Menu {
-              id: outputMenu
-              y: outputPicker.height + 4
-              width: outputPicker.width
-              onOpened: root.setHoverWidgetMenuOpen(true)
-              onClosed: root.setHoverWidgetMenuOpen(microphoneMenu.opened)
-              background: Rectangle {
-                color: Theme.background
-                border.color: Theme.border
-                border.width: 1
-                radius: 8
-              }
-              Repeater {
-                model: ScriptModel { values: root.audioSinks() }
-                MenuItem {
-                  id: outputMenuItem
-                  required property var modelData
-                  text: root.audioNodeLabel(modelData)
-                  checkable: true
-                  checked: modelData === Pipewire.defaultAudioSink
-                  onTriggered: root.selectAudioSink(modelData)
-                  implicitHeight: 38
-                  leftPadding: 12
-                  rightPadding: 12
-                  topPadding: 6
-                  bottomPadding: 6
-
-                  indicator: Text {
-                    x: 12
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: outputMenuItem.checked ? "✓" : ""
-                    color: outputMenuItem.highlighted ? Theme.background : Theme.accent
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                  }
-
-                  contentItem: Text {
-                    leftPadding: outputMenuItem.checkable ? 24 : 0
-                    rightPadding: 8
-                    text: outputMenuItem.text
-                    color: outputMenuItem.highlighted || outputMenuItem.checked ? Theme.background : Theme.text
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                    elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
-                  }
-
-                  background: Rectangle {
-                    radius: 7
-                    color: outputMenuItem.highlighted || outputMenuItem.checked ? Theme.accent : "transparent"
-                  }
-                }
-              }
-            }
-          }
-          RowLayout {
-            Layout.fillWidth: true; spacing: 10
-            Text {
-              text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? "󰝟" : ""
-              color: Theme.accent; font.family: Theme.fontIcon; font.pixelSize: 22
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
-            }
-            Slider {
-              Layout.fillWidth: true; from: 0; to: 1.5
-              value: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Pipewire.defaultAudioSink.audio.volume : 0
-              onMoved: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.volume = value
-            }
-            Text { text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
-          }
-          Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true; Layout.topMargin: 4 }
-          Rectangle {
-            id: microphonePicker
-            Layout.fillWidth: true
-            implicitHeight: 44
-            radius: Theme.radiusSm
-            color: microphoneMenu.opened ? Theme.surfaceAlt : Theme.surface
-            border.color: microphoneMenu.opened ? Theme.accent : Theme.border
-            border.width: 1
-            opacity: Pipewire.defaultAudioSource ? 1 : 0.55
-            RowLayout {
-              anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
-              Text { text: "󰍬"; color: microphoneMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.font; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
-              Text { text: root.audioNodeLabel(Pipewire.defaultAudioSource); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-              Text { text: microphoneMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
-            }
-            MouseArea {
-              anchors.fill: parent
-              enabled: Pipewire.defaultAudioSource || root.audioSources().length > 0
-              cursorShape: Qt.PointingHandCursor
-              onClicked: microphoneMenu.opened ? microphoneMenu.close() : microphoneMenu.open()
-            }
-            Menu {
-              id: microphoneMenu
-              y: microphonePicker.height + 4
-              width: microphonePicker.width
-              onOpened: root.setHoverWidgetMenuOpen(true)
-              onClosed: root.setHoverWidgetMenuOpen(outputMenu.opened)
-              background: Rectangle {
-                color: Theme.background
-                border.color: Theme.border
-                border.width: 1
-                radius: 8
-              }
-              Repeater {
-                model: ScriptModel { values: root.audioSources() }
-                MenuItem {
-                  id: microphoneMenuItem
-                  required property var modelData
-                  text: root.audioNodeLabel(modelData)
-                  checkable: true
-                  checked: modelData === Pipewire.defaultAudioSource
-                  onTriggered: root.selectAudioSource(modelData)
-                  implicitHeight: 38
-                  leftPadding: 12
-                  rightPadding: 12
-                  topPadding: 6
-                  bottomPadding: 6
-
-                  indicator: Text {
-                    x: 12
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: microphoneMenuItem.checked ? "✓" : ""
-                    color: microphoneMenuItem.highlighted ? Theme.background : Theme.accent
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                  }
-
-                  contentItem: Text {
-                    leftPadding: microphoneMenuItem.checkable ? 24 : 0
-                    rightPadding: 8
-                    text: microphoneMenuItem.text
-                    color: microphoneMenuItem.highlighted || microphoneMenuItem.checked ? Theme.background : Theme.text
-                    font.family: Theme.font
-                    font.pixelSize: 13
-                    elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
-                  }
-
-                  background: Rectangle {
-                    radius: 7
-                    color: microphoneMenuItem.highlighted || microphoneMenuItem.checked ? Theme.accent : "transparent"
-                  }
-                }
-              }
-            }
-          }
-          RowLayout {
-            Layout.fillWidth: true; spacing: 10
-            Text {
-              text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? "󰍭" : "󰍬"
-              color: Theme.accent; font.family: Theme.fontIcon; font.pixelSize: 22
-              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted }
-            }
-            Slider {
-              Layout.fillWidth: true; from: 0; to: 1.5
-              value: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Pipewire.defaultAudioSource.audio.volume : 0
-              onMoved: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.volume = value
-            }
-            Text { text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"; color: Theme.text; font.family: Theme.font }
-          }
+        Loader {
+          active: root.widgetWindowShown && root.widgetPage === "audio"
+          visible: active
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          sourceComponent: Component { AudioWidget { shell: root } }
         }
 
         Loader {
