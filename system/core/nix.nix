@@ -84,9 +84,9 @@
             })
           ];
       })
-      # 2026-09-18: nixpkgs still ships Ferdium 7.1.2 (old Electron/Chromium),
-      # which leaves Discord stuck at "Loading Discord". Track upstream 7.2.3
-      # (Electron 43) until nixpkgs catches up. Remove after nixpkgs ships >= 7.2.3.
+      # 2026-10-27: Track upstream 7.2.4-nightly.3 to fix window.open popups
+      # (Slack huddles, Messenger audio/video calls, OAuth popups) which were
+      # broken by contextBridge WindowProxy dropping in 7.2.3 (PR #2552).
       (_: prev: let
         arch =
           {
@@ -95,16 +95,16 @@
           }
           .${
             prev.stdenv.hostPlatform.system
-          } or (throw "ferdium 7.2.3 overlay: arch ${prev.stdenv.hostPlatform.system} not supported");
+          } or (throw "ferdium 7.2.4-nightly.3 overlay: arch ${prev.stdenv.hostPlatform.system} not supported");
       in {
         ferdium = prev.ferdium.overrideAttrs {
-          version = "7.2.3";
+          version = "7.2.4-nightly.3";
           src = prev.fetchurl {
-            url = "https://github.com/ferdium/ferdium-app/releases/download/v7.2.3/Ferdium-linux-7.2.3-${arch}.deb";
+            url = "https://github.com/ferdium/ferdium-app/releases/download/v7.2.4-nightly.3/Ferdium-linux-7.2.4-nightly.3-${arch}.deb";
             hash =
               {
-                x86_64-linux = "sha256-+KP107a8Tmr2qR8pH+gHuXqEqiC5ExPGXoYOqV1Urbo=";
-                aarch64-linux = "sha256-6XnuSqHOJxAURTGWfi4QUBv4ictLmjeJAoyrPg+o+Bg=";
+                x86_64-linux = "sha256-BTu5jw3sVYAqUBEp4Zb2m1AWWpedcsvdh2wc/TXXayc=";
+                aarch64-linux = "sha256-9jeVGOVtaQ+7IIWRnC/JhQpl5EpyfMnKwR+Fs9FoE/s=";
               }
               .${
                 prev.stdenv.hostPlatform.system

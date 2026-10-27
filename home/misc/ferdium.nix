@@ -12,6 +12,8 @@
   whatsappDarkmodeCss = ./ferdium-whatsapp-darkmode.css;
   protonMailDarkmodeCss = ./ferdium-proton-mail-darkmode.css;
   instagramDarkmodeCss = ./ferdium-instagram-darkmode.css;
+  messengerIndexJs = ./ferdium-messenger-index.js;
+  messengerWebviewJs = ./ferdium-messenger-webview.js;
 in {
   home.activation.ferdiumCatppuccin = lib.hm.dag.entryAfter ["writeBoundary"] ''
         recipes_dir="$HOME/.config/Ferdium/recipes"
@@ -55,17 +57,17 @@ in {
 
         # Write package.json with version 999.999.999 to prevent Ferdium recipe auto-updater from overwriting it
         cat << 'EOF' > "$discord_dir/package.json"
-    {
-      "id": "discord",
-      "name": "Discord",
-      "version": "999.999.999",
-      "license": "MIT",
-      "config": {
-        "serviceURL": "https://discord.com/app",
-        "hasNotificationSound": true,
-        "hasIndirectMessages": true
-      },
-      "defaultIcon": "https://cdn.jsdelivr.net/gh/ferdium/ferdium-recipes@main/recipes/discord/icon.svg"
+    {\
+      "id": "discord",\
+      "name": "Discord",\
+      "version": "999.999.999",\
+      "license": "MIT",\
+      "config": {\
+        "serviceURL": "https://discord.com/app",\
+        "hasNotificationSound": true,\
+        "hasIndirectMessages": true\
+      },\
+      "defaultIcon": "https://cdn.jsdelivr.net/gh/ferdium/ferdium-recipes@main/recipes/discord/icon.svg"\
     }
     EOF
 
@@ -107,13 +109,18 @@ in {
           sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$instagram_dir/package.json"
         fi
 
-        # 6. Pin Facebook & Messenger recipe versions to prevent upstream theme wipe
-        for fb_svc in facebook messenger; do
-          fb_dir="$recipes_dir/$fb_svc"
-          if [ -d "$fb_dir" ]; then
-            sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$fb_dir/package.json"
-          fi
-        done
+        # 6. Setup Messenger recipe with fixed User-Agent, call link handling & version pinning
+        messenger_dir="$recipes_dir/messenger"
+        if [ -d "$messenger_dir" ]; then
+          cp -f "${messengerIndexJs}" "$messenger_dir/index.js"
+          cp -f "${messengerWebviewJs}" "$messenger_dir/webview.js"
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$messenger_dir/package.json"
+        fi
+
+        fb_dir="$recipes_dir/facebook"
+        if [ -d "$fb_dir" ]; then
+          sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$fb_dir/package.json"
+        fi
 
         # 7. Pin the theme settings Ferdium keeps in its own JSON, which nothing
         # else in this config touches. A fresh profile (the dell) comes up with
@@ -134,6 +141,7 @@ in {
             | .useGrayscaleServices = true
             | .grayscaleServicesDim = 50
             | .useSelfSignedCertificates = true
+            | .webRTCIPHandlingPolicy = "default_public_and_private_interfaces"
           ' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
         fi
   '';
