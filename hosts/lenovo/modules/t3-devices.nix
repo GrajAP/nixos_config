@@ -43,18 +43,26 @@ in {
   nixpkgs.config.android_sdk.accept_license = true;
 
   # T3's local device host probes $HOME/Android/Sdk when ANDROID_HOME is
-  # unset, so expose the store tree there. A symlink keeps it undeclared
-  # state owned by NixOS: the pointer moves on the next switch, nothing else
-  # in /home changes.
+  # unset, and that directory is already a real, working SDK here (React Native
+  # builds put platforms, build-tools and ndk in it). Fill only the two pieces
+  # it still lacks, each with a symlink into the read-only store tree so a
+  # future manual install by the user simply replaces the link instead of
+  # fighting it.
   system.activationScripts.t3AndroidSdk = lib.stringAfter ["users"] ''
     target=/home/grajpap/Android/Sdk
-    if [ -e "$target" ] && [ ! -L "$target" ]; then
-      echo "warning: $target exists and is not a symlink; leaving it alone" >&2
-      exit 0
-    fi
 
-    mkdir -p "$(dirname "$target")"
-    ln -sfn "${t3AndroidSdk}" "$target"
+    fill() {
+      # fill <path-under-Sdk> <store-path>: skip anything that already exists,
+      # Nix never overwrites a working piece of the SDK.
+      if [ ! -e "$target/$1" ] && [ ! -L "$target/$1" ]; then
+        mkdir -p "$(dirname "$target/$1")"
+        ln -s "$2" "$target/$1"
+        echo "t3-devices: filled $target/$1"
+      fi
+    }
+
+    fill "emulator" "${t3AndroidSdk}/emulator"
+    fill "cmdline-tools/latest" "${t3AndroidSdk}/cmdline-tools/latest"
   '';
 
   # avdmanager/sdkmanager stay reachable for the rare case they are needed.
