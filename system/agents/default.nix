@@ -47,6 +47,7 @@
     ".config/opencode/AGENTS.md"
     ".claude/CLAUDE.md"
     ".agents/AGENTS.md"
+    ".gemini/GEMINI.md"
   ];
 
   # "  <path under $HOME> <store path to link it to>", one per line. Store paths
@@ -97,7 +98,7 @@
 
       # The directories themselves are created by root above, so without this
       # the user's harness cannot write its own state next to the links.
-      for dir in .config/opencode .claude .agents .codex; do
+      for dir in .config/opencode .claude .agents .codex .gemini; do
         if [ -d "$home/$dir" ]; then
           chown -R ${cfg.user}:users "$home/$dir"
         fi

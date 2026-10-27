@@ -31,6 +31,7 @@
     ".config/opencode/AGENTS.md"
     ".claude/CLAUDE.md"
     ".agents/AGENTS.md"
+    ".gemini/GEMINI.md"
   ];
 
   instructions =

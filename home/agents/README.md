@@ -15,7 +15,7 @@ harness on every machine (opencode, claude code, codex, and the agent-agnostic
 | Source | Targets |
 | --- | --- |
 | `skills/<name>/` | `~/.config/opencode/skills/<name>`, `~/.claude/skills/<name>`, `~/.agents/skills/<name>`, `~/.codex/skills/<name>` |
-| `AGENTS.md` | `~/.config/opencode/AGENTS.md`, `~/.claude/CLAUDE.md`, `~/.agents/AGENTS.md` |
+| `AGENTS.md` | `~/.config/opencode/AGENTS.md`, `~/.claude/CLAUDE.md`, `~/.agents/AGENTS.md`, `~/.gemini/GEMINI.md` |
 
 Everything is a symlink into the Nix store: edit here, run `./rebuild.sh`, done.
 `~/.codex/AGENTS.md` is intentionally left alone because it already has local content.
