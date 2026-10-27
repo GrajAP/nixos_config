@@ -57,17 +57,17 @@ in {
 
         # Write package.json with version 999.999.999 to prevent Ferdium recipe auto-updater from overwriting it
         cat << 'EOF' > "$discord_dir/package.json"
-    {\
-      "id": "discord",\
-      "name": "Discord",\
-      "version": "999.999.999",\
-      "license": "MIT",\
-      "config": {\
-        "serviceURL": "https://discord.com/app",\
-        "hasNotificationSound": true,\
-        "hasIndirectMessages": true\
-      },\
-      "defaultIcon": "https://cdn.jsdelivr.net/gh/ferdium/ferdium-recipes@main/recipes/discord/icon.svg"\
+    {
+      "id": "discord",
+      "name": "Discord",
+      "version": "999.999.999",
+      "license": "MIT",
+      "config": {
+        "serviceURL": "https://discord.com/app",
+        "hasNotificationSound": true,
+        "hasIndirectMessages": true
+      },
+      "defaultIcon": "https://cdn.jsdelivr.net/gh/ferdium/ferdium-recipes@main/recipes/discord/icon.svg"
     }
     EOF
 
