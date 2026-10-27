@@ -521,16 +521,20 @@ Item {
             id: streamCard
             required property var modelData
             readonly property bool isInput: audioRoot.streamIsInput(modelData)
+            property bool expanded: false
             width: ListView.view.width
-            implicitHeight: streamCardLayout.implicitHeight + 16
+            implicitHeight: streamCardLayout.implicitHeight + 20
+            height: implicitHeight
             radius: Theme.radiusSm
             color: Theme.surface
-            border.color: Theme.border
+            border.color: streamCard.expanded ? Theme.accent : Theme.border
             border.width: 1
 
             ColumnLayout {
               id: streamCardLayout
-              anchors.fill: parent
+              anchors.top: parent.top
+              anchors.left: parent.left
+              anchors.right: parent.right
               anchors.margins: 10
               spacing: 8
 
@@ -573,8 +577,8 @@ Item {
                 Rectangle {
                   id: targetDeviceBadge
                   radius: 6
-                  color: targetPickerMenu.opened ? Theme.surfaceAlt : Theme.background
-                  border.color: targetPickerMenu.opened ? Theme.accent : Theme.border
+                  color: streamCard.expanded ? Theme.surfaceAlt : Theme.background
+                  border.color: streamCard.expanded ? Theme.accent : Theme.border
                   border.width: 1
                   implicitHeight: 22
                   implicitWidth: targetDeviceRow.implicitWidth + 12
@@ -601,7 +605,7 @@ Item {
                     }
 
                     Text {
-                      text: targetPickerMenu.opened ? "⌃" : "⌄"
+                      text: streamCard.expanded ? "⌃" : "⌄"
                       color: Theme.muted
                       font.family: Theme.font
                       font.pixelSize: 10
@@ -611,72 +615,81 @@ Item {
                   MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: targetPickerMenu.opened ? targetPickerMenu.close() : targetPickerMenu.open()
+                    onClicked: streamCard.expanded = !streamCard.expanded
                   }
+                }
+              }
 
-                  Menu {
-                    id: targetPickerMenu
-                    y: targetDeviceBadge.height + 4
-                    x: targetDeviceBadge.width - width
-                    width: 250
-                    topPadding: 5
-                    bottomPadding: 5
-                    leftPadding: 5
-                    rightPadding: 5
-                    onOpened: shell.setHoverWidgetMenuOpen(true)
-                    onClosed: shell.setHoverWidgetMenuOpen(false)
+              // Inline Expandable Target Device Selector
+              Rectangle {
+                id: inlineDevicePicker
+                visible: streamCard.expanded
+                Layout.fillWidth: true
+                implicitHeight: streamCard.expanded ? (pickerCol.implicitHeight + 8) : 0
+                radius: Theme.radiusSm
+                color: Theme.background
+                border.color: Theme.border
+                border.width: 1
 
-                    background: Rectangle {
-                      color: Theme.background
-                      border.color: Theme.border
+                ColumnLayout {
+                  id: pickerCol
+                  anchors.fill: parent
+                  anchors.margins: 4
+                  spacing: 2
+
+                  Repeater {
+                    model: ScriptModel { values: streamCard.isInput ? shell.audioSources() : shell.audioSinks() }
+
+                    Rectangle {
+                      id: devRow
+                      required property var modelData
+                      readonly property bool isSelected: {
+                        const driverId = Number(streamCard.modelData.properties && (streamCard.modelData.properties["node.driver-id"] || streamCard.modelData.properties["target.node"]));
+                        if (driverId) return driverId === devRow.modelData.id;
+                        const defaultDev = streamCard.isInput ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
+                        return devRow.modelData === defaultDev;
+                      }
+                      Layout.fillWidth: true
+                      implicitHeight: 30
+                      radius: 6
+                      color: isSelected ? Theme.accentSoft : (rowM.containsMouse ? Theme.surfaceAlt : "transparent")
+                      border.color: isSelected ? Theme.accent : "transparent"
                       border.width: 1
-                      radius: 8
-                    }
 
-                    Repeater {
-                      model: ScriptModel { values: streamCard.isInput ? shell.audioSources() : shell.audioSinks() }
+                      RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
 
-                      MenuItem {
-                        id: targetMenuItem
-                        required property var modelData
-                        text: shell.audioNodeLabel(modelData)
-                        checkable: true
-                        checked: {
-                          const driverId = Number(streamCard.modelData.properties && (streamCard.modelData.properties["node.driver-id"] || streamCard.modelData.properties["target.node"]));
-                          if (driverId) return driverId === targetMenuItem.modelData.id;
-                          const defaultDev = streamCard.isInput ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
-                          return targetMenuItem.modelData === defaultDev;
-                        }
-                        onTriggered: audioRoot.moveStream(streamCard.modelData, targetMenuItem.modelData)
-                        implicitHeight: 38
-                        leftPadding: 12
-                        rightPadding: 12
-                        topPadding: 6
-                        bottomPadding: 6
-
-                        indicator: Text {
-                          x: 12
-                          anchors.verticalCenter: parent.verticalCenter
-                          text: targetMenuItem.checked ? "✓" : ""
-                          color: targetMenuItem.highlighted ? Theme.background : Theme.accent
+                        Text {
+                          text: devRow.isSelected ? "✓" : ""
+                          color: Theme.accent
                           font.family: Theme.font
-                          font.pixelSize: 13
+                          font.pixelSize: 12
+                          font.bold: true
+                          Layout.preferredWidth: 14
                         }
 
-                        contentItem: Text {
-                          leftPadding: targetMenuItem.checkable ? 24 : 0
-                          rightPadding: 8
-                          text: targetMenuItem.text
-                          color: targetMenuItem.highlighted || targetMenuItem.checked ? Theme.background : Theme.text
-                          font.family: Theme.font
-                          font.pixelSize: 13
+                        Text {
+                          text: shell.audioNodeLabel(devRow.modelData)
+                          color: devRow.isSelected ? Theme.text : Theme.muted
+                          font.family: Theme.fontSans
+                          font.pixelSize: 11
+                          font.bold: devRow.isSelected
+                          Layout.fillWidth: true
                           elide: Text.ElideRight
-                          verticalAlignment: Text.AlignVCenter
                         }
+                      }
 
-                        background: Rectangle {
-                          radius: 7
-                          color: targetMenuItem.highlighted || targetMenuItem.checked ? Theme.accent : "transparent"
+                      MouseArea {
+                        id: rowM
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                          audioRoot.moveStream(streamCard.modelData, devRow.modelData);
+                          streamCard.expanded = false;
                         }
                       }
                     }
