@@ -97,7 +97,7 @@
             prev.stdenv.hostPlatform.system
           } or (throw "ferdium 7.2.3 overlay: arch ${prev.stdenv.hostPlatform.system} not supported");
       in {
-        ferdium = prev.ferdium.overrideAttrs {
+        ferdium = prev.ferdium.overrideAttrs (old: {
           version = "7.2.3";
           src = prev.fetchurl {
             url = "https://github.com/ferdium/ferdium-app/releases/download/v7.2.3/Ferdium-linux-7.2.3-${arch}.deb";
@@ -110,7 +110,13 @@
                 prev.stdenv.hostPlatform.system
               };
           };
-        };
+          nativeBuildInputs = (old.nativeBuildInputs or []) ++ [prev.python3];
+          postFixup =
+            (old.postFixup or "")
+            + ''
+              ${prev.python3}/bin/python3 ${./ferdium-patch-asar.py} "$out/opt/Ferdium/resources/app.asar"
+            '';
+        });
       })
     ];
   };

@@ -14,6 +14,7 @@
   instagramDarkmodeCss = ./ferdium-instagram-darkmode.css;
   messengerIndexJs = ./ferdium-messenger-index.js;
   messengerWebviewJs = ./ferdium-messenger-webview.js;
+  facebookIndexJs = ./ferdium-facebook-index.js;
 in {
   home.activation.ferdiumCatppuccin = lib.hm.dag.entryAfter ["writeBoundary"] ''
         recipes_dir="$HOME/.config/Ferdium/recipes"
@@ -89,7 +90,7 @@ in {
 
           # Pin the version so the auto-updater stops overwriting the theme.
           # NOTE: this also freezes webview.js badge-selector updates; unpin
-          # (delete the dir, restart Ferdium) if unread badges ever go stale.
+          # (delete the dir, restart Ferdium) if unread badges ever go stale.\
           sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$whatsapp_dir/package.json"
         fi
 
@@ -117,12 +118,14 @@ in {
           sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$messenger_dir/package.json"
         fi
 
+        # 7. Setup Facebook recipe with fixed User-Agent & version pinning
         fb_dir="$recipes_dir/facebook"
         if [ -d "$fb_dir" ]; then
+          cp -f "${facebookIndexJs}" "$fb_dir/index.js"
           sed -i 's/"version": "[^"]*"/"version": "999.999.999"/' "$fb_dir/package.json"
         fi
 
-        # 7. Pin the theme settings Ferdium keeps in its own JSON, which nothing
+        # 8. Pin the theme settings Ferdium keeps in its own JSON, which nothing
         # else in this config touches. A fresh profile (the dell) comes up with
         # universalDarkMode on, adaptableDarkMode on, no grayscale and the stock
         # purple accent, so the Catppuccin CSS lands on a UI that is still asking

@@ -195,16 +195,7 @@ module.exports = (Ferdium, settings) => {
             host.endsWith('.facebook.com');
 
           if (isInternalHost) {
-            if (
-              parsed.pathname.includes('/call/') ||
-              parsed.pathname.includes('/groupcall/') ||
-              parsed.pathname.includes('/videocall/') ||
-              parsed.search.includes('call_id') ||
-              parsed.pathname.startsWith('/messages') ||
-              parsed.pathname.startsWith('/t/')
-            ) {
-              return;
-            }
+            return;
           }
         } catch (_) {}
 
