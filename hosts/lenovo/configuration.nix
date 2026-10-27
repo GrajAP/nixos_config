@@ -25,6 +25,7 @@
     ./modules/packages.nix # system + per-user package sets
     ./modules/shell.nix # zsh, starship, aliases
     ./modules/poco-adb.nix # restore POCO ADB TCP after phone reboot
+    ./modules/t3-devices.nix # Android SDK tree for T3's device panel (POCO testing)
 
     # Shared with grajpap: t3 CLI, T3 Connect environment, theme publishing
     ../../apps/t3code/modules/nixos.nix

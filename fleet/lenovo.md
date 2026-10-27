@@ -5,6 +5,9 @@
 - IP: `192.168.1.136` LAN, `100.110.204.8` tailnet
 - SSH: `ssh lenovo-user-ts` (or `lenovo-user` on the LAN), user `grajpap`, NOPASSWD sudo, root SSH disabled
 - Rebuild: `./rebuild.sh` (switches `#lenovo`)
+- T3 devices: `hosts/lenovo/modules/t3-devices.nix` keeps a read-only Android
+  SDK symlinked at `/home/grajpap/Android/Sdk` so T3's device panel on lenovo
+  sees Android (and the USB POCO) with no ANDROID_HOME in the service env.
 
 ## Notes
 

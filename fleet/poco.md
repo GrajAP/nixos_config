@@ -6,6 +6,10 @@
   restores it after a POCO reboot, using the already-authorized USB connection.
 - Tailscale is configured as Android's always-on VPN with lockdown, so the phone
   returns to the tailnet after reconnecting to Wi-Fi/mobile data.
+- T3 Code on lenovo can drive the phone directly: the USB adb transport plus the
+  SDK tree from `hosts/lenovo/modules/t3-devices.nix` (`t3-devices.nix`) make the
+  POCO show up in T3's Devices panel. First agent use installs T3's device tools
+  into `~/.t3/tools` on lenovo; no native emulator runs there, only the phone.
 - From grajpap, Lenovo, or Dell after switching its NixOS configuration, run
   the `connect-poco` command. On a desktop it opens scrcpy; on headless Lenovo
   it connects ADB and prints the desktop command. The first connection from
