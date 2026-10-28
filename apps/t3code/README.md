@@ -116,6 +116,13 @@ effect_sql_migrations` against the current build's `migrationEntries` list,
 delete rows whose ids moved, drop only what the new ids create with
 `CREATE TABLE`/`ADD COLUMN`, and let the migrator redo the rest.
 
+2026-10-28. Symptom: `MigrationError: Migration "71_PeerLinkFence" failed`
+with `Error: duplicate column name: fenced`. Upstream renumbered PeerLinks
+(70), PeerLinkFence (71), WaitingLinkRequestIndex (72) after inserting
+ShellStopRequestIndex (68) and ThreadMessageSearch (69). The schema objects
+already existed from the previous run; inserted rows 70, 71, 72 directly into
+`effect_sql_migrations`.
+
 ## Verification
 
 ```sh
