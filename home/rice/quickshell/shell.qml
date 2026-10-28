@@ -1780,13 +1780,12 @@ ShellRoot {
         eventCount: counts[key] || 0
       });
     }
-    // Only weeks holding in-month days on compact panels (dell): a 5-week month
-    // must not keep an empty transparent sixth row that eats the grid's height
-    // budget and leaves a dead strip at the bottom of the panel. Desktop keeps
-    // all 42 cells (6 full weeks).
-    if (!root.calendarCompact) return cells;
-    const weeks = Math.ceil((firstDay + daysInMonth) / 7);
-    return cells.slice(0, weeks * 7);
+    // Keep all six rows on every panel: slicing short months to 4-5 rows also
+    // shrinks the grid (cellSize derives from the row count) and the panel
+    // re-centres, so the calendar jumps whenever you page months. A static
+    // 6-week grid trades those months' dead strip for a fixed cell size and
+    // position.
+    return cells;
   }
   function calendarDayItems(date, limit) {
     if (!date) return [];
@@ -3569,7 +3568,7 @@ ShellRoot {
                 // 184 and the desktop layout is untouched. Short or narrow
                 // panels (a 1536x864 laptop at 125%) shrink the cell to what
                 // actually fits, so the sixth week row is not cut off.
-                readonly property int rows: root.calendarCompact ? Math.ceil(root.monthCells().length / 7) : 6
+                readonly property int rows: 6
                 readonly property int cellSize: {
                   if (!root.calendarCompact) return 184;
                   // Off the panel, not off calendarMonthRow: the row's width
