@@ -17,6 +17,7 @@ alarm_deadline_file="$runtime_dir/alarm-deadline"
 alarm_unit_file="$runtime_dir/alarm-unit"
 alarm_ringing_file="$runtime_dir/alarm-ringing"
 alarm_audio_pid_file="$runtime_dir/alarm-audio-pid"
+alarm_name_file="$runtime_dir/alarm-name"
 break_pending_file="$runtime_dir/break-pending"
 break_deadline_file="$runtime_dir/break-deadline"
 break_unit_file="$runtime_dir/break-unit"
@@ -34,8 +35,23 @@ read_deadline() {
   fi
 }
 
+format_delay_label() {
+  local total_min="$1"
+  if (( total_min < 60 )); then
+    printf 'in %d min' "$total_min"
+  else
+    local h=$(( total_min / 60 ))
+    local m=$(( total_min % 60 ))
+    if (( m == 0 )); then
+      printf 'in %d h' "$h"
+    else
+      printf 'in %d h %d min' "$h" "$m"
+    fi
+  fi
+}
+
 json_status() {
-  local alarm_deadline alarm_pending alarm_remaining alarm_ringing deadline now pending remaining
+  local alarm_deadline alarm_pending alarm_remaining alarm_ringing alarm_name alarm_name_escaped deadline now pending remaining
   local break_deadline break_duration_min break_pending break_phase break_remaining break_repeat break_work_min
   pending=""
   if [[ -r "$pending_file" ]]; then
@@ -66,9 +82,15 @@ json_status() {
   elif [[ "$alarm_ringing" == true ]]; then
     alarm_pending=""
   else
-    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_audio_pid_file"
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_audio_pid_file" "$alarm_name_file"
     alarm_pending=""
   fi
+
+  alarm_name=""
+  if [[ -r "$alarm_name_file" ]]; then
+    alarm_name="$(head -n1 "$alarm_name_file")"
+  fi
+  alarm_name_escaped="${alarm_name//\"/\\\"}"
 
   break_pending=""
   if [[ -r "$break_pending_file" ]]; then
@@ -103,9 +125,9 @@ json_status() {
     break_phase=""
   fi
 
-  printf '{\"custom\":\"\",\"pending\":\"%s\",\"deadline\":%s,\"remaining\":%s,\"alarmPending\":\"%s\",\"alarmDeadline\":%s,\"alarmRemaining\":%s,\"alarmRinging\":%s,\"breakPending\":\"%s\",\"breakDeadline\":%s,\"breakRemaining\":%s,\"breakPhase\":\"%s\",\"breakWorkMin\":%s,\"breakDurationMin\":%s,\"breakRepeat\":%s,\"cancel\":false}\n' \
+  printf '{\"custom\":\"\",\"pending\":\"%s\",\"deadline\":%s,\"remaining\":%s,\"alarmPending\":\"%s\",\"alarmDeadline\":%s,\"alarmRemaining\":%s,\"alarmRinging\":%s,\"alarmName\":\"%s\",\"breakPending\":\"%s\",\"breakDeadline\":%s,\"breakRemaining\":%s,\"breakPhase\":\"%s\",\"breakWorkMin\":%s,\"breakDurationMin\":%s,\"breakRepeat\":%s,\"cancel\":false}\n' \
     "$pending" "${deadline:-0}" "$remaining" \
-    "$alarm_pending" "${alarm_deadline:-0}" "$alarm_remaining" "$alarm_ringing" \
+    "$alarm_pending" "${alarm_deadline:-0}" "$alarm_remaining" "$alarm_ringing" "$alarm_name_escaped" \
     "$break_pending" "${break_deadline:-0}" "$break_remaining" "$break_phase" "${break_work_min:-30}" "${break_duration_min:-5}" "${break_repeat:-0}"
 }
 
@@ -133,7 +155,7 @@ stop_alarm_audio() {
 play_alarm() {
   local audio_pid
   while [[ -e "$alarm_ringing_file" ]]; do
-    pw-play --volume=0.9 "@alarmSound@" >/dev/null 2>&1 &
+    pw-play --volume=1.0 "@alarmSound@" >/dev/null 2>&1 &
     audio_pid=$!
     printf '%s\n' "$audio_pid" > "$alarm_audio_pid_file"
     wait "$audio_pid" || true
@@ -160,17 +182,22 @@ case "$action" in
     json_status
     ;;
   schedule-in)
-    if ! [[ "$target" =~ ^[0-9]+$ ]] || (( target < 1 || target > 720 )); then
+    if ! [[ "$target" =~ ^[0-9]+$ ]] || (( target < 1 || target > 1440 )); then
       echo "Invalid shutdown delay minutes: $target" >&2
       exit 2
     fi
     deadline=$(( $(date +%s) + target * 60 ))
     printf '%s\n' "$deadline" > "$custom_deadline_file"
-    printf 'in %s min\n' "$target" > "$pending_file"
+    delay_str="$(format_delay_label "$target")"
+    clock_time="$(date -d "@$deadline" +%H:%M)"
+    if [[ "$(date -d "@$deadline" +%Y-%m-%d)" != "$(date +%Y-%m-%d)" ]]; then
+      clock_time="$clock_time tomorrow"
+    fi
+    printf '%s (%s)\n' "$delay_str" "$clock_time" > "$pending_file"
     printf '%s\n' "$deadline" > "$pending_deadline_file"
     rm -f "$cancel_file" "$agent_wait_file"
     notify-send --app-name="Auto shutdown" --icon=system-shutdown -u critical \
-      "Auto shutdown" "System will power off in $target minutes."
+      "Auto shutdown" "System will power off $delay_str ($clock_time)."
     json_status
     ;;
   cancel-pending)
@@ -181,28 +208,54 @@ case "$action" in
     json_status
     ;;
   schedule-alarm-in)
-    if ! [[ "$target" =~ ^[0-9]+$ ]] || (( target < 1 || target > 720 )); then
+    alarm_label="${3:-}"
+    if ! [[ "$target" =~ ^[0-9]+$ ]] || (( target < 1 || target > 1440 )); then
       echo "Invalid alarm delay minutes: $target" >&2
       exit 2
     fi
     stop_alarm_unit
     deadline=$(( $(date +%s) + target * 60 ))
     unit="quickshell-alarm-$deadline"
-    printf 'in %s min\n' "$target" > "$alarm_pending_file"
+    delay_str="$(format_delay_label "$target")"
+    clock_time="$(date -d "@$deadline" +%H:%M)"
+    if [[ "$(date -d "@$deadline" +%Y-%m-%d)" != "$(date +%Y-%m-%d)" ]]; then
+      clock_time="$clock_time tomorrow"
+    fi
+    printf '%s (%s)\n' "$clock_time" "$delay_str" > "$alarm_pending_file"
     printf '%s\n' "$deadline" > "$alarm_deadline_file"
     printf '%s\n' "$unit" > "$alarm_unit_file"
+    if [[ -n "$alarm_label" ]]; then
+      printf '%s\n' "$alarm_label" > "$alarm_name_file"
+    else
+      rm -f "$alarm_name_file"
+    fi
     if ! systemd-run --user --quiet --collect \
       --unit="$unit" \
       --on-active="${target}m" \
       --timer-property=AccuracySec=1s \
       "$0" alarm-fire "$deadline"; then
-      rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file"
+      rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_name_file"
       echo "Could not schedule alarm" >&2
       exit 1
     fi
+    alarm_title="Alarm set"
+    if [[ -n "$alarm_label" ]]; then
+      alarm_title="Alarm set: $alarm_label"
+    fi
     notify-send --app-name="Alarm" --icon=alarm-symbolic -u normal \
-      "Alarm set" "The alarm will ring in $target minutes."
+      "$alarm_title" "The alarm will ring at $clock_time ($delay_str)."
     json_status
+    ;;
+  snooze-alarm)
+    snooze_min="${2:-5}"
+    alarm_label=""
+    if [[ -r "$alarm_name_file" ]]; then
+      alarm_label="$(head -n1 "$alarm_name_file")"
+    fi
+    stop_alarm_unit
+    stop_alarm_audio
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file"
+    "$0" schedule-alarm-in "$snooze_min" "$alarm_label"
     ;;
   cancel-alarm)
     was_ringing=false
@@ -211,7 +264,7 @@ case "$action" in
     fi
     stop_alarm_unit
     stop_alarm_audio
-    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file"
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file" "$alarm_name_file"
     notify-send --app-name="Alarm" --icon=alarm-symbolic -u normal \
       "Alarm" "$([[ "$was_ringing" == true ]] && printf 'Alarm silenced.' || printf 'Alarm cancelled.')"
     json_status
@@ -219,7 +272,7 @@ case "$action" in
   acknowledge-alarm)
     stop_alarm_unit
     stop_alarm_audio
-    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file"
+    rm -f "$alarm_pending_file" "$alarm_deadline_file" "$alarm_unit_file" "$alarm_ringing_file" "$alarm_audio_pid_file" "$alarm_name_file"
     json_status
     ;;
   alarm-fire)
@@ -227,16 +280,31 @@ case "$action" in
     if [[ -n "$target" && "$current_deadline" == "$target" ]]; then
       rm -f "$alarm_pending_file" "$alarm_deadline_file"
       touch "$alarm_ringing_file"
+      alarm_label=""
+      if [[ -r "$alarm_name_file" ]]; then
+        alarm_label="$(head -n1 "$alarm_name_file")"
+      fi
       play_alarm &
       alarm_loop_pid=$!
+      summary="Alarm"
+      body="The alarm is ringing! Confirm to silence."
+      if [[ -n "$alarm_label" ]]; then
+        summary="Alarm: $alarm_label"
+        body="$alarm_label is ringing! Confirm to silence."
+      fi
       selected_action="$(
         notify-send --app-name="Alarm" --icon=alarm-symbolic -u critical -t 0 \
           --action=acknowledge="Silence alarm" \
-          "Alarm" "The timer has finished. Confirm to silence it." || true
+          --action=snooze="Snooze 5m" \
+          "$summary" "$body" || true
       )"
       if [[ "$selected_action" == "acknowledge" ]]; then
         stop_alarm_audio
+        rm -f "$alarm_ringing_file" "$alarm_name_file"
+      elif [[ "$selected_action" == "snooze" ]]; then
+        stop_alarm_audio
         rm -f "$alarm_ringing_file"
+        "$0" snooze-alarm 5 &
       fi
       wait "$alarm_loop_pid" || true
       rm -f "$alarm_ringing_file" "$alarm_audio_pid_file" "$alarm_unit_file"
@@ -364,7 +432,7 @@ case "$action" in
     fi
     ;;
   *)
-    echo "Usage: quickshell-shutdown-timer [status|schedule-in MINUTES|cancel-pending|schedule-alarm-in MINUTES|cancel-alarm|acknowledge-alarm|schedule-break-in WORK_MIN BREAK_MIN [REPEAT]|cancel-break|acknowledge-break]" >&2
+    echo "Usage: quickshell-shutdown-timer [status|schedule-in MINUTES|cancel-pending|schedule-alarm-in MINUTES [NAME]|snooze-alarm [MINUTES]|cancel-alarm|acknowledge-alarm|schedule-break-in WORK_MIN BREAK_MIN [REPEAT]|cancel-break|acknowledge-break]" >&2
     exit 2
     ;;
 esac

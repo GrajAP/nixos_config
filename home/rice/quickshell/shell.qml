@@ -171,6 +171,8 @@ ShellRoot {
   property string alarmPendingTarget: ""
   property int alarmRemaining: 0
   property bool alarmRinging: false
+  property string alarmNameDraft: ""
+  property string alarmName: ""
   property int breakWorkMinutes: 30
   property int breakDurationMinutes: 5
   property bool breakAutoRepeat: false
@@ -1331,7 +1333,7 @@ ShellRoot {
     return rest + "m";
   }
   function setShutdownDelay(minutes) {
-    root.shutdownDelayMinutes = Math.max(1, Math.min(720, Math.round(minutes)));
+    root.shutdownDelayMinutes = Math.max(1, Math.min(1440, Math.round(minutes)));
   }
   function shutdownDelayLabel() {
     const minutes = root.shutdownDelayMinutes;
@@ -1350,24 +1352,45 @@ ShellRoot {
     const rest = minutes % 60;
     return rest === 0 ? hours + " h" : hours + " h " + rest + " min";
   }
+  function formatPendingTarget(target) {
+    if (!target) return "";
+    const match = target.match(/^in\s+(\d+)\s+min$/);
+    if (match) {
+      const totalMin = Number(match[1]);
+      if (totalMin >= 60) {
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return m === 0 ? "in " + h + " h" : "in " + h + " h " + m + " min";
+      }
+    }
+    return target;
+  }
   function shutdownRemainingLabel() {
     return root.timerRemainingLabel(root.shutdownRemaining);
   }
   function timerRemainingLabel(value) {
     const seconds = Math.max(0, Number(value) || 0);
-    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const rest = seconds % 60;
+    if (hours > 0)
+      return root.pad2(hours) + ":" + root.pad2(minutes) + ":" + root.pad2(rest);
     return root.pad2(minutes) + ":" + root.pad2(rest);
   }
   function applyShutdownStatus(text) {
     try {
       const payload = JSON.parse(text.trim());
       root.shutdownCustomTarget = payload.custom || "";
-      root.shutdownPendingTarget = payload.pending || "";
+      root.shutdownPendingTarget = root.formatPendingTarget(payload.pending || "");
       root.shutdownRemaining = Number(payload.remaining || 0);
-      root.alarmPendingTarget = payload.alarmPending || "";
+      root.alarmPendingTarget = root.formatPendingTarget(payload.alarmPending || "");
       root.alarmRemaining = Number(payload.alarmRemaining || 0);
+      const wasRinging = root.alarmRinging;
       root.alarmRinging = Boolean(payload.alarmRinging);
+      root.alarmName = payload.alarmName || "";
+      if (!wasRinging && root.alarmRinging) {
+        root.openWidget("shutdown");
+      }
       root.breakPendingTarget = payload.breakPending || "";
       root.breakRemaining = Number(payload.breakRemaining || 0);
       root.breakPhase = payload.breakPhase || "";
@@ -1382,9 +1405,11 @@ ShellRoot {
       if (root.shutdownPendingTarget.length > 0)
         root.shutdownStatus = "Pending " + root.shutdownPendingTarget + " · " + root.shutdownRemainingLabel() + " left";
       else if (root.alarmRinging)
-        root.shutdownStatus = "Alarm is ringing";
-      else if (root.alarmPendingTarget.length > 0)
-        root.shutdownStatus = "Alarm " + root.alarmPendingTarget + " · " + root.timerRemainingLabel(root.alarmRemaining) + " left";
+        root.shutdownStatus = root.alarmName.length > 0 ? "Alarm: " + root.alarmName + " is ringing!" : "Alarm is ringing";
+      else if (root.alarmPendingTarget.length > 0) {
+        const namePart = root.alarmName.length > 0 ? root.alarmName + " · " : "Alarm ";
+        root.shutdownStatus = namePart + root.alarmPendingTarget + " · " + root.timerRemainingLabel(root.alarmRemaining) + " left";
+      }
       else if (root.breakPhase === "break")
         root.shutdownStatus = "Break time · " + root.timerRemainingLabel(root.breakRemaining) + " left";
       else if (root.breakPhase === "finished")
@@ -1410,7 +1435,14 @@ ShellRoot {
     root.runShutdownTimer(["schedule-in", String(root.shutdownDelayMinutes)]);
   }
   function scheduleAlarm() {
-    root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes)]);
+    const name = root.alarmNameDraft.trim();
+    if (name.length > 0)
+      root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes), name]);
+    else
+      root.runShutdownTimer(["schedule-alarm-in", String(root.shutdownDelayMinutes)]);
+  }
+  function snoozeAlarm() {
+    root.runShutdownTimer(["snooze-alarm", "5"]);
   }
   function scheduleBreak() {
     if (!root.breaksEnabled)

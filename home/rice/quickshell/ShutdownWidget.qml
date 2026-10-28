@@ -50,7 +50,7 @@ ScrollView {
           {
             key: "alarm",
             icon: "\udb80\udc20",
-            label: "Alarm only"
+            label: "Alarm"
           },
           {
             key: "break",
@@ -65,8 +65,8 @@ ScrollView {
           Layout.fillWidth: true
           implicitHeight: 38
           radius: 9
-          color: shell.shutdownTimerMode === modelData.key ? Theme.accent : Theme.surface
-          border.color: shell.shutdownTimerMode === modelData.key ? Theme.accent : Theme.border
+          color: shell.shutdownTimerMode === modelData.key ? (timerScroll.alarmMode && modelData.key === "alarm" ? Theme.warning : Theme.accent) : Theme.surface
+          border.color: shell.shutdownTimerMode === modelData.key ? (timerScroll.alarmMode && modelData.key === "alarm" ? Theme.warning : Theme.accent) : Theme.border
           border.width: 1
 
           Text {
@@ -87,10 +87,48 @@ ScrollView {
       }
     }
 
+    ColumnLayout {
+      visible: timerScroll.alarmMode
+      Layout.fillWidth: true
+      spacing: 4
+
+      Text {
+        text: "Alarm name"
+        color: Theme.muted
+        font.family: Theme.fontSans
+        font.bold: true
+        font.pixelSize: 11
+      }
+
+      TextField {
+        id: alarmNameField
+        Layout.fillWidth: true
+        implicitHeight: 36
+        leftPadding: 10
+        rightPadding: 10
+        text: shell.alarmNameDraft
+        placeholderText: "e.g. Wake up, Meeting, Laundry (optional)..."
+        color: Theme.text
+        placeholderTextColor: Theme.muted
+        font.family: Theme.fontSans
+        font.pixelSize: 12
+        selectionColor: Theme.warning
+        selectedTextColor: Theme.background
+        selectByMouse: true
+        background: Rectangle {
+          radius: 8
+          color: alarmNameField.activeFocus ? Theme.surfaceAlt : Theme.surface
+          border.color: alarmNameField.activeFocus ? Theme.warning : Theme.border
+          border.width: 1
+        }
+        onTextChanged: shell.alarmNameDraft = text
+      }
+    }
+
     Text {
       Layout.fillWidth: true
       Layout.preferredHeight: timerScroll.sectionLabelHeight
-      text: timerScroll.breakMode ? "Work session" : (timerScroll.alarmMode ? "Notify in" : "Shutdown in")
+      text: timerScroll.breakMode ? "Work session" : (timerScroll.alarmMode ? "Alarm time" : "Shutdown in")
       color: Theme.muted
       font.family: Theme.fontSans
       font.bold: true
@@ -106,21 +144,46 @@ ScrollView {
       RowLayout {
         anchors.fill: parent
         anchors.margins: 10
-        spacing: 10
+        spacing: 8
 
         Rectangle {
-          Layout.preferredWidth: 40
-          Layout.preferredHeight: 40
+          visible: !timerScroll.breakMode
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 38
           radius: 8
           color: Theme.background
           border.color: Theme.border
 
           Text {
             anchors.centerIn: parent
-            text: "−"
+            text: "−1h"
             color: Theme.text
-            font.family: Theme.font
-            font.pixelSize: 20
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+            font.bold: true
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.setShutdownDelay(shell.shutdownDelayMinutes - 60)
+          }
+        }
+
+        Rectangle {
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 38
+          radius: 8
+          color: Theme.background
+          border.color: Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            text: "−5m"
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+            font.bold: true
           }
 
           MouseArea {
@@ -137,7 +200,7 @@ ScrollView {
 
         ColumnLayout {
           Layout.fillWidth: true
-          spacing: 0
+          spacing: 1
 
           Text {
             Layout.fillWidth: true
@@ -145,35 +208,43 @@ ScrollView {
             text: timerScroll.breakMode ? shell.breakWorkDelayLabel() : shell.shutdownDelayLabel()
             color: Theme.text
             font.family: Theme.fontSans
-            font.pixelSize: 28
+            font.pixelSize: 26
             font.bold: true
           }
 
           Text {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: timerScroll.breakMode
-              ? (shell.breakDurationMinutes + "m break after session")
-              : (timerScroll.alarmMode ? "notification timer" : "relative timer")
-            color: Theme.muted
+            text: {
+              if (timerScroll.breakMode)
+                return shell.breakDurationMinutes + "m break after session";
+              const targetDate = new Date(Date.now() + shell.shutdownDelayMinutes * 60000);
+              const targetTime = Qt.formatDateTime(targetDate, "HH:mm");
+              if (timerScroll.alarmMode)
+                return "Rings at " + targetTime;
+              return "Powers off at " + targetTime;
+            }
+            color: timerScroll.alarmMode ? Theme.warning : Theme.muted
             font.family: Theme.fontSans
             font.pixelSize: 11
+            font.bold: timerScroll.alarmMode
           }
         }
 
         Rectangle {
-          Layout.preferredWidth: 40
-          Layout.preferredHeight: 40
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 38
           radius: 8
           color: Theme.background
           border.color: Theme.border
 
           Text {
             anchors.centerIn: parent
-            text: "+"
+            text: "+5m"
             color: Theme.text
-            font.family: Theme.font
-            font.pixelSize: 20
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+            font.bold: true
           }
 
           MouseArea {
@@ -187,31 +258,59 @@ ScrollView {
             }
           }
         }
+
+        Rectangle {
+          visible: !timerScroll.breakMode
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 38
+          radius: 8
+          color: Theme.background
+          border.color: Theme.border
+
+          Text {
+            anchors.centerIn: parent
+            text: "+1h"
+            color: Theme.text
+            font.family: Theme.fontSans
+            font.pixelSize: 11
+            font.bold: true
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: shell.setShutdownDelay(shell.shutdownDelayMinutes + 60)
+          }
+        }
       }
     }
 
     RowLayout {
       Layout.fillWidth: true
       Layout.alignment: Qt.AlignLeft
-      spacing: 8
+      spacing: 6
 
       Repeater {
-        model: timerScroll.breakMode ? [15, 20, 25, 30, 45, 60] : [15, 30, 60, 120]
+        model: timerScroll.breakMode ? [15, 20, 25, 30, 45, 60] : (timerScroll.alarmMode ? [15, 30, 60, 120, 240, 480] : [15, 30, 60, 120])
 
         delegate: Rectangle {
           required property int modelData
 
           Layout.fillWidth: true
-          Layout.preferredHeight: 34
+          Layout.preferredHeight: 32
           radius: 8
-          color: (timerScroll.breakMode ? shell.breakWorkMinutes : shell.shutdownDelayMinutes) === modelData ? Theme.accent : Theme.surface
+          color: (timerScroll.breakMode ? shell.breakWorkMinutes : shell.shutdownDelayMinutes) === modelData ? (timerScroll.alarmMode ? Theme.warning : Theme.accent) : Theme.surface
 
           Text {
             anchors.centerIn: parent
-            text: parent.modelData < 60 ? parent.modelData + "m" : (parent.modelData / 60) + "h"
+            text: {
+              if (parent.modelData < 60) return parent.modelData + "m";
+              const h = parent.modelData / 60;
+              return Number.isInteger(h) ? h + "h" : h.toFixed(1) + "h";
+            }
             color: (timerScroll.breakMode ? shell.breakWorkMinutes : shell.shutdownDelayMinutes) === parent.modelData ? Theme.background : Theme.text
             font.family: Theme.fontSans
-            font.pixelSize: 12
+            font.pixelSize: 11
             font.bold: (timerScroll.breakMode ? shell.breakWorkMinutes : shell.shutdownDelayMinutes) === parent.modelData
           }
 
@@ -326,7 +425,7 @@ ScrollView {
           if (timerScroll.breakMode)
             return "Reminds you to step away for a " + shell.breakDurationMinutes + "-minute break after " + shell.breakWorkMinutes + " minutes on PC.";
           if (timerScroll.alarmMode)
-            return "Alarm rings for about 20 seconds, shows a persistent notification and never powers off the computer.";
+            return "Rings an audible alarm with persistent notification and on-screen alert until silenced or snoozed.";
           return "Overnight checks still run at 00:00-06:00.";
         }
         color: Theme.muted
@@ -353,7 +452,7 @@ ScrollView {
           Layout.fillWidth: true
           text: {
             if (timerScroll.ringing)
-              return "Alarm is ringing";
+              return shell.alarmName.length > 0 ? "Alarm: " + shell.alarmName + " is ringing!" : "Alarm is ringing!";
             if (timerScroll.breakMode) {
               if (shell.breakPhase === "break")
                 return "\udb80\udd76 Break time (" + shell.breakDurationMinutes + " min)";
@@ -365,7 +464,13 @@ ScrollView {
             }
             if (timerScroll.pendingTarget.length === 0)
               return timerScroll.alarmMode ? "No alarm set" : "No shutdown timer set";
-            return (timerScroll.alarmMode ? "Alarm " : "Shutdown ") + timerScroll.pendingTarget;
+            const targetFormatted = shell.formatPendingTarget(timerScroll.pendingTarget);
+            if (timerScroll.alarmMode) {
+              if (shell.alarmName.length > 0)
+                return shell.alarmName + " · " + targetFormatted;
+              return targetFormatted.startsWith("in ") ? "Alarm " + targetFormatted : "Alarm · " + targetFormatted;
+            }
+            return targetFormatted.startsWith("in ") ? "Shutdown " + targetFormatted : "Shutdown · " + targetFormatted;
           }
           color: timerScroll.active ? timerScroll.modeColor : Theme.text
           font.family: Theme.fontSans
@@ -378,7 +483,7 @@ ScrollView {
           Layout.fillWidth: true
           text: {
             if (timerScroll.ringing)
-              return "Confirm below to silence the sound";
+              return "Confirm below to silence or snooze";
             if (timerScroll.breakMode) {
               if (shell.breakPhase === "break")
                 return shell.timerRemainingLabel(timerScroll.pendingRemaining) + " left · Step away from screen";
@@ -475,6 +580,30 @@ ScrollView {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
           onClicked: shell.acknowledgeAlarm()
+        }
+      }
+
+      Rectangle {
+        Layout.preferredWidth: 120
+        Layout.preferredHeight: 44
+        visible: timerScroll.ringing
+        radius: 9
+        color: Theme.surface
+        border.color: Theme.warning
+        border.width: 1
+
+        Text {
+          anchors.centerIn: parent
+          text: "\udb80\udf2b  Snooze 5m"
+          color: Theme.warning
+          font.family: Theme.fontSans
+          font.bold: true
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: shell.snoozeAlarm()
         }
       }
 
