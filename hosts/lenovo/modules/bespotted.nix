@@ -68,8 +68,13 @@
     set -eu
     ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
     ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.hostname}/health/ready
-    ${lib.optionalString cfg.web.enable "${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.web.port}/"}
     ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted || true
+    # After the heartbeat, so a web outage still alerts but never hides a
+    # healthy API from the heartbeat.
+    ${lib.optionalString cfg.web.enable ''
+      ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.web.port}/
+      ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.web.hostname}/
+    ''}
   '';
 
   # pg_dump through the running container, then prove the archive is readable
@@ -270,7 +275,9 @@ in {
 
     # A single-page app: unknown paths (/sso-callback, /spots/<id>) fall back to
     # index.html, hashed assets are cached for a year, index.html never.
+    services.nginx.enable = lib.mkIf cfg.web.enable true;
     services.nginx.virtualHosts.bespotted-web = lib.mkIf cfg.web.enable {
+      serverName = cfg.web.hostname;
       listen = [
         {
           addr = "127.0.0.1";
