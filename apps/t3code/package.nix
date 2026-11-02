@@ -30,6 +30,23 @@
     '';
   };
 
+  # T3 runs `claude update` on whatever `claude` it resolves. On the Nix build
+  # that installs a native copy into ~/.local/bin, which a systemd unit's PATH
+  # never sees, so T3 kept probing the store version and reported "still
+  # outdated". Prefer the native copy once it exists; the Nix build is only the
+  # bootstrap that the first update replaces.
+  t3codeClaude = pkgs.writeShellApplication {
+    name = "claude";
+    text = ''
+      native_claude="$HOME/.local/bin/claude"
+      if [[ -x "$native_claude" ]]; then
+        exec "$native_claude" "$@"
+      fi
+
+      exec ${lib.getExe pkgs.claude-code} "$@"
+    '';
+  };
+
   opencodeProxy = pkgs.writeText "opencode-proxy.js" (builtins.readFile ./opencode-proxy.js);
 
   t3codeOpencode = pkgs.writeShellApplication {
@@ -510,6 +527,7 @@ in {
   # Exposed so a host can put the npm-first provider CLIs on the login PATH too:
   # T3 Code's "update providers" refreshes the npm copies, so the shell tracks
   # the same versions the app runs instead of frozen nixpkgs builds.
+  providerClaude = t3codeClaude;
   providerCodex = t3codeCodex;
   providerOpencode = t3codeOpencode;
 }
