@@ -41,6 +41,8 @@
   services.bespotted = {
     enable = true;
     tunnelId = "c6db6e1a-59ac-4f27-814a-fa796011a85d";
+    # app.be-spotted.org, the web app, through the same tunnel.
+    web.enable = true;
   };
 
   # Drop PTI, retpolines, IBPB, RDT and friends (boot.nix adds mitigations=off).
