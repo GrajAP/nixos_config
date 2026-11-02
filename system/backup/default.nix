@@ -21,6 +21,7 @@
   passwordFile = "${backupState}/password";
   storageStamp = "${backupState}/storage-backup.last-success";
   storageRepository = "/mnt/HDD/Backups/restic/grajpap-nextcloud";
+  lenovoMirror = "/mnt/SSD2/backups/lenovo-restic";
   retention = [
     "--keep-daily 7"
     "--keep-weekly 5"
@@ -47,6 +48,49 @@
   };
 in {
   systemd = {
+    # Second copy of lenovo's restic repository (Bespotted production and
+    # HomeNest), with its password, so a dead lenovo can be restored. A user unit
+    # because the SSH key for lenovo-user-ts sits in gnome-keyring, unlocked at
+    # login. No --delete: a wiped repository on lenovo cannot propagate. Midday,
+    # away from lenovo's 03:00-05:30 backup and prune window.
+    user = {
+      services.lenovo-backup-mirror = {
+        description = "Mirror lenovo's restic repository to SSD2";
+        unitConfig.ConditionUser = "grajpap";
+        startLimitIntervalSec = 7200;
+        startLimitBurst = 4;
+        path = [
+          pkgs.coreutils
+          pkgs.openssh
+          pkgs.rsync
+          pkgs.util-linux
+        ];
+        environment.SSH_AUTH_SOCK = "%t/gcr/ssh";
+        serviceConfig = {
+          Type = "oneshot";
+          UMask = "0077";
+          Restart = "on-failure";
+          RestartSec = "15min";
+          ExecStart = pkgs.writeShellScript "lenovo-backup-mirror" ''
+            set -eu
+            mountpoint -q /mnt/SSD2
+            mkdir -p ${lenovoMirror}
+            exec rsync -a --exclude locks/ \
+              --rsync-path="sudo rsync" \
+              -e "ssh -o BatchMode=yes -o ConnectTimeout=20" \
+              lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
+          '';
+        };
+      };
+      timers.lenovo-backup-mirror = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "*-*-* 12:00:00";
+          Persistent = true;
+          RandomizedDelaySec = "30min";
+        };
+      };
+    };
     tmpfiles.rules = [
       "d ${backupState} 0700 root root - -"
     ];
