@@ -29,6 +29,10 @@
   # a unit with no login shell. npm-installed codex/opencode come first, then
   # the Nix profiles, then the raw system paths.
   servicePath = lib.concatStringsSep ":" [
+    # The wrapper must shadow the npm copy: otherwise T3's provider update runs
+    # the raw binary's `opencode upgrade`, whose interactive prompt hangs the
+    # headless unit forever. The wrapper installs the npm copy instead.
+    "${t3code.providerOpencode}/bin"
     "%h/.local/share/t3code/npm/bin"
     "%h/.npm-global/bin"
     "/run/wrappers/bin"

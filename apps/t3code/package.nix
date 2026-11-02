@@ -42,6 +42,22 @@
         real_bin="$user_opencode"
       fi
 
+      # Upstream `opencode upgrade` asks an interactive "Install anyways?"
+      # question on a package-manager-managed copy and waits for a keypress a
+      # headless provider never sends, so T3's env update "times out" and never
+      # touches anything. Do what T3 assumes happened instead: put the newest
+      # release into that npm prefix, which this wrapper already prefers.
+      for arg in "$@"; do
+        if [[ "$arg" == "upgrade" ]]; then
+          if "${lib.getExe t3codeNpm}" install --global opencode-ai; then
+            "$real_bin" --version || true
+            exit 0
+          fi
+          echo "opencode upgrade failed" >&2
+          exit 1
+        fi
+      done
+
       export REAL_OPENCODE_BIN="$real_bin"
       export OPENCODE_VERSION="${pkgs.opencode.version or "1.18.31"}"
       exec ${lib.getExe pkgs.nodejs} "${opencodeProxy}" "$@"
