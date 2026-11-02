@@ -105,6 +105,7 @@ in {
       t3Cli
       t3code.connect
       t3code.theme
+      t3code.providerClaude
       t3code.providerOpencode
     ];
 

@@ -61,6 +61,12 @@ Three things about T3 Code on NixOS are not derivable and are easy to lose:
   "Update timed out" every run. The wrapper answers `upgrade` with
   `npm install --global opencode-ai` into the npm prefix it already prefers,
   and the headless service PATH puts the wrapper ahead of that npm copy.
+- **`claude update`.** T3's Claude update runs `claude update`, which on the
+  Nix build installs a native copy into `~/.local/bin`. That directory is not
+  on the service PATH, so T3 kept probing the store version and reported
+  "Update command completed, but T3 Code still detects an outdated provider
+  version". The `claude` wrapper runs the native copy when it exists and the
+  Nix build only until the first update.
 
 ## What is deliberately *not* declarative
 
