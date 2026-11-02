@@ -17,6 +17,7 @@
     ./modules/wifi.nix # BCM43142 driver + PWr eduroam profile
     ./modules/docker.nix # container engine
     ./modules/homenest.nix # the production app
+    ./modules/bespotted.nix # Bespotted API, database, moderation guard, tunnel
     ./modules/nextcloud.nix # calendar, tasks, notes
     ./modules/backup.nix # restic + sqlite-safe snapshotting
     ./modules/monitoring.nix # smartd, alerting
@@ -36,6 +37,11 @@
 
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
+
+  services.bespotted = {
+    enable = true;
+    tunnelId = "c6db6e1a-59ac-4f27-814a-fa796011a85d";
+  };
 
   # Drop PTI, retpolines, IBPB, RDT and friends (boot.nix adds mitigations=off).
   # Accepted trade-off: this box exposes nothing but Tailscale and key-only SSH,
@@ -76,6 +82,8 @@
       "tailscaled"
       "sshd"
       "caddy"
+      "bespotted-production"
+      "bespotted-tunnel"
     ];
   };
 
