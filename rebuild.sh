@@ -20,16 +20,13 @@ sudo() {
 
 usage() {
   printf 'Usage: rebuild [--check|--build]\n'
-  printf '  no argument  check, switch, commit and queue a GitHub push (needs root via sudo)\n'
+  printf '  no argument  check, switch, commit and push to GitHub (needs sudo)\n'
   printf '  --check      check the flake without switching or touching Git (rootless)\n'
   printf '  --build      check and build the system without switching or touching Git (rootless)\n'
 }
 
-# Scans the working tree, which is what `git add -A` below would commit and the
-# push at the end would publish. This runs before `nix flake check` so a secret
-# is never evaluated, committed or pushed, whatever the mode. The config lives in
-# .gitleaks.toml next to the script; --redact keeps the secret out of the
-# terminal and out of the log.
+# Runs first, so a secret is never evaluated, committed or pushed.
+# Config: .gitleaks.toml.
 leak_scan() {
   local -a cmd=(gitleaks)
   if ! command -v gitleaks >/dev/null 2>&1; then
@@ -136,31 +133,15 @@ if ! git diff --quiet || ! git diff --cached --quiet \
 fi
 
 if ((has_origin && tree_clean)); then
-  # Never let git open an interactive credential prompt here. On a host with no
-  # usable GitHub credentials, `git pull` blocks forever on a username prompt
-  # (it reads /dev/tty, not stdin), so the whole rebuild appears to hang while
-  # holding the lock and every later run reports "Another rebuild is already
-  # running". GIT_TERMINAL_PROMPT=0 turns that into an immediate, reportable
-  # failure, which the || below already treats as non-fatal.
-  #
-  # This is a fast-forward only, and only ever a convenience: it picks up
-  # another host's commits *before* the build so the generation that goes live
-  # is built from them. It cannot be relied on to make the push at the end
-  # succeed, because it refuses as soon as this branch has commits of its own.
-  # integrate_origin below is what actually guarantees the push.
+  # Picks up other hosts' commits before the build. GIT_TERMINAL_PROMPT=0: a
+  # credential prompt would otherwise hang the run while it holds the lock.
   if ! GIT_TERMINAL_PROMPT=0 git pull --ff-only; then
     printf '⚠ could not fast-forward from origin (no credentials, or the branch has diverged); continuing with the local tree\n' >&2
   fi
 fi
 
 git add -A
-# path:, not a bare "$repo#attr". A flake that resolves to a git repository is
-# evaluated from HEAD, which means a staged or edited file is invisible to both
-# the checks and the switch: the build would describe yesterday's config, and
-# only the commit below would carry the edit. `path:` evaluates the working
-# tree, untracked files included, so what gets built is what gets committed.
-# (fleet/auto-rebuild does the same, and commits before switching for the same
-# reason.)
+# path:, so the working tree is built, not HEAD.
 nix flake check "path:$repo" --log-format internal-json -v 2>&1 | nom --json
 sudo nixos-rebuild switch --flake "path:$repo#$(hostname)"
 
@@ -187,10 +168,7 @@ if ! git diff --cached --quiet; then
   committed=1
 elif git rev-parse --quiet --verify '@{upstream}' >/dev/null \
   && [[ -n "$(git log --oneline '@{upstream}..HEAD')" ]]; then
-  # Commits made by hand since the last run. Work authored here is published;
-  # work that only arrived from origin is not pushed back, or every host in the
-  # fleet would re-push the others' commits at each other. Same rule as
-  # fleet/auto-rebuild.
+  # Hand-made commits since the last run.
   unpushed=1
 fi
 
@@ -199,19 +177,8 @@ if ((unpushed == 0)); then
   exit 0
 fi
 
-# Fold in whatever another host pushed while this run was building and
-# switching, so the push below is a fast-forward instead of a rejection.
-#
-# A rebuild takes minutes, and every host in the fleet pushes to the same
-# branch, so origin routinely moves underneath a run. `git pull --ff-only`
-# earlier cannot cover this: it is skipped entirely when the tree is dirty,
-# and it refuses outright once the local branch has commits of its own, which
-# is precisely the case that needs publishing. The result was a push rejected
-# as non-fast-forward and a run's worth of work left stranded on the host.
-#
-# Runs after the switch and the commit, so the tree is clean and there is
-# nothing to lose: a merge conflict aborts, is reported, and leaves both sides
-# intact for a human. Only a fast-forward or a clean merge is accepted.
+# Every host pushes to the same branch, so origin often moves during a run.
+# Merge it in before pushing. A conflict aborts and is left for a human.
 integrate_origin() {
   local upstream
   upstream="$(git rev-parse --quiet --verify '@{upstream}' 2>/dev/null)" || return 0
@@ -239,10 +206,7 @@ push_branch() {
   local commit attempt
   commit="$(git rev-parse HEAD)"
 
-  # One retry after integrating, because another host can push in the gap
-  # between the fetch and this push. Two attempts is enough: if origin is still
-  # moving that fast, a human should finish it, and saying so beats a silent
-  # retry loop.
+  # One retry: another host can push between the fetch and this push.
   for attempt in 1 2; do
     if GIT_TERMINAL_PROMPT=0 git -c "remote.origin.pushurl=$push_url" \
       push origin "${commit}:refs/heads/$branch"; then
@@ -271,14 +235,7 @@ if ((has_origin)); then
       "$(git rev-list --count '@{upstream}..HEAD')"
   fi
 
-  # In the foreground, with prompting off. This used to run through
-  # `systemd-run --user`, which inherited a PATH without gh: the credential
-  # helper failed and the push died with status 128 inside a unit nobody was
-  # watching, so the commits silently stayed local.
-  #
-  # A rejected push used to be a warning, so the run reported success while its
-  # work stayed on the host and the next run pushed it again. It is fatal now:
-  # the system *is* updated, so say so loudly rather than looking done.
+  # Foreground on purpose: a failed push must be loud, not lost in a unit.
   if ! push_branch; then
     printf '✗ push failed; the system is updated but these commits are local only.\n' >&2
     printf '  Run: git push origin %s\n' "$branch" >&2

@@ -4,7 +4,10 @@
   pkgs,
   ...
 }: {
-  home.sessionVariables.STARSHIP_CACHE = "${config.xdg.cacheHome}/starship";
+  home.sessionVariables = {
+    STARSHIP_CACHE = "${config.xdg.cacheHome}/starship";
+    MANPAGER = "sh -c 'col -bx | ${lib.getExe pkgs.bat} -l man -p'";
+  };
   imports = [./tools.nix];
   programs.zsh = {
     enable = true;

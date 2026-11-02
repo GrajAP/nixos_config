@@ -15,7 +15,7 @@
     pkgsFor = system:
       import nixpkgs {
         inherit system;
-        # code-cursor, one of the provider CLIs handed to the app, is unfree.
+        # vscode, the editor T3 Code opens, is unfree.
         config.allowUnfree = true;
       };
   in {

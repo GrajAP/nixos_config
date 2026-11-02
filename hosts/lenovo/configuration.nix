@@ -79,6 +79,6 @@
     ];
   };
 
-  # Keep this in sync with `nixos-version`. Bump on every release, never before.
+  # The release this host was installed with. Never bump it on upgrades.
   system.stateVersion = "25.11";
 }

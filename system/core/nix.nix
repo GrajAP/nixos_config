@@ -199,18 +199,6 @@
     switch = {
       enable = true;
     };
-    autoUpgrade = {
-      enable = false;
-      flake = inputs.self.outPath;
-      flags = [
-        "--update-input"
-        "nixpkgs"
-        "-L"
-      ];
-      dates = "09:00";
-      randomizedDelaySec = "45min";
-      allowReboot = false;
-    };
     # Keep this at the release used for the initial installation.
     stateVersion = "24.11";
   };

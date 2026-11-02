@@ -99,11 +99,11 @@
     '';
   };
 
-  # When Cursor is opened from within T3 Code, launch it on the host via
-  # systemd-run so Cursor does not inherit T3 Code's bubblewrap container
-  # or PR_SET_NO_NEW_PRIVS.
-  t3codeCursor = pkgs.writeShellApplication {
-    name = "cursor";
+  # When VS Code is opened from within T3 Code, launch it on the host via
+  # systemd-run so it does not inherit T3 Code's bubblewrap container or
+  # PR_SET_NO_NEW_PRIVS.
+  t3codeEditor = pkgs.writeShellApplication {
+    name = "code";
     text = ''
       if grep -q 'NoNewPrivs:[[:space:]]*1' /proc/self/status 2>/dev/null; then
         args=()
@@ -116,11 +116,11 @@
         exec ${lib.getExe' pkgs.systemd "systemd-run"} --user --quiet --collect \
           --same-dir \
           --slice=app.slice \
-          --description="Cursor" \
+          --description="VS Code" \
           "''${args[@]}" \
-          ${lib.getExe pkgs.code-cursor} "$@"
+          ${lib.getExe pkgs.vscode} "$@"
       else
-        exec ${lib.getExe pkgs.code-cursor} "$@"
+        exec ${lib.getExe pkgs.vscode} "$@"
       fi
     '';
   };
@@ -132,8 +132,7 @@
     mkdir -p "$out/bin" "$out/lib/node_modules/.bin"
     ln -s ${lib.getExe t3codeNpm} "$out/bin/npm"
     ln -s ${lib.getExe t3codeSudo} "$out/bin/sudo"
-    ln -s ${lib.getExe t3codeCursor} "$out/bin/cursor"
-    ln -s ${lib.getExe t3codeCursor} "$out/bin/code"
+    ln -s ${lib.getExe t3codeEditor} "$out/bin/code"
     ln -s ${lib.getExe t3codeCodex} "$out/lib/node_modules/.bin/codex"
     ln -s ${lib.getExe t3codeOpencode} "$out/lib/node_modules/.bin/opencode"
   '';

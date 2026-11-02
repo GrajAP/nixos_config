@@ -1,7 +1,7 @@
 {lib, ...}: {
   imports = [
     ./media.nix
-    ./cursor.nix
+    ./vscode.nix
     ./obsidian.nix
     ./stylus.nix
     ./ferdium.nix

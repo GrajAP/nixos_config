@@ -1,45 +1,25 @@
-{lib, ...}: let
-  fleetDir = ./.;
-  skillsDir = fleetDir + "/skills";
-  skillNames =
-    lib.filter (name: builtins.pathExists (skillsDir + "/${name}/SKILL.md"))
-    (builtins.attrNames (builtins.readDir skillsDir));
-
-  # One symlink per skill, per harness that discovers global skills.
-  harnessSkillDirs = [
-    ".config/opencode/skills"
-    ".claude/skills"
-    ".agents/skills"
-    ".codex/skills"
-  ];
-
-  perSkill = builtins.concatLists (map
-    (
-      harness:
-        map (skill: {
-          name = "${harness}/${skill}";
-          value = {
-            source = skillsDir + "/${skill}";
-            recursive = true;
-          };
-        })
-        skillNames
-    )
-    harnessSkillDirs);
-
-  instructionTargets = [
-    ".config/opencode/AGENTS.md"
-    ".claude/CLAUDE.md"
-    ".agents/AGENTS.md"
-    ".gemini/GEMINI.md"
-  ];
-
-  instructions =
-    map (target: {
-      name = target;
-      value.source = fleetDir + "/AGENTS.md";
-    })
-    instructionTargets;
+{
+  lib,
+  inputs,
+  ...
+}: let
+  agents = import ./skills.nix {inherit lib inputs;};
 in {
-  home.file = builtins.listToAttrs (perSkill ++ instructions);
+  home.file = lib.listToAttrs (
+    lib.concatMap (dir:
+      lib.mapAttrsToList (name: source: {
+        name = "${dir}/${name}";
+        value = {
+          inherit source;
+          recursive = true;
+        };
+      })
+      agents.skills)
+    agents.skillDirs
+    ++ map (target: {
+      name = target;
+      value.source = agents.instructions;
+    })
+    agents.instructionTargets
+  );
 }
