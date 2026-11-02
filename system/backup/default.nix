@@ -48,17 +48,51 @@
   };
 in {
   systemd = {
-    timers.lenovo-backup-mirror = {
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnCalendar = "*-*-* 05:00:00";
-        Persistent = true;
-        RandomizedDelaySec = "20min";
+    # Second copy of lenovo's restic repository (Bespotted production and
+    # HomeNest), with its password, so a dead lenovo can be restored. A user unit
+    # because the SSH key for lenovo-user-ts sits in gnome-keyring, unlocked at
+    # login. No --delete: a wiped repository on lenovo cannot propagate. Midday,
+    # away from lenovo's 03:00-05:30 backup and prune window.
+    user = {
+      services.lenovo-backup-mirror = {
+        description = "Mirror lenovo's restic repository to SSD2";
+        unitConfig.ConditionUser = "grajpap";
+        startLimitIntervalSec = 7200;
+        startLimitBurst = 4;
+        path = [
+          pkgs.coreutils
+          pkgs.openssh
+          pkgs.rsync
+          pkgs.util-linux
+        ];
+        environment.SSH_AUTH_SOCK = "%t/gcr/ssh";
+        serviceConfig = {
+          Type = "oneshot";
+          UMask = "0077";
+          Restart = "on-failure";
+          RestartSec = "15min";
+          ExecStart = pkgs.writeShellScript "lenovo-backup-mirror" ''
+            set -eu
+            mountpoint -q /mnt/SSD2
+            mkdir -p ${lenovoMirror}
+            exec rsync -a --exclude locks/ \
+              --rsync-path="sudo rsync" \
+              -e "ssh -o BatchMode=yes -o ConnectTimeout=20" \
+              lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
+          '';
+        };
+      };
+      timers.lenovo-backup-mirror = {
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnCalendar = "*-*-* 12:00:00";
+          Persistent = true;
+          RandomizedDelaySec = "30min";
+        };
       };
     };
     tmpfiles.rules = [
       "d ${backupState} 0700 root root - -"
-      "d /mnt/SSD2/backups 0700 grajpap users - -"
     ];
     services = {
       # Kept under its old name for the same reason as the state directory: the
@@ -80,37 +114,6 @@ in {
           fi
           chmod 0600 ${passwordFile}
         '';
-      };
-
-      # Off-site copy of lenovo's restic repository (Bespotted production and
-      # HomeNest), including its password so a dead lenovo can be restored.
-      # No --delete: the mirror only grows, so a wiped or corrupted repository
-      # on lenovo cannot propagate here. Runs as grajpap for the
-      # lenovo-user-ts key that T3 Gate already uses.
-      lenovo-backup-mirror = {
-        description = "Mirror lenovo's restic repository to SSD2";
-        after = [
-          "mnt-SSD2.mount"
-          "network-online.target"
-        ];
-        requires = ["mnt-SSD2.mount"];
-        wants = ["network-online.target"];
-        path = [
-          pkgs.openssh
-          pkgs.rsync
-        ];
-        serviceConfig = {
-          Type = "oneshot";
-          User = "grajpap";
-          Group = "users";
-          UMask = "0077";
-          ExecStart = pkgs.writeShellScript "lenovo-backup-mirror" ''
-            exec rsync -a --exclude locks/ \
-              --rsync-path="sudo rsync" \
-              -e "ssh -o BatchMode=yes -o ConnectTimeout=20" \
-              lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
-          '';
-        };
       };
 
       restic-backups-storage = {

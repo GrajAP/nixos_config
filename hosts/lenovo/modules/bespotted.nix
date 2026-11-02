@@ -61,7 +61,7 @@
     set -eu
     ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
     ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.hostname}/health/ready
-    ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted
+    ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted || true
   '';
 
   # pg_dump through the running container, then prove the archive is readable
@@ -185,6 +185,10 @@ in {
           serviceConfig = {
             Type = "oneshot";
             ExecStart = "${healthCheck}/bin/bespotted-health";
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            ProtectHome = true;
+            ProtectSystem = "strict";
           };
         };
 
