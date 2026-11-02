@@ -43,18 +43,25 @@
     tunnel = cfg.tunnelId;
     credentials-file = "/run/credentials/bespotted-tunnel.service/tunnel.json";
     no-autoupdate = true;
-    ingress = [
-      {
-        inherit (cfg) hostname;
-        path = "^/metrics(?:/.*)?$";
-        service = "http_status:404";
+    ingress =
+      [
+        {
+          inherit (cfg) hostname;
+          path = "^/metrics(?:/.*)?$";
+          service = "http_status:404";
+        }
+        {
+          inherit (cfg) hostname;
+          service = "http://127.0.0.1:${toString cfg.originPort}";
+        }
+      ]
+      ++ lib.optional cfg.web.enable {
+        inherit (cfg.web) hostname;
+        service = "http://127.0.0.1:${toString cfg.web.port}";
       }
-      {
-        inherit (cfg) hostname;
-        service = "http://127.0.0.1:${toString cfg.originPort}";
-      }
-      {service = "http_status:404";}
-    ];
+      ++ [
+        {service = "http_status:404";}
+      ];
   });
 
   healthCheck = pkgs.writeShellScriptBin "bespotted-health" ''
@@ -62,6 +69,12 @@
     ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
     ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.hostname}/health/ready
     ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted || true
+    # After the heartbeat, so a web outage still alerts but never hides a
+    # healthy API from the heartbeat.
+    ${lib.optionalString cfg.web.enable ''
+      ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.web.port}/
+      ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.web.hostname}/
+    ''}
   '';
 
   # pg_dump through the running container, then prove the archive is readable
@@ -121,16 +134,43 @@ in {
       type = lib.types.str;
       description = "Cloudflare Tunnel UUID; its credentials JSON lives at secrets/cloudflared-tunnel.json.";
     };
+
+    web = {
+      enable = lib.mkEnableOption "the static Bespotted web app behind the same tunnel";
+
+      hostname = lib.mkOption {
+        type = lib.types.str;
+        default = "app.be-spotted.org";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8791;
+        description = "Loopback port of the nginx site that serves the web build.";
+      };
+
+      root = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/lib/bespotted-web/current";
+        description = ''
+          `npm run build:production` output of bespotted_codex/webapp, copied
+          here by hand (see webapp/README.md in that repo). Not built by Nix:
+          the build bakes in the public Clerk key and API URL.
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
     systemd = {
-      tmpfiles.rules = [
-        "d ${cfg.stateDir} 0700 root root -"
-        "d ${secretsDir} 0700 root root -"
-        "d ${stageDir} 0700 root root -"
-        "d ${dirOf config.serverAlerts.posthogKeyFile} 0700 root root -"
-      ];
+      tmpfiles.rules =
+        [
+          "d ${cfg.stateDir} 0700 root root -"
+          "d ${secretsDir} 0700 root root -"
+          "d ${stageDir} 0700 root root -"
+          "d ${dirOf config.serverAlerts.posthogKeyFile} 0700 root root -"
+        ]
+        ++ lib.optional cfg.web.enable "d ${dirOf cfg.web.root} 0755 root root -";
 
       services = {
         bespotted-production = {
@@ -230,6 +270,35 @@ in {
             Persistent = true;
           };
         };
+      };
+    };
+
+    # A single-page app: unknown paths (/sso-callback, /spots/<id>) fall back to
+    # index.html, hashed assets are cached for a year, index.html never.
+    services.nginx.enable = lib.mkIf cfg.web.enable true;
+    services.nginx.virtualHosts.bespotted-web = lib.mkIf cfg.web.enable {
+      serverName = cfg.web.hostname;
+      listen = [
+        {
+          addr = "127.0.0.1";
+          inherit (cfg.web) port;
+          ssl = false;
+        }
+      ];
+      inherit (cfg.web) root;
+      locations = {
+        "/" = {
+          tryFiles = "$uri /index.html";
+          extraConfig = ''
+            add_header Cache-Control "no-cache";
+            add_header X-Content-Type-Options "nosniff";
+            add_header Referrer-Policy "strict-origin-when-cross-origin";
+          '';
+        };
+        "/assets/".extraConfig = ''
+          add_header Cache-Control "public, max-age=31536000, immutable";
+          add_header X-Content-Type-Options "nosniff";
+        '';
       };
     };
   };
