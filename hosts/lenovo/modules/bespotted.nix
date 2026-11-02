@@ -61,6 +61,7 @@
     set -eu
     ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
     ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.hostname}/health/ready
+    ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted
   '';
 
   # pg_dump through the running container, then prove the archive is readable
@@ -128,6 +129,7 @@ in {
         "d ${cfg.stateDir} 0700 root root -"
         "d ${secretsDir} 0700 root root -"
         "d ${stageDir} 0700 root root -"
+        "d ${dirOf config.serverAlerts.posthogKeyFile} 0700 root root -"
       ];
 
       services = {
@@ -182,7 +184,6 @@ in {
           onFailure = alertOnFailure "bespotted-health";
           serviceConfig = {
             Type = "oneshot";
-            DynamicUser = true;
             ExecStart = "${healthCheck}/bin/bespotted-health";
           };
         };

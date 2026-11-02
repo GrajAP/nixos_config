@@ -57,6 +57,24 @@
       "$(systemctl status "$unit" --no-pager -n 20 2>&1 || true)"
   '';
 
+  # Sends one event to the Bespotted PostHog project, whose alerts email the
+  # owner. No-op until the public phc_ key file exists. Subject only: bodies
+  # carry `systemctl status` output that may hold request data.
+  posthogEvent = pkgs.writeShellScriptBin "server-posthog-event" ''
+    set -eu
+    key_file=${config.serverAlerts.posthogKeyFile}
+    [ -s "$key_file" ] || exit 0
+    ${lib.getExe pkgs.jq} -n \
+      --arg key "$(${pkgs.coreutils}/bin/cat "$key_file")" \
+      --arg event "''${1:?usage: server-posthog-event <event> [subject]}" \
+      --arg subject "''${2:-}" \
+      --arg host "$(${pkgs.inetutils}/bin/hostname)" \
+      '{api_key: $key, event: $event, distinct_id: ("server-" + $host),
+        properties: {host: $host, subject: $subject, "$process_person_profile": false}}' \
+      | ${lib.getExe pkgs.curl} -fsS -m 10 -H "Content-Type: application/json" \
+          --data-binary @- ${config.serverAlerts.posthogHost}/i/v0/e/ >/dev/null
+  '';
+
   notify = pkgs.writeShellScriptBin "server-notify" ''
         set -eu
         # Alert sink. Appends to the journal (so `journalctl -u server-alert`
@@ -83,6 +101,8 @@
             "http://$SERVER_ALERT_NTFY_HOST''${SERVER_ALERT_NTFY_PORT:+:$SERVER_ALERT_NTFY_PORT}/$SERVER_ALERT_NTFY_TOPIC" \
             >/dev/null 2>&1 || true
         fi
+
+        ${posthogEvent}/bin/server-posthog-event server_alert "$subject" || true
   '';
 in {
   # ===========================================================================
@@ -119,6 +139,21 @@ in {
       type = lib.types.str;
       default = "";
       description = "ntfy topic to publish to. Empty disables push; alerts are still logged.";
+    };
+    posthogHost = lib.mkOption {
+      type = lib.types.str;
+      default = "https://eu.i.posthog.com";
+    };
+    posthogKeyFile = lib.mkOption {
+      type = lib.types.path;
+      default = "/var/lib/server-alerts/posthog-project-key";
+      description = "Public phc_ project key. Missing file disables PostHog events.";
+    };
+    posthogEvent = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      default = posthogEvent;
+      description = "`server-posthog-event <event> [subject]`, for other modules' probes.";
     };
   };
 

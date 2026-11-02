@@ -21,6 +21,7 @@
   passwordFile = "${backupState}/password";
   storageStamp = "${backupState}/storage-backup.last-success";
   storageRepository = "/mnt/HDD/Backups/restic/grajpap-nextcloud";
+  lenovoMirror = "/mnt/SSD2/backups/lenovo-restic";
   retention = [
     "--keep-daily 7"
     "--keep-weekly 5"
@@ -47,8 +48,17 @@
   };
 in {
   systemd = {
+    timers.lenovo-backup-mirror = {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnCalendar = "*-*-* 05:00:00";
+        Persistent = true;
+        RandomizedDelaySec = "20min";
+      };
+    };
     tmpfiles.rules = [
       "d ${backupState} 0700 root root - -"
+      "d /mnt/SSD2/backups 0700 grajpap users - -"
     ];
     services = {
       # Kept under its old name for the same reason as the state directory: the
@@ -70,6 +80,37 @@ in {
           fi
           chmod 0600 ${passwordFile}
         '';
+      };
+
+      # Off-site copy of lenovo's restic repository (Bespotted production and
+      # HomeNest), including its password so a dead lenovo can be restored.
+      # No --delete: the mirror only grows, so a wiped or corrupted repository
+      # on lenovo cannot propagate here. Runs as grajpap for the
+      # lenovo-user-ts key that T3 Gate already uses.
+      lenovo-backup-mirror = {
+        description = "Mirror lenovo's restic repository to SSD2";
+        after = [
+          "mnt-SSD2.mount"
+          "network-online.target"
+        ];
+        requires = ["mnt-SSD2.mount"];
+        wants = ["network-online.target"];
+        path = [
+          pkgs.openssh
+          pkgs.rsync
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "grajpap";
+          Group = "users";
+          UMask = "0077";
+          ExecStart = pkgs.writeShellScript "lenovo-backup-mirror" ''
+            exec rsync -a --exclude locks/ \
+              --rsync-path="sudo rsync" \
+              -e "ssh -o BatchMode=yes -o ConnectTimeout=20" \
+              lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
+          '';
+        };
       };
 
       restic-backups-storage = {
