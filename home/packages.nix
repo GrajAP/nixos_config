@@ -10,6 +10,7 @@
     # AI coding harnesses
     aider-chat
     cc-switch
+    claude-code
     zed-editor
 
     # Hyprland's Home Manager package places its portal descriptor in the
