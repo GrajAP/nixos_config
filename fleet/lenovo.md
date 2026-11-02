@@ -2,7 +2,7 @@
 
 - What: HomeNest (Docker, Caddy :80), Nextcloud under `/nextcloud`, restic backups, HTML plan uploads at `/plans`
 - Config: `hosts/lenovo/`, nixpkgs 25.11 stable + `unstablePkgs`, no home-manager
-- IP: `192.168.1.136` LAN, `100.110.204.8` tailnet
+- IP: `192.168.1.11` LAN (DHCP, can change), `100.110.204.8` tailnet
 - SSH: `ssh lenovo-user-ts` (or `lenovo-user` on the LAN), user `grajpap`, NOPASSWD sudo, root SSH disabled
 - Rebuild: `./rebuild.sh` (switches `#lenovo`)
 - T3 devices: `hosts/lenovo/modules/t3-devices.nix` keeps a read-only Android

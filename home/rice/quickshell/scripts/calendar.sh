@@ -30,7 +30,7 @@ if True:
       BASE_URL = "https://lenovo.tail138448.ts.net/nextcloud"
       # ssh alias for the same machine, used only to re-collect the app password
       # when the cached one has been rotated away.
-      LENOVO_HOST = "lenovo-user"
+      LENOVO_HOST = "lenovo-user-ts"
       # urljoin() throws away any path in BASE_URL when handed an absolute one,
       # so every path built here has to carry the prefix itself. The hrefs DAV
       # returns already contain it, which is why only the literals below needed
