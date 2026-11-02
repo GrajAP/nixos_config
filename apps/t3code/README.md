@@ -55,6 +55,12 @@ Three things about T3 Code on NixOS are not derivable and are easy to lose:
   systemd unit, so the drop-in restates `NIX_LD` and `NIX_LD_LIBRARY_PATH`.
 - **`cloudflared`.** T3 Connect tunnels through it. Both the wrapper and the
   drop-in point `T3CODE_CLOUDFLARED_PATH` at the Nix build.
+- **`opencode upgrade`.** Upstream asks an interactive "Install anyways?"
+  question on a package-manager-managed copy and waits for a keypress a
+  headless provider never sends, so T3's environment update logged
+  "Update timed out" every run. The wrapper answers `upgrade` with
+  `npm install --global opencode-ai` into the npm prefix it already prefers,
+  and the headless service PATH puts the wrapper ahead of that npm copy.
 
 ## What is deliberately *not* declarative
 
