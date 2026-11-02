@@ -1,12 +1,5 @@
-# PC-only conveniences that are not tied to the desktop stack.
-#
-# This module used to be system/sync, and it used to host Nextcloud here. That
-# is gone: calendar, tasks and notes live on lenovo, which is always on, so the
-# phone can sync whatever state this machine is in. See
-# hosts/lenovo/modules/nextcloud.nix for where that is now.
-#
-# What is left is deliberately unrelated to either: KDE Connect for the phone,
-# and the Tailscale firewall flag plus the --ssh recovery path.
+# PC-only: KDE Connect, and the Tailscale firewall flag plus the --ssh
+# recovery path.
 {
   config,
   pkgs,

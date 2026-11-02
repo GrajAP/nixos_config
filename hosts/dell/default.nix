@@ -1,58 +1,30 @@
 {lib, ...}: {
   imports = [
     ./hardware-configuration.nix
-    # adb, platform-tools, the Android SDK and the native build deps, so
-    # React Native works against a real USB device here. Android Studio and
-    # the emulator stay behind fleet.heavy.enable.
+    # Android SDK for React Native on a USB device. Studio and the emulator
+    # stay behind fleet.heavy.enable.
     ../../system/mobile
   ];
 
   networking.hostName = "dell";
 
-  # Same desktop as the PC (system/wayland, system/core, theme/, all of home/),
-  # minus everything behind fleet.heavy.enable.
-  #
-  # The PC dual-boots Windows on GRUB; dell has no dual-boot and was installed
-  # with systemd-boot (there is a /boot/loader plus systemd-bootx64.efi on its
-  # ESP). Both facts have to be declared, because bootloader.nix otherwise
-  # assumes the PC's arrangement -- and swapping a live machine's bootloader is
-  # not something a rebuild can undo.
+  # Same desktop as the PC minus fleet.heavy. The reasons for each switch are
+  # in the option descriptions in configuration.nix.
   fleet = {
     dualBoot = false;
+    # Installed with systemd-boot. Swapping a live machine's bootloader is not
+    # something a rebuild can undo.
     bootloader = "systemd-boot";
     heavy.enable = false;
-    # The break timer nags every 30 minutes and offers no value on a laptop you
-    # close and carry around, so the entry is dropped from the widget entirely
-    # instead of merely defaulting to off.
     breaks = false;
-    # 864 logical px of panel height: the calendar's title bar and date line
-    # cost the month grid two of its six rows, so both are dropped here and the
-    # page closes with Escape. The PC keeps them.
     calendarHeader = false;
-    # Nothing at all is started with the session: no signal, ferdium, helium,
-    # t3code, kdeconnect or NetworkManager applet. The desktop boots to a bare
-    # session and everything is launched by hand, which on a machine that is
-    # carried around and lid-closed repeatedly is one less thing waking the
-    # screen.
     autostart = false;
-    # The one machine that joins campus wifi. EAP-TTLS authenticates the
-    # station MAC address, so a random one never gets past the handshake;
-    # `eduroam` (home/scripts/eduroam) sets up the 802.1X profile and asks for
-    # the login once.
     wifiRandomMac = false;
-    # 1920x1080 on a 14" panel is ~141 PPI, which is roughly half the density of
-    # the PC's 2560x1440 monitors. At scale 1 every label in the bar and the
-    # widgets is uncomfortably small; 125 lands near 113 PPI, which is a normal
-    # laptop reading size and still leaves a usable 1536x864 of logical space.
     displayScale = 125;
   };
 
   powerManagement = {
     enable = true;
-    # Battery first. The PC pins "performance" because it is a desktop that is
-    # almost never on battery; here that would only cost idle hours. Zen's
-    # schedutil driver still scales up instantly under load, so this is not a
-    # responsiveness tradeoff.
     cpuFreqGovernor = "powersave";
   };
 
@@ -94,69 +66,20 @@
     power-profiles-daemon.enable = false;
     thermald.enable = true;
 
-    # profile-sync-daemon is a third power daemon and fights TLP over the same
-    # knobs, so it goes the way power-profiles-daemon does. It was not merely
-    # redundant here: its 10-minute resync failed for the whole uptime with
-    # "cannot create directory /var/empty/.config", logging an error every ten
-    # minutes.
+    # Its resync failed every 10 minutes here with
+    # "cannot create directory /var/empty/.config".
     psd.enable = lib.mkForce false;
 
-    # Suspend on lid close. The shared desktop config already sets
-    # HandleLidSwitch = "suspend"; only LidSwitchDocked is added here. lenovo
-    # masks the sleep targets entirely -- the opposite case, this is a portable
-    # machine that must actually suspend.
+    # HandleLidSwitch = "suspend" comes from the shared desktop config.
     logind.settings.Login.LidSwitchDocked = "ignore";
 
-    # Makes the TLP charge thresholds above effective.
     upower.enable = true;
 
     fprintd.enable = true;
 
-    # Same home-row-mod layout as the PC, so the keybind (mod+Q) and the bar
-    # widget behave identically. The keyboard name has to stay
-    # `internalKeyboard`: quickshell watches the systemd D-Bus path for
-    # kanata_2dinternalKeyboard_2eservice, and home/scripts/katana-switch
-    # drives kanata-internalKeyboard.service by name.
-    #
-    # There is no /dev/input/by-id on this machine. udev only creates by-id
-    # links for devices with a persistent ID, and an i8042/PS/2 keyboard has
-    # none -- which is why the PC's by-id path cannot be copied here. The
-    # by-path name below is what that same keyboard resolves to.
-    kanata = {
-      enable = true;
-      keyboards.internalKeyboard = {
-        devices = ["/dev/input/by-path/platform-i8042-serio-0-event-kbd"];
-        extraArgs = ["--nodelay"];
-        extraDefCfg = "process-unmapped-keys yes";
-        config = ''
-
-          (defsrc
-            caps a s d f j k l ; rmet
-          )
-          (defvar
-            tap-time 200
-            hold-time 200
-          )
-
-          (defalias
-            escctrl (tap-hold $tap-time $hold-time esc lctl)
-            a (tap-hold $tap-time $hold-time a lalt)
-            s (tap-hold $tap-time $hold-time s ralt)
-            d (tap-hold $tap-time $hold-time d lsft)
-            f (tap-hold $tap-time $hold-time f lctl)
-            j (tap-hold $tap-time $hold-time j lctl)
-            k (tap-hold $tap-time $hold-time k lsft)
-            l (tap-hold $tap-time $hold-time l ralt)
-            ; (tap-hold $tap-time $hold-time ; lalt)
-          )
-
-          (deflayer base
-            @escctrl @a @s @d @f @j @k @l @; lalt
-          )
-
-        '';
-      };
-    };
+    # No /dev/input/by-id here: an i8042/PS/2 keyboard has no persistent ID,
+    # so udev only gives it a by-path link.
+    kanata.keyboards.internalKeyboard.devices = ["/dev/input/by-path/platform-i8042-serio-0-event-kbd"];
   };
 
   hardware = {

@@ -19,6 +19,11 @@
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Theo's agent skills (full-send, full-stop, ...), see home/agents/skills.nix.
+    tstack = {
+      url = "github:t3dotgg/tstack";
+      flake = false;
+    };
     helium-browser = {
       url = "github:ominit/helium-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";

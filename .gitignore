@@ -4,6 +4,7 @@ result-*
 *.qcow2
 
 # Local editor / OS noise
+__pycache__/
 .DS_Store
 *.swp
 *~

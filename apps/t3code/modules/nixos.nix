@@ -23,6 +23,7 @@
   # Electron app and a server needs none of it.
   t3Cli = pkgs.callPackage ../cli.nix {};
   t3code = pkgs.callPackage ../package.nix {cli = t3Cli;};
+  t3gate = (pkgs.callPackage ../../t3-gate/packages.nix {}).helper;
   certBundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
   # Provider CLIs and helper tools the server spawns have to be resolvable from
@@ -91,6 +92,12 @@ in {
       '';
     };
 
+    channel = lib.mkOption {
+      type = lib.types.enum ["stable" "preview" "nightly"];
+      default = "nightly";
+      description = "Release channel `t3 update` follows. Keep it equal to the desktops' channel.";
+    };
+
     theme = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
@@ -129,6 +136,29 @@ in {
         Environment=REQUESTS_CA_BUNDLE=${certBundle}
         Environment=CURL_CA_BUNDLE=${certBundle}
       '';
+    };
+
+    # `t3 update` owns the runtime under ~/.t3, so Nix cannot pin it. Update
+    # hourly, but never while an agent runs: --yes restarts the service.
+    systemd.user.services.t3code-update = {
+      description = "Update the t3 runtime to the newest ${cfg.channel} release";
+      path = [t3gate];
+      script = ''
+        if [ "$(t3-running-count)" != 0 ]; then
+          echo "t3code-update: agents running, skipping"
+          exit 0
+        fi
+        ${lib.getExe' t3Cli "t3"} update --channel ${cfg.channel} --yes
+      '';
+      serviceConfig.Type = "oneshot";
+    };
+    systemd.user.timers.t3code-update = {
+      wantedBy = ["timers.target"];
+      timerConfig = {
+        OnBootSec = "5min";
+        OnUnitActiveSec = "1h";
+        RandomizedDelaySec = "5min";
+      };
     };
 
     system.activationScripts = lib.mkIf (cfg.theme != null) {

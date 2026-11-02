@@ -50,10 +50,7 @@ in {
     ../../system/monitoring
   ];
 
-  # Keep the user's systemd services alive after the graphical session ends.
-  # T3's independently installed `t3code.service` is enabled under
-  # default.target and uses Restart=always, so lingering makes it survive both
-  # closing the desktop app and logging out of the compositor.
+  # Keep user services (ollama, whisprflow) running after logout.
   users.users.grajpap.linger = true;
 
   fleet = {
@@ -86,9 +83,7 @@ in {
     powertop
     libnotify
     corectrl
-    gamemode
     mangohud
-    umu-launcher
   ];
 
   programs = {
@@ -131,51 +126,12 @@ in {
   '';
 
   networking.hostName = "grajpap";
-  # Keep the desktop responsive while avoiding unnecessarily aggressive boost
-  # clocks during light and background workloads.
   powerManagement.cpuFreqGovernor = "performance";
   services = {
-    kanata = {
-      enable = true;
-      keyboards = {
-        internalKeyboard = {
-          devices = [
-            "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-event-kbd"
-            "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-if02-event-kbd"
-          ];
-          extraArgs = ["--nodelay"];
-          extraDefCfg = "process-unmapped-keys yes";
-          config = ''
-
-            (defsrc
-              caps a s d f j k l ; rmet
-            )
-            (defvar
-              tap-time 200
-              hold-time 200
-            )
-
-            (defalias
-              escctrl (tap-hold $tap-time $hold-time esc lctl)
-              a (tap-hold $tap-time $hold-time a lalt)
-              s (tap-hold $tap-time $hold-time s ralt)
-              d (tap-hold $tap-time $hold-time d lsft)
-              f (tap-hold $tap-time $hold-time f lctl)
-              j (tap-hold $tap-time $hold-time j lctl)
-              k (tap-hold $tap-time $hold-time k lsft)
-              l (tap-hold $tap-time $hold-time l ralt)
-              ; (tap-hold $tap-time $hold-time ; lalt)
-            )
-
-            (deflayer base
-              @escctrl @a @s @d @f @j @k @l @; lalt
-            )
-
-
-          '';
-        };
-      };
-    };
+    kanata.keyboards.internalKeyboard.devices = [
+      "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-event-kbd"
+      "/dev/input/by-id/usb-Cooler_Master_Technology_Inc._MK730-if02-event-kbd"
+    ];
     fprintd.enable = true;
     xserver.videoDrivers = ["amdgpu"];
     teamviewer = {
@@ -196,12 +152,7 @@ in {
     resumeDevice = "/dev/disk/by-uuid/03bff03d-086e-42ea-89a8-f921c2eabcd1";
     kernelPackages = lib.mkForce pkgs.linuxPackages_zen;
     kernelModules = ["acpi_call"];
-    extraModulePackages = with config.boot.kernelPackages;
-      [
-        acpi_call
-        cpupower
-      ]
-      ++ [pkgs.cpupower-gui];
+    extraModulePackages = [config.boot.kernelPackages.acpi_call];
     kernelParams = [
       "processor.max_cstate=5"
       "amd_pstate=guided"

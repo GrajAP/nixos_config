@@ -5,7 +5,7 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 ## Who I am
 
 - I'm 20, from Poland. Autistic, ADHD, low attention span.
-- Non-native English speaker: write replies in simple English, short sentences, common words.
+- Non-native English speaker. I write in Polish or English: reply in the language of my latest message, in simple words and short sentences.
 - I want fast, clear info: short sentences, bullets, no long paragraphs. Dense beats polite.
 
 ## Glossary
@@ -44,6 +44,7 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 
 - The full rubric, live model matching, and prompt pattern live in the `model-pick` skill. Load it for "which model" or "how to prompt" questions.
 - Mechanical work (edits, formatting, searches, rebuilds) belongs on the cheap or free model in the current thread.
+- Antigravity subagents (Gemini 3.8 Flash, high) are unlimited and free, but low quality: use them only for very simple tasks, to save cost.
 - Reviews, plans, and anything user-facing (docs, copy, UI strings) deserve a stronger model: in T3 Code, delegate an independent pass with `delegate_task` to a different provider, so the review is not the same model grading its own work. Never use the same model as reviewer and author on one diff.
 - If a cheaper model's output misses the bar, redo it with a stronger model without asking. Judge output, not price.
 - Two different weak models agreeing on separate runs is strong evidence; one strong model alone is not.
@@ -56,7 +57,7 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 
 ## Skills
 
-- Fleet skills live in `~/.agents/skills`, `~/.claude/skills`, and `~/.config/opencode/skills` (all managed by NixOS from one source).
+- Fleet skills live in `~/.agents/skills`, `~/.claude/skills`, `~/.codex/skills` and `~/.config/opencode/skills` (all managed by NixOS from one source).
 - Skill descriptions are triggers: load a skill when my request matches the "use when" keywords in the description, not when the topic seems related.
 - Do not restate a skill's contents unprompted.
 - Rules here and in skills stay lean: a rule must map to a mistake that actually happened. If you spot a gap, add one targeted line, do not grow an essay.

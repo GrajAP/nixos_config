@@ -8,6 +8,7 @@ harness on every machine (opencode, claude code, codex, and the agent-agnostic
 
 - `AGENTS.md` - global instructions loaded by agents that support a global instructions file.
 - `skills/<name>/SKILL.md` - one folder per skill. Add a folder here and it ships everywhere.
+- `skills.nix` - the skill list: local `skills/` plus Theo's `full-send`, `full-stop`, `file-pr` and `babysit-pr` from the `tstack` flake input. `sol-loop` is a local rewrite that reviews without GPT Sol. They update when `flake.lock` does.
 - `default.nix` - home-manager module that symlinks everything into place.
 
 ## What gets installed where
@@ -18,23 +19,13 @@ harness on every machine (opencode, claude code, codex, and the agent-agnostic
 | `AGENTS.md` | `~/.config/opencode/AGENTS.md`, `~/.claude/CLAUDE.md`, `~/.agents/AGENTS.md`, `~/.gemini/GEMINI.md` |
 
 Everything is a symlink into the Nix store: edit here, run `./rebuild.sh`, done.
-`~/.codex/AGENTS.md` is intentionally left alone because it already has local content.
+`~/.codex/AGENTS.md` is left alone on purpose: it has local content.
 
-## Heads without home-manager
+## Hosts without home-manager
 
-`lenovo` is headless and has no home-manager, so `default.nix` above never runs
-there and it used to get nothing at all, the one gap that let a skill silently
-exist on two machines and not the others.
-
-`system/agents/default.nix` is the same deployment in system scope, reading the
-same `AGENTS.md` and `skills/`, installed by a oneshot into `/home/grajpap`. It
-is imported by lenovo and links exactly the same paths listed above.
-
-Both modules read the same directory, so a new skill folder reaches the desktops
-through home-manager and the headless hosts through the system module, with no
-second list to keep in step. Two mechanisms rather than one, because the store
-links home-manager makes are the right thing where they are available and simply
-do not exist without it.
+lenovo has no home-manager. `system/agents/default.nix` links the same files
+into `/home/grajpap` with a oneshot service. Both modules read this directory,
+so a new skill reaches every host.
 
 ## Adding a skill
 
@@ -47,8 +38,3 @@ $EDITOR home/agents/skills/my-skill/SKILL.md
 The `SKILL.md` needs YAML frontmatter with `name` and `description`. The
 description is the trigger: it is loaded into context for every conversation,
 so it should carry the keywords for when the skill should fire.
-
-## Other machines
-
-This lives in the same repo as the NixOS config, so pulling this repo and
-running `./rebuild.sh` on any machine gives it the identical fleet.

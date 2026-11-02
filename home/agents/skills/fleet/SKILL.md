@@ -51,16 +51,14 @@ of `home/` (same binds/shell/env). Divergence:
 - Flake attribute = `$(hostname)`: `nixos-rebuild --flake .#$(hostname)`.
   `rebuild` does this for you on each host.
 - `rebuild --check` runs whole-fleet checks (alejandra, statix, deadnix,
-  shellcheck). Must pass before claiming done. `nixosConfigurations.dell`
-  fails this on purpose until `hosts/dell/hardware-configuration.nix` is
-  harvested on the machine, see `fleet/dell.md`.
+  shellcheck). Must pass before claiming done.
 - Desktop SSH is key-only by policy (`PasswordAuthentication = false` in
   `system/wayland/services.nix`). A password will never work; add a key.
 - `lenovo` builds against `nixpkgs-stable` (25.11); unstable packages come
   from `specialArgs.unstablePkgs`. Do not add a second unstable input.
 - Laptop config lives in `hosts/lenovo/`, one module per concern. No
   home-manager on lenovo.
-- When developing untracked files, use `path:/etc/nixos` flake references, 
+- When developing untracked files, use `path:/etc/nixos` flake references,
   git-based flakes only see tracked files.
 
 ## Docs

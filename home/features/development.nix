@@ -11,20 +11,13 @@
       nextcloud-client
       rnote
       pnpm
-      bun
       antigravity-ide
       opencode
-      # Local inference, for working with no network at all. t3code and
-      # opencode are already pointed at an [model_providers.ollama] block in
-      # home/misc/default.nix, so the server itself was the missing piece.
-      # Binds to loopback only; see the service below.
       ollama
       (pkgs.writeShellApplication {
         name = "install-js-clis";
         runtimeInputs = [pkgs.bun];
         text = ''
-          set -euo pipefail
-
           # bun 1.3 dropped working support for `--prefix` on a global install:
           # it tries to resolve the prefix directory as a package and dies with
           # "Could not find package.json for file:../../../.bun-global". BUN_INSTALL
@@ -43,8 +36,6 @@
         '';
       })
     ];
-
-    sessionVariables.PATH = "${config.home.homeDirectory}/.bun-global/bin:$PATH";
 
     sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
   };
