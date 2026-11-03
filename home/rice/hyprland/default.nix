@@ -401,6 +401,13 @@ in {
               hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:tools\", follow = false, window = \"address:$addr\" })" >/dev/null 2>&1 || true
             done
             hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"special:tools\", monitor = \"$monitor\" })" >/dev/null 2>&1 || true
+            if ! hyprctl monitors -j | jq -e 'any(.[]; (.specialWorkspace.name // "") == "special:tools")' >/dev/null; then
+              toggle-special-workspace tools
+            fi
+            addr="$(hyprctl clients -j | jq -r '[.[] | select((.class | ascii_downcase) == "obsidian")][0].address // empty')"
+            if [ -n "$addr" ]; then
+              hyprctl dispatch "hl.dsp.focus({ window = \"address:$addr\" })" >/dev/null
+            fi
             exit 0
           fi
           sleep 1
