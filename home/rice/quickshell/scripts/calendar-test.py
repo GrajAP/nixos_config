@@ -1,6 +1,7 @@
 """Offline tests for calendar.sh. Run with a python that has icalendar and
 recurring-ical-events, e.g. the calendarPython env from ../default.nix."""
 
+import hashlib
 import io
 import json
 import os
@@ -43,17 +44,23 @@ store = {}
 calls = []
 
 
-def fake_request(method, path, body=None, headers=None, ok=(200, 201, 204, 207), retried=False):
-    calls.append((method, path))
+def etag_of(path):
+    return f'"{hashlib.md5(store[path].encode("utf-8")).hexdigest()[:8]}"' if path in store else None
+
+
+def fake_request(method, path, body=None, headers=None, ok=(200, 201, 204, 207), retried=False, want_etag=False):
+    calls.append((method, path, dict(headers or {})))
     if method == "GET":
-        return store[path].encode("utf-8")
-    if method == "PUT":
+        payload = store[path].encode("utf-8")
+    elif method == "PUT":
         store[path] = body
-        return b""
-    if method == "DELETE":
+        payload = b""
+    elif method == "DELETE":
         store.pop(path, None)
-        return b""
-    raise AssertionError(f"unexpected {method}")
+        payload = b""
+    else:
+        raise AssertionError(f"unexpected {method}")
+    return (payload, etag_of(path)) if want_etag else payload
 
 
 cal["request"] = fake_request
@@ -163,6 +170,74 @@ def test_edit_time_moves_exdate_and_exceptions():
     assert "2026-11-04 11:00" not in starts
     assert starts.count("2026-11-09 11:00") == 1
     assert len(master.walk("VALARM")) == 1
+
+
+def test_day_shift_of_custom_series_is_refused():
+    store[EVENT_HREF] = SERIES
+    try:
+        run("edit_event", "--occurrence=20261111T090000Z", EVENT_HREF, "2026-11-12", "Lecture", "10:00", "11:00")
+    except RuntimeError as error:
+        assert "custom-repeat" in str(error)
+    else:
+        raise AssertionError("day shift of a BYDAY series was accepted")
+    assert store[EVENT_HREF] == SERIES
+    run("edit_event", "--occurrence=20261111T090000Z", EVENT_HREF, "2026-11-11", "Lecture", "11:00", "12:00")
+    assert "2026-11-04 10:00" not in occurrence_starts(store[EVENT_HREF])
+
+
+def test_day_shift_of_plain_weekly_series():
+    plain = SERIES.replace("RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T225959Z", "RRULE:FREQ=WEEKLY").replace(
+        "EXDATE;TZID=Europe/Warsaw:20261104T100000", "EXDATE;TZID=Europe/Warsaw:20261116T100000"
+    )
+    store[EVENT_HREF] = plain
+    assert "2026-11-16 09:00" not in occurrence_starts(plain)
+    run("edit_event", "--occurrence=20261123T090000Z", EVENT_HREF, "2026-11-24", "Lecture", "10:00", "11:00")
+    calendar, master = master_of(store[EVENT_HREF])
+    assert master["DTSTART"].dt.date() == date(2026, 11, 3)
+    assert [value.dt.date() for value in master["EXDATE"].dts] == [date(2026, 11, 17)]
+    exception = next(item for item in calendar.walk("VEVENT") if item.get("RECURRENCE-ID") is not None)
+    assert exception["RECURRENCE-ID"].dt.date() == date(2026, 11, 10)
+    starts = occurrence_starts(store[EVENT_HREF])
+    assert "2026-11-17 09:00" not in starts
+    assert starts.count("2026-11-09 11:00") == 1 and "2026-11-10 09:00" not in starts
+
+
+def test_repeat_on_override_is_refused():
+    store[EVENT_HREF] = SERIES
+    try:
+        run("edit_event", "--repeat=daily", "--occurrence=20261109T090000Z", EVENT_HREF, "2026-11-09", "Lecture moved", "12:00", "13:00")
+    except RuntimeError as error:
+        assert "on its own" in str(error)
+    else:
+        raise AssertionError("repeat change on an override was accepted")
+    assert store[EVENT_HREF] == SERIES
+
+
+def test_recurring_flag_and_override():
+    single = crlf("""
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    PRODID:x
+    BEGIN:VEVENT
+    UID:single
+    DTSTART:20261105T090000Z
+    DTEND:20261105T100000Z
+    SUMMARY:Dentist
+    END:VEVENT
+    END:VCALENDAR
+    """)
+    namespace = load()
+    namespace["discover_calendars"] = lambda: [{"href": f"{HOME_HREF}personal/", "displayName": "Cal", "components": {"VEVENT"}, "readOnly": False}]
+    namespace["calendar_report"] = lambda _collection, _component, time_range=True: [
+        {"href": f"{HOME_HREF}personal/single.ics", "etag": "", "data": single},
+        {"href": EVENT_HREF, "etag": "", "data": SERIES},
+    ]
+    events, _lists = namespace["nextcloud_events"]()
+    dentist = next(item for item in events if item["uid"] == "single")
+    assert (dentist["recurring"], dentist["recurrenceId"], dentist["override"]) == (False, None, False)
+    lectures = {item["date"]: item for item in events if item["uid"] == "series-1"}
+    assert lectures["2026-11-11"]["recurring"] and not lectures["2026-11-11"]["override"]
+    assert lectures["2026-11-09"]["override"] and lectures["2026-11-09"]["recurrenceId"] == "20261109T090000Z"
 
 
 def test_complex_rrule_kept_unless_changed():
@@ -346,6 +421,89 @@ def test_broken_item_is_refused():
     else:
         raise AssertionError("broken item was rewritten")
     assert store[EVENT_HREF] == before
+
+
+def test_untimed_end_stays_absent():
+    ics = crlf("""
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    PRODID:x
+    BEGIN:VEVENT
+    UID:point
+    DTSTAMP:20261001T000000Z
+    DTSTART:20261105T090000Z
+    SUMMARY:Call
+    END:VEVENT
+    END:VCALENDAR
+    """)
+    store[EVENT_HREF] = ics
+    run("edit_event", EVENT_HREF, "2026-11-05", "Call mom", "10:00", "11:00")
+    calendar = Calendar.from_ical(store[EVENT_HREF])
+    event = calendar.walk("VEVENT")[0]
+    assert str(event["SUMMARY"]) == "Call mom"
+    assert event.get("DTEND") is None and event.get("DURATION") is None
+    assert event.get("SEQUENCE") is None
+    assert not calendar.walk("VTIMEZONE")
+
+
+def test_writes_send_if_match_and_undo_keeps_etag():
+    store[EVENT_HREF] = SERIES
+    original = etag_of(EVENT_HREF)
+    calls.clear()
+    run("edit_event", EVENT_HREF, "2026-11-02", "Lecture 3", "10:00", "11:00")
+    put = next(call for call in calls if call[0] == "PUT")
+    assert put[2]["If-Match"] == original
+    saved = json.loads(cal["UNDO_FILE"].read_text())
+    assert saved["etag"] == etag_of(EVENT_HREF) != original
+    calls.clear()
+    with redirect_stdout(io.StringIO()):
+        cal["undo_last_change"]()
+    assert calls[0][0] == "PUT" and calls[0][2]["If-Match"] == saved["etag"]
+    assert store[EVENT_HREF] == SERIES
+    calls.clear()
+    run("delete_item", EVENT_HREF)
+    assert calls[-1][0] == "DELETE" and calls[-1][2]["If-Match"] == original
+
+
+def test_412_reports_conflict():
+    namespace = load()
+    namespace["PASSWORD_FILE"].parent.mkdir(parents=True, exist_ok=True)
+    namespace["PASSWORD_FILE"].write_text("secret\n")
+    namespace["clear_undo"]()
+    seen = []
+
+    class Response:
+        status = 200
+        headers = {"ETag": '"phone-1"'}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return SERIES.encode("utf-8")
+
+    def urlopen(request, timeout=None):
+        seen.append((request.get_method(), request.get_header("If-match")))
+        if request.get_method() == "PUT":
+            raise HTTPError(request.full_url, 412, "Precondition Failed", {}, io.BytesIO(b""))
+        return Response()
+
+    namespace["urlopen"] = urlopen
+    try:
+        namespace["edit_event"]([EVENT_HREF, "2026-11-02", "Lecture 4", "10:00", "11:00"])
+    except RuntimeError as error:
+        assert str(error) == "Changed on another device, refresh and try again"
+    else:
+        raise AssertionError("412 did not raise")
+    assert seen == [("GET", None), ("PUT", '"phone-1"')]
+    assert not namespace["UNDO_FILE"].exists()
+
+
+def test_note_date_from_frontmatter():
+    assert cal["note_date"]({"content": "---\ndate: 2026-11-20\n---\n# Exam\n", "modified": 0}) == "2026-11-20"
 
 
 def test_401_retries_once():

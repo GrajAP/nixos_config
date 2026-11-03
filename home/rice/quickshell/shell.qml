@@ -244,6 +244,7 @@ ShellRoot {
   property string calendarRepeatOriginal: "none"
   property string calendarEditingOccurrence: ""
   property bool calendarEditingRecurring: false
+  property bool calendarEditingOverride: false
   property bool calendarDeleteChoice: false
   property bool overallTodoHasStart: false
   property string overallTodoStartDate: ""
@@ -2134,6 +2135,7 @@ ShellRoot {
     root.calendarRepeatOriginal = "none";
     root.calendarEditingOccurrence = "";
     root.calendarEditingRecurring = false;
+    root.calendarEditingOverride = false;
     root.calendarDeleteChoice = false;
   }
   function editCalendarItem(item) {
@@ -2156,6 +2158,7 @@ ShellRoot {
     root.calendarRepeat = item.repeat || "none";
     root.calendarRepeatOriginal = root.calendarRepeat;
     root.calendarEditingRecurring = Boolean(item.recurring);
+    root.calendarEditingOverride = Boolean(item.override);
     root.calendarEditingOccurrence = item.recurring ? (item.recurrenceId || "") : "";
     root.calendarDeleteChoice = false;
   }
@@ -2260,7 +2263,8 @@ ShellRoot {
     // Only send what changed, so an edit never rewrites a start date or a
     // repeat rule the phone set and this editor did not touch.
     if (startDate !== root.overallTodoStartOriginal) options.push("--start=" + (startDate || "-"));
-    if (root.overallTodoRepeat !== root.overallTodoRepeatOriginal) options.push("--repeat=" + root.overallTodoRepeat);
+    const repeat = root.overallTodoHasDate || root.overallTodoHasStart ? root.overallTodoRepeat : "none";
+    if (repeat !== root.overallTodoRepeatOriginal) options.push("--repeat=" + repeat);
     if (editing)
       root.runCalendarAction(["@calendarTask@", "edit-overall-task"].concat(options, [root.overallTodoEditingHref, dueDate, title]));
     else
@@ -3359,7 +3363,7 @@ ShellRoot {
 	              Layout.preferredHeight: 30
 	              spacing: 8
 	              Text {
-	                text: root.calendarEditingHref.length === 0 ? "" : (root.calendarDeleteChoice ? "Delete only this day, or the whole series?" : "Editing " + root.calendarEditingKind + (root.calendarEditingRecurring ? " series" : ""))
+	                text: root.calendarEditingHref.length === 0 ? "" : (root.calendarDeleteChoice ? "Delete only this day, or the whole series?" : "Editing " + root.calendarEditingKind + (root.calendarEditingRecurring && !root.calendarEditingOverride ? " series" : ""))
 	                color: Theme.accent
 	                font.family: Theme.fontSans
 	                font.pixelSize: 11
@@ -3487,6 +3491,7 @@ ShellRoot {
 		                MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event"; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.calendarAllDay = !root.calendarAllDay }
 		              }
 		              Rectangle {
+		                visible: !root.calendarEditingOverride
 		                implicitWidth: 92
 		                implicitHeight: 40
 		                radius: 8
