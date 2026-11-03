@@ -19,6 +19,7 @@ if True:
       from xml.etree import ElementTree as ET
       from subprocess import run
       from xml.sax.saxutils import escape as escape_xml
+      from zoneinfo import ZoneInfo
 
       from icalendar import Calendar
       import recurring_ical_events
@@ -44,6 +45,7 @@ if True:
       # would silently break this widget. This one is issued by lenovo.
       PASSWORD_FILE = Path.home() / ".config/quickshell/nextcloud-lenovo-app-password"
       UNDO_FILE = Path.home() / ".cache/quickshell/calendar-undo.json"
+      CACHE_FILE = Path(environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "quickshell/calendar-cache.json"
       EVENTS_FOLDER = Path.home() / "Nextcloud/Notes/obsidian/Events"
       OBSIDIAN_INDEX_FILE = EVENTS_FOLDER.parent / ".tocano-index.json"
       RANGE_START = date.today() - timedelta(days=60)
@@ -52,6 +54,31 @@ if True:
           "d": "DAV:",
           "cal": "urn:ietf:params:xml:ns:caldav",
       }
+      LOCAL_TZID = "Europe/Warsaw"
+      LOCAL_TZ = ZoneInfo(LOCAL_TZID)
+      # Written by hand because icalendar's generated VTIMEZONE is a list of
+      # RDATEs that stops at 2037. These are the EU rules Poland uses.
+      LOCAL_VTIMEZONE = [
+          "BEGIN:VTIMEZONE",
+          f"TZID:{LOCAL_TZID}",
+          "BEGIN:DAYLIGHT",
+          "TZOFFSETFROM:+0100",
+          "TZOFFSETTO:+0200",
+          "TZNAME:CEST",
+          "DTSTART:19700329T020000",
+          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+          "END:DAYLIGHT",
+          "BEGIN:STANDARD",
+          "TZOFFSETFROM:+0200",
+          "TZOFFSETTO:+0100",
+          "TZNAME:CET",
+          "DTSTART:19701025T030000",
+          "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+          "END:STANDARD",
+          "END:VTIMEZONE",
+      ]
+      REPEAT_CHOICES = ("daily", "weekly", "monthly", "yearly")
+      KEEP = object()
 
       # The token lenovo mints for this widget is rotated monthly
       # (nextcloud-quickshell-token-rotate on hosts/lenovo), which deletes the
@@ -88,7 +115,7 @@ if True:
                   f"not be re-fetched; set it manually"
               ) from error
 
-      def request(method, path, body=None, headers=None, ok=(200, 201, 204, 207)):
+      def request(method, path, body=None, headers=None, ok=(200, 201, 204, 207), retried=False, want_etag=False):
           url = path if path.startswith("http") else urljoin(BASE_URL, path)
           data = body.encode("utf-8") if isinstance(body, str) else body
           auth = base64.b64encode(f"{USER}:{password()}".encode("utf-8")).decode("ascii")
@@ -110,14 +137,14 @@ if True:
                   payload = response.read()
                   if response.status not in ok:
                       raise RuntimeError(f"{method} {url} returned HTTP {response.status}")
-                  return payload
+                  return (payload, response.headers.get("ETag")) if want_etag else payload
           except HTTPError as error:
               details = error.read().decode("utf-8", errors="replace")
               # 401 usually means the cached app password was rotated away.
               # Re-collect it once and retry before giving up, so the widget
               # heals itself the month after the rotation instead of staying
               # empty until a human intervenes.
-              if error.code == 401:
+              if error.code == 401 and not retried:
                   try:
                       refresh_password()
                   except Exception as refresh_error:
@@ -125,7 +152,9 @@ if True:
                           f"{method} {url} returned HTTP 401 and the app password "
                           f"could not be re-fetched: {refresh_error}"
                       ) from refresh_error
-                  return request(method, path, body, headers, ok=ok)
+                  return request(method, path, body, headers, ok=ok, retried=True, want_etag=want_etag)
+              if error.code == 412:
+                  raise RuntimeError("Changed on another device, refresh and try again") from error
               raise RuntimeError(f"{method} {url} returned HTTP {error.code}: {details[:240]}") from error
           except URLError as error:
               raise RuntimeError(f"{method} {url} failed: {error.reason}") from error
@@ -290,7 +319,7 @@ if True:
 
       def note_date(note):
           content = note.get("content") or ""
-          match = re.search(r"(?m)^date:\\s*(\\d{4}-\\d{2}-\\d{2})\\s*$", content)
+          match = re.search(r"(?m)^date:\s*(\d{4}-\d{2}-\d{2})\s*$", content)
           if match:
               return match.group(1)
           modified = note.get("modified")
@@ -403,19 +432,97 @@ if True:
                   })
           return items
 
-      def date_value(value):
+      def local_datetime(value):
+          return value.astimezone() if value.tzinfo else value
+
+      def local_day(value):
           if isinstance(value, datetime):
-              return value.date().isoformat()
+              return local_datetime(value).date()
+          return value
+
+      def date_value(value):
           if isinstance(value, date):
-              return value.isoformat()
+              return local_day(value).isoformat()
           return None
 
       def time_value(value):
           if isinstance(value, datetime):
-              return value.astimezone().strftime("%H:%M") if value.tzinfo else value.strftime("%H:%M")
+              return local_datetime(value).strftime("%H:%M")
           return None
 
-      def parse_event(component, source, href=None):
+      def component_end(component, end_name="DTEND"):
+          end = component.get(end_name)
+          if end is not None:
+              return end.dt
+          start = component.get("DTSTART")
+          duration = component.get("DURATION")
+          if start is not None and duration is not None and isinstance(duration.dt, timedelta):
+              return start.dt + duration.dt
+          return None
+
+      def last_covered_day(start, end):
+          if end is None:
+              return local_day(start)
+          if not isinstance(start, datetime):
+              return max(start, end - timedelta(days=1)) if not isinstance(end, datetime) else start
+          if end <= start:
+              return local_day(start)
+          return local_day(end - timedelta(microseconds=1))
+
+      def repeat_choice(component):
+          if component is None:
+              return "none"
+          rules = component.get("RRULE")
+          if rules is None:
+              return "custom" if component.get("RDATE") is not None else "none"
+          if isinstance(rules, list) or component.get("RDATE") is not None:
+              return "custom"
+          freq = [str(value).lower() for value in rules.get("FREQ", [])]
+          extra = {key.upper() for key in rules.keys()} - {"FREQ", "WKST"}
+          if [str(value) for value in rules.get("INTERVAL", [])] in ([], ["1"]):
+              extra.discard("INTERVAL")
+          if len(freq) == 1 and freq[0] in REPEAT_CHOICES and not extra:
+              return freq[0]
+          return "custom"
+
+      def occurrence_id(value):
+          if isinstance(value, datetime):
+              if value.tzinfo:
+                  return value.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+              return value.strftime("%Y%m%dT%H%M%S")
+          return value.strftime("%Y%m%d")
+
+      def parse_occurrence_id(text):
+          text = (text or "").strip()
+          try:
+              if re.fullmatch(r"\d{8}", text):
+                  return datetime.strptime(text, "%Y%m%d").date()
+              if re.fullmatch(r"\d{8}T\d{6}Z", text):
+                  return datetime.strptime(text, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+              if re.fullmatch(r"\d{8}T\d{6}", text):
+                  return datetime.strptime(text, "%Y%m%dT%H%M%S")
+          except ValueError:
+              pass
+          raise RuntimeError("Expected an occurrence id like 20261103T090000Z")
+
+      def same_instance(left, right):
+          return occurrence_id(left) == occurrence_id(right)
+
+      def series_repeats(calendar, name):
+          repeats = {}
+          for component in calendar.subcomponents:
+              if component.name == name and component.get("RECURRENCE-ID") is None:
+                  repeats[str(component.get("UID", ""))] = repeat_choice(component)
+          return repeats
+
+      def series_overrides(calendar, name):
+          return {
+              (str(component.get("UID", "")), occurrence_id(component["RECURRENCE-ID"].dt))
+              for component in calendar.subcomponents
+              if component.name == name and component.get("RECURRENCE-ID") is not None
+          }
+
+      def parse_event(component, source, href=None, repeats=None, overrides=None):
           if component.get("X-QUICKSHELL-TASK-HREF") or str(component.get("UID", "")).startswith("quickshell-task-"):
               return None
           start_prop = component.get("DTSTART")
@@ -424,14 +531,27 @@ if True:
           start = start_prop.dt
           if not date_value(start):
               return None
-          end_prop = component.get("DTEND")
-          end = end_prop.dt if end_prop is not None else None
+          end = component_end(component)
+          uid = str(component.get("UID", ""))
+          recurrence = component.get("RECURRENCE-ID")
+          repeat = (repeats or {}).get(uid, repeat_choice(component))
+          # recurring_ical_events stamps RECURRENCE-ID on every occurrence it
+          # returns, single events included, so only an override with no
+          # master here counts as recurring on that property alone.
+          recurring = repeat != "none" or (recurrence is not None and uid not in (repeats or {}))
+          override = recurrence is not None and (uid, occurrence_id(recurrence.dt)) in (overrides or set())
+          span_end = last_covered_day(start, end)
           return {
               "date": date_value(start),
+              "spanEnd": span_end.isoformat() if span_end > local_day(start) else None,
               "title": str(component.get("SUMMARY", "Untitled event")),
               "allDay": not isinstance(start, datetime),
               "startTime": time_value(start),
               "endTime": time_value(end) if end is not None else None,
+              "recurring": recurring,
+              "repeat": repeat,
+              "recurrenceId": occurrence_id(recurrence.dt if recurrence is not None else start) if recurring else None,
+              "override": override,
               "birthday": (
                   str(component.get("X-QUICKSHELL-BIRTHDAY", "")).upper() == "TRUE"
                   or "BIRTHDAY" in str(component.get("CATEGORIES", "")).upper()
@@ -444,16 +564,54 @@ if True:
               "source": source,
           }
 
-      def parse_todo(component, source, task_list_id, href=None, etag=None):
+      def todo_occurrence_days(calendar, component, start_day, due_day):
+          primary = due_day or start_day
+          lead = max(0, (due_day - start_day).days) if start_day and due_day else 0
+          uid = str(component.get("UID", ""))
+          days = {}
+          try:
+              occurrences = recurring_ical_events.of(calendar, components=["VTODO"]).between(
+                  primary + timedelta(days=1),
+                  RANGE_END,
+              )
+          except Exception:
+              return days
+          for occurrence in occurrences:
+              if str(occurrence.get("UID", "")) != uid:
+                  continue
+              anchor = occurrence.get("DUE") if due_day else occurrence.get("DTSTART")
+              if anchor is None:
+                  continue
+              last_day = local_day(anchor.dt)
+              if last_day <= primary:
+                  continue
+              for offset in range(lead + 1):
+                  days[(last_day - timedelta(days=offset)).isoformat()] = True
+          return days
+
+      def parse_todo(component, source, task_list_id, href=None, etag=None, calendar=None):
           status = str(component.get("STATUS", "")).upper()
           if status == "CANCELLED":
               return None
-          due_prop = component.get("DUE") or component.get("DTSTART")
-          due = due_prop.dt if due_prop is not None else None
-          item_date = date_value(due) or ""
+          start_prop = component.get("DTSTART")
+          start_day = local_day(start_prop.dt) if start_prop is not None else None
+          due = component_end(component, "DUE")
+          due_day = local_day(due) if due is not None else None
+          item_day = due_day or start_day
+          span_start = start_day if start_day and due_day and start_day < due_day else None
           completed = status == "COMPLETED" or str(component.get("PERCENT-COMPLETE", "")) == "100"
+          repeat = repeat_choice(component)
+          cover_days = {}
+          if repeat != "none" and not completed and item_day and calendar is not None:
+              cover_days = todo_occurrence_days(calendar, component, start_day, due_day)
           return {
-              "date": item_date,
+              "date": item_day.isoformat() if item_day else "",
+              "startDate": start_day.isoformat() if start_day else None,
+              "dueDate": due_day.isoformat() if due_day else None,
+              "spanStart": span_start.isoformat() if span_start else None,
+              "recurring": repeat != "none",
+              "repeat": repeat,
+              "coverDays": cover_days,
               "title": str(component.get("SUMMARY", "Untitled task")),
               "allDay": True,
               "startTime": None,
@@ -479,14 +637,16 @@ if True:
                       ics = item["data"]
                       calendar = Calendar.from_ical(ics)
                       try:
-                          components = recurring_ical_events.of(calendar).between(
+                          components = recurring_ical_events.of(calendar, keep_recurrence_attributes=True).between(
                               datetime.combine(RANGE_START, time.min),
                               datetime.combine(RANGE_END, time.min),
                           )
                       except Exception:
                           components = calendar.walk("VEVENT")
+                      repeats = series_repeats(calendar, "VEVENT")
+                      overrides = series_overrides(calendar, "VEVENT")
                       for component in components:
-                          parsed = parse_event(component, collection["displayName"], item["href"])
+                          parsed = parse_event(component, collection["displayName"], item["href"], repeats, overrides)
                           if parsed:
                               events.append(parsed)
               if "VTODO" in collection["components"]:
@@ -500,6 +660,7 @@ if True:
                               collection["href"],
                               item["href"],
                               item["etag"],
+                              calendar,
                           )
                           if parsed:
                               tasks.append(parsed)
@@ -697,8 +858,21 @@ if True:
       def put_ics(collection, ics, object_name=None):
           object_name = quote(object_name or f"{uuid.uuid4()}.ics")
           path = f"{collection['href']}{object_name}"
-          request("PUT", path, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
-          return path
+          _payload, etag = request("PUT", path, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204), want_etag=True)
+          return path, etag
+
+      def get_item(href):
+          payload, etag = request("GET", href, ok=(200,), want_etag=True)
+          return payload.decode("utf-8", errors="replace"), etag
+
+      def put_item(href, ics, etag=None):
+          headers = {"Content-Type": "text/calendar; charset=utf-8"}
+          if etag:
+              headers["If-Match"] = etag
+          return request("PUT", href, ics, headers, ok=(200, 201, 204), want_etag=True)[1]
+
+      def delete_href(href, etag=None, ok=(200, 202, 204)):
+          request("DELETE", href, headers={"If-Match": etag} if etag else None, ok=ok)
 
       def event_ics(uid, event_date_value, title, start_clock=None, end_clock=None, extra_lines=None):
           event_date = compact_date(event_date_value)
@@ -707,6 +881,7 @@ if True:
               "BEGIN:VCALENDAR",
               "VERSION:2.0",
               "PRODID:-//quickshell//nextcloud-calendar//EN",
+              *(LOCAL_VTIMEZONE if start_clock else []),
               "BEGIN:VEVENT",
               f"UID:{uid}",
               f"DTSTAMP:{stamp}",
@@ -724,31 +899,14 @@ if True:
                       end_dt += timedelta(days=1)
               else:
                   end_dt = start_dt + timedelta(hours=1)
-              lines.append(f"DTSTART;TZID=Europe/Warsaw:{start_dt.strftime('%Y%m%dT%H%M%S')}")
-              lines.append(f"DTEND;TZID=Europe/Warsaw:{end_dt.strftime('%Y%m%dT%H%M%S')}")
+              lines.append(f"DTSTART;TZID={LOCAL_TZID}:{start_dt.strftime('%Y%m%dT%H%M%S')}")
+              lines.append(f"DTEND;TZID={LOCAL_TZID}:{end_dt.strftime('%Y%m%dT%H%M%S')}")
           else:
               next_day = (date.fromisoformat(event_date_value) + timedelta(days=1)).strftime("%Y%m%d")
               lines.append(f"DTSTART;VALUE=DATE:{event_date}")
               lines.append(f"DTEND;VALUE=DATE:{next_day}")
           lines.extend(["END:VEVENT", "END:VCALENDAR", ""])
           return "\r\n".join(lines)
-
-      def existing_event_identity(original_ics):
-          uid = f"{uuid.uuid4()}@quickshell"
-          preserved = []
-          try:
-              calendar = Calendar.from_ical(original_ics)
-              component = next((item for item in calendar.walk("VEVENT")), None)
-          except Exception:
-              component = None
-          if component is None:
-              return uid, preserved
-          uid = str(component.get("UID") or uid)
-          for name in ("DESCRIPTION", "LOCATION", "URL", "CATEGORIES"):
-              value = component.get(name)
-              if value:
-                  preserved.append(f"{name}:{escape_ics(str(value))}")
-          return uid, preserved
 
       def save_undo(payload):
           UNDO_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -766,27 +924,364 @@ if True:
               raise RuntimeError("Refusing to update an item outside this user's calendar home")
           return href
 
-      def unfold_ics(text):
-          return re.sub(r"\r?\n[ \t]", "", text)
+      def split_options(args, allowed):
+          options = {}
+          rest = list(args)
+          while rest and rest[0].startswith("--") and "=" in rest[0]:
+              key, value = rest.pop(0)[2:].split("=", 1)
+              if key not in allowed:
+                  raise RuntimeError(f"Unknown option --{key}")
+              options[key] = value
+          return options, rest
 
-      def upsert_component_line(text, component, name, value):
-          pattern = rf"(?ims)(BEGIN:{component}.*?)(?:\r?\n{re.escape(name)}(?:;[^:]*)?:.*?)(?=\r?\n)(.*?END:{component})"
-          line = f"{name}:{value}"
-          if re.search(pattern, text):
-              return re.sub(pattern, lambda match: f"{match.group(1)}\r\n{line}{match.group(2)}", text, count=1)
-          return re.sub(rf"(?im)^END:{component}$", lambda _match: f"{line}\r\nEND:{component}", text, count=1)
+      def parse_repeat(value):
+          if value is None:
+              return None
+          value = value.strip().lower()
+          if value not in ("none", *REPEAT_CHOICES):
+              raise RuntimeError("Repeat must be none, daily, weekly, monthly or yearly")
+          return value
 
-      def remove_component_line(text, component, name):
-          pattern = rf"(?ims)(BEGIN:{component}.*?)(?:\r?\n{re.escape(name)}(?:;[^:]*)?:.*?)(?=\r?\n)(.*?END:{component})"
-          return re.sub(pattern, lambda match: f"{match.group(1)}{match.group(2)}", text, count=1)
+      def parse_day_option(value):
+          if value is None:
+              return KEEP
+          if value.strip() in ("", "-"):
+              return None
+          try:
+              return date.fromisoformat(value.strip())
+          except ValueError as error:
+              raise RuntimeError("Expected date as YYYY-MM-DD") from error
 
-      def replace_component_date_line(text, component, base_name, line_name, value):
-          text = remove_component_line(text, component, base_name)
-          return re.sub(rf"(?im)^END:{component}$", lambda _match: f"{line_name}:{value}\r\nEND:{component}", text, count=1)
+      def split_event_title(parts):
+          parts = list(parts)
+          start_clock = None
+          end_clock = None
+          if len(parts) >= 2 and maybe_clock(parts[-1]) and maybe_clock(parts[-2]):
+              end_clock = parse_clock(parts.pop())
+              start_clock = parse_clock(parts.pop())
+          elif len(parts) >= 2 and maybe_clock(parts[-1]):
+              start_clock = parse_clock(parts.pop())
+          title = " ".join(parts).strip()
+          if not title:
+              raise RuntimeError("Event title is empty")
+          return title, start_clock, end_clock
 
-      def update_stamp(text, component):
-          stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-          return upsert_component_line(text, component, "DTSTAMP", stamp)
+      def parse_calendar_for_edit(original_ics):
+          try:
+              calendar = Calendar.from_ical(original_ics)
+          except Exception as error:
+              raise RuntimeError("Could not parse this item; edit it on the phone instead") from error
+          for component in calendar.walk():
+              if getattr(component, "errors", None):
+                  raise RuntimeError("This item has values the widget cannot rewrite without loss; edit it on the phone instead")
+          return calendar
+
+      def components_named(calendar, name):
+          return [item for item in calendar.subcomponents if item.name == name]
+
+      def master_component(calendar, name):
+          items = components_named(calendar, name)
+          return next((item for item in items if item.get("RECURRENCE-ID") is None), None), items
+
+      def ensure_local_timezone(calendar):
+          if any(str(item.get("TZID", "")) == LOCAL_TZID for item in components_named(calendar, "VTIMEZONE")):
+              return
+          wrapper = "\r\n".join(["BEGIN:VCALENDAR", *LOCAL_VTIMEZONE, "END:VCALENDAR", ""])
+          calendar.subcomponents.insert(0, Calendar.from_ical(wrapper).subcomponents[0])
+
+      def uses_local_zone(*values):
+          return any(isinstance(value, datetime) and value.tzinfo is LOCAL_TZ for value in values)
+
+      def set_property(component, name, value):
+          component.pop(name, None)
+          component.add(name, value)
+
+      def touch_component(component, significant=False):
+          now = datetime.now(timezone.utc).replace(microsecond=0)
+          set_property(component, "DTSTAMP", now)
+          set_property(component, "LAST-MODIFIED", now)
+          if significant:
+              try:
+                  sequence = int(component.get("SEQUENCE", 0))
+              except (TypeError, ValueError):
+                  sequence = 0
+              set_property(component, "SEQUENCE", sequence + 1)
+
+      def same_moment(left, right):
+          if isinstance(left, datetime) != isinstance(right, datetime):
+              return False
+          if isinstance(left, datetime) and (left.tzinfo is None) != (right.tzinfo is None):
+              return False
+          return left == right
+
+      def zone_of(value):
+          return value.tzinfo if isinstance(value, datetime) else None
+
+      def wall_clock(value, zone):
+          if isinstance(value, datetime):
+              if value.tzinfo is not None and zone is not None:
+                  value = value.astimezone(zone)
+              return value.replace(tzinfo=None)
+          return datetime.combine(value, time.min)
+
+      def from_wall_clock(value, template):
+          if isinstance(template, datetime):
+              return value.replace(tzinfo=template.tzinfo)
+          return value.date()
+
+      def date_list_values(prop):
+          if prop is None:
+              return []
+          values = []
+          for item in prop if isinstance(prop, list) else [prop]:
+              values.extend(entry.dt for entry in getattr(item, "dts", []))
+          return values
+
+      def shift_series(calendar, master, old_start, new_start):
+          # EXDATE, RDATE and RECURRENCE-ID point at instances computed from
+          # DTSTART, so moving DTSTART without moving them would revive
+          # deleted occurrences and orphan moved ones.
+          old_zone = zone_of(old_start)
+          delta = wall_clock(new_start, zone_of(new_start)) - wall_clock(old_start, old_zone)
+
+          def move(value):
+              return from_wall_clock(wall_clock(value, old_zone) + delta, new_start)
+
+          for name in ("EXDATE", "RDATE"):
+              values = date_list_values(master.get(name))
+              if not values or not all(isinstance(value, date) for value in values):
+                  continue
+              master.pop(name)
+              master.add(name, [move(value) for value in values])
+          uid = str(master.get("UID", ""))
+          for item in components_named(calendar, master.name):
+              recurrence = item.get("RECURRENCE-ID")
+              if item is master or recurrence is None or str(item.get("UID", "")) != uid:
+                  continue
+              set_property(item, "RECURRENCE-ID", move(recurrence.dt))
+          rule = master.get("RRULE")
+          if rule is not None and not isinstance(rule, list) and rule.get("UNTIL"):
+              until = rule["UNTIL"][0]
+              moved = move(until)
+              if isinstance(new_start, datetime):
+                  if not isinstance(until, datetime):
+                      moved = moved.replace(hour=23, minute=59, second=59)
+                  if moved.tzinfo is not None:
+                      moved = moved.astimezone(timezone.utc)
+              rule["UNTIL"] = [moved]
+
+      def rule_has_by_parts(component):
+          rules = component.get("RRULE")
+          for rule in rules if isinstance(rules, list) else [] if rules is None else [rules]:
+              if {key.upper() for key in rule.keys()} - {"FREQ", "INTERVAL", "WKST", "UNTIL", "COUNT"}:
+                  return True
+          return False
+
+      def apply_repeat(calendar, master, choice):
+          if choice is None or choice == repeat_choice(master):
+              return False
+          if choice == "none":
+              for name in ("RRULE", "RDATE", "EXDATE"):
+                  master.pop(name, None)
+              uid = str(master.get("UID", ""))
+              for item in components_named(calendar, master.name):
+                  if item is not master and str(item.get("UID", "")) == uid and item.get("RECURRENCE-ID") is not None:
+                      calendar.subcomponents.remove(item)
+          else:
+              set_property(master, "RRULE", {"FREQ": choice.upper()})
+          return True
+
+      def edited_event_times(old_start, old_end, start_day, start_clock, end_clock):
+          old_timed = isinstance(old_start, datetime)
+          if start_clock is None:
+              if old_timed:
+                  days = (local_day(old_end) - local_day(old_start)).days + 1 if old_end is not None else 1
+              else:
+                  days = (old_end - old_start).days if old_end is not None and not isinstance(old_end, datetime) else 1
+              return start_day, start_day + timedelta(days=max(1, days))
+          floating = old_timed and old_start.tzinfo is None
+
+          def at(day, clock):
+              value = datetime.combine(day, time(*clock))
+              return value if floating else value.replace(tzinfo=LOCAL_TZ)
+
+          new_start = at(start_day, start_clock)
+          if end_clock is None:
+              duration = old_end - old_start if old_timed and old_end is not None else timedelta(hours=1)
+              return new_start, new_start + duration
+          span_days = (local_day(old_end) - local_day(old_start)).days if old_timed and old_end is not None else 0
+          new_end = at(start_day + timedelta(days=span_days), end_clock)
+          if new_end <= new_start:
+              new_end += timedelta(days=1)
+          return new_start, new_end
+
+      def update_event_calendar(calendar, new_day, title, start_clock=None, end_clock=None, repeat=None, occurrence=None):
+          master, events = master_component(calendar, "VEVENT")
+          target = None
+          if occurrence is not None:
+              target = next((
+                  item for item in events
+                  if item.get("RECURRENCE-ID") is not None and same_instance(item["RECURRENCE-ID"].dt, occurrence)
+              ), None)
+          if target is None:
+              target = master or (events[0] if events else None)
+          if target is None or target.get("DTSTART") is None:
+              raise RuntimeError("This item has no event to edit")
+          old_start = target["DTSTART"].dt
+          old_end = component_end(target)
+          base_day = local_day(occurrence) if occurrence is not None and target is master else local_day(old_start)
+          start_day = local_day(old_start) + (new_day - base_day)
+          new_start, new_end = edited_event_times(old_start, old_end, start_day, start_clock, end_clock)
+          if target is not master and repeat is not None:
+              raise RuntimeError("This day was changed on its own; change the repeat from another day of the series")
+          replaces_rule = repeat is not None and repeat != repeat_choice(master)
+          if target is master and not replaces_rule and not same_moment(new_start, old_start) and wall_clock(new_start, zone_of(new_start)).date() != wall_clock(old_start, zone_of(old_start)).date() and rule_has_by_parts(master):
+              # EXDATE and RECURRENCE-ID move by the same delta as DTSTART,
+              # but BYDAY and friends pin the instances, so they would stop
+              # lining up and deleted or moved days would come back.
+              raise RuntimeError("Move the day of a custom-repeat series on the phone")
+          significant = False
+          written = []
+          if str(target.get("SUMMARY", "")) != title:
+              set_property(target, "SUMMARY", title)
+          if not same_moment(new_start, old_start):
+              set_property(target, "DTSTART", new_start)
+              written.append(new_start)
+              if target is master:
+                  shift_series(calendar, master, old_start, new_start)
+              significant = True
+          implied_end = old_end if old_end is not None else (old_start + timedelta(days=1) if not isinstance(old_start, datetime) else old_start)
+          keeps_no_end = old_end is None and same_moment(new_start, old_start) and (end_clock is None or same_moment(new_end, new_start + timedelta(hours=1)))
+          if not keeps_no_end and (significant or not same_moment(new_end, implied_end)):
+              if target.get("DURATION") is not None and target.get("DTEND") is None:
+                  set_property(target, "DURATION", new_end - new_start)
+              else:
+                  set_property(target, "DTEND", new_end)
+              written.append(new_end)
+              significant = True
+          if target is master and apply_repeat(calendar, master, repeat):
+              significant = True
+          if uses_local_zone(*written):
+              ensure_local_timezone(calendar)
+          touch_component(target, significant)
+          return calendar.to_ical().decode("utf-8")
+
+      def delete_occurrence_calendar(calendar, occurrence):
+          master, events = master_component(calendar, "VEVENT")
+          for item in events:
+              recurrence = item.get("RECURRENCE-ID")
+              if recurrence is not None and same_instance(recurrence.dt, occurrence):
+                  calendar.subcomponents.remove(item)
+          if master is None:
+              return calendar.to_ical().decode("utf-8") if components_named(calendar, "VEVENT") else None
+          if master.get("RRULE") is None and master.get("RDATE") is None:
+              return None
+          start = master["DTSTART"].dt
+          if not isinstance(start, datetime):
+              excluded = local_day(occurrence)
+          elif not isinstance(occurrence, datetime):
+              excluded = from_wall_clock(datetime.combine(occurrence, wall_clock(start, zone_of(start)).time()), start)
+          elif start.tzinfo is None:
+              excluded = local_datetime(occurrence).replace(tzinfo=None) if occurrence.tzinfo else occurrence
+          else:
+              excluded = occurrence.astimezone(start.tzinfo) if occurrence.tzinfo else occurrence.replace(tzinfo=start.tzinfo)
+          master.add("EXDATE", excluded)
+          touch_component(master, True)
+          return calendar.to_ical().decode("utf-8")
+
+      def set_task_day(component, name, sibling_name, new_day):
+          if name == "DUE":
+              current = component_end(component, "DUE")
+          else:
+              current = component["DTSTART"].dt if component.get("DTSTART") is not None else None
+          if new_day is None:
+              if current is None:
+                  return False
+              if name == "DTSTART" and component.get("DUE") is None and component.get("DURATION") is not None:
+                  set_property(component, "DUE", current + component["DURATION"].dt)
+              component.pop(name, None)
+              component.pop("DURATION", None)
+              return True
+          if current is not None and local_day(current) == new_day:
+              return False
+          template = current if isinstance(current, datetime) else None
+          if template is None:
+              sibling = component.get(sibling_name)
+              if sibling is not None and isinstance(sibling.dt, datetime):
+                  template = sibling.dt
+          if template is None:
+              value = new_day
+          elif template.tzinfo is None:
+              value = datetime.combine(new_day, template.time())
+          else:
+              value = datetime.combine(new_day, local_datetime(template).time()).astimezone().astimezone(timezone.utc)
+          if name == "DUE" and component.get("DURATION") is not None:
+              component.pop("DURATION")
+          set_property(component, name, value)
+          return True
+
+      def update_todo_calendar(calendar, title, due_day=KEEP, start_day=KEEP, repeat=None):
+          master, _todos = master_component(calendar, "VTODO")
+          if master is None:
+              raise RuntimeError("This item has no task to edit")
+          significant = False
+          if str(master.get("SUMMARY", "")) != title:
+              set_property(master, "SUMMARY", title)
+          if due_day is not KEEP and set_task_day(master, "DUE", "DTSTART", due_day):
+              significant = True
+          if start_day is not KEEP and set_task_day(master, "DTSTART", "DUE", start_day):
+              significant = True
+          start = master["DTSTART"].dt if master.get("DTSTART") is not None else None
+          due = component_end(master, "DUE")
+          if start is not None and due is not None and local_day(start) > local_day(due):
+              raise RuntimeError("The start date is after the due date")
+          if apply_repeat(calendar, master, repeat):
+              significant = True
+          if master.get("RRULE") is not None and start is None and due is None:
+              raise RuntimeError("A repeating task needs a date")
+          touch_component(master, significant)
+          return calendar.to_ical().decode("utf-8")
+
+      def complete_todo_calendar(calendar):
+          master, _todos = master_component(calendar, "VTODO")
+          if master is None:
+              raise RuntimeError("This item has no task to complete")
+          now = datetime.now(timezone.utc).replace(microsecond=0)
+          anchor_name = "DUE" if master.get("DUE") is not None else "DTSTART"
+          anchor = master[anchor_name].dt if master.get(anchor_name) is not None else None
+          following = None
+          if master.get("RRULE") is not None and anchor is not None:
+              # Phone task apps complete a repeating task by moving it to its
+              # next date; marking the series COMPLETED would end it for good.
+              try:
+                  for occurrence in recurring_ical_events.of(calendar, components=["VTODO"]).after(anchor):
+                      value = occurrence.get(anchor_name)
+                      if value is not None and str(occurrence.get("UID", "")) == str(master.get("UID", "")) and value.dt > anchor:
+                          following = value.dt
+                          break
+              except Exception:
+                  following = None
+          if following is None:
+              set_property(master, "STATUS", "COMPLETED")
+              set_property(master, "PERCENT-COMPLETE", 100)
+              set_property(master, "COMPLETED", now)
+              touch_component(master)
+              return calendar.to_ical().decode("utf-8"), False
+          zone = zone_of(anchor)
+          delta = wall_clock(following, zone) - wall_clock(anchor, zone)
+          for name in ("DTSTART", "DUE"):
+              prop = master.get(name)
+              if prop is not None:
+                  old = prop.dt
+                  set_property(master, name, from_wall_clock(wall_clock(old, zone_of(old)) + delta, old))
+          rule = master["RRULE"]
+          if not isinstance(rule, list) and rule.get("COUNT"):
+              rule["COUNT"] = [max(1, int(rule["COUNT"][0]) - 1)]
+          set_property(master, "STATUS", "NEEDS-ACTION")
+          master.pop("COMPLETED", None)
+          master.pop("PERCENT-COMPLETE", None)
+          touch_component(master, True)
+          return calendar.to_ical().decode("utf-8"), True
 
       def add_task(args):
           if len(args) < 2:
@@ -814,19 +1309,27 @@ if True:
               "END:VCALENDAR",
               "",
           ])
-          href = put_ics(choose_calendar("VTODO"), ics)
-          save_undo({"mode": "created", "href": href})
+          href, etag = put_ics(choose_calendar("VTODO"), ics)
+          save_undo({"mode": "created", "href": href, "etag": etag})
           print(json.dumps({"ok": True, "type": "task", "undoable": True}))
 
       def add_overall_task(args):
+          options, args = split_options(args, {"start", "repeat"})
           if len(args) < 2:
-              raise RuntimeError("Usage: quickshell-calendar add-overall-task task-list-id title")
+              raise RuntimeError("Usage: quickshell-calendar add-overall-task [--start=YYYY-MM-DD] [--repeat=weekly] task-list-id title")
           task_list_id = args[0]
           has_explicit_date = len(args) >= 3 and (args[1] == "-" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", args[1]))
           due_date = None if not has_explicit_date or args[1] == "-" else compact_date(args[1])
           title = " ".join(args[2:] if has_explicit_date else args[1:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
+          start_day = parse_day_option(options.get("start"))
+          start_date = start_day.strftime("%Y%m%d") if start_day not in (KEEP, None) else None
+          repeat = parse_repeat(options.get("repeat"))
+          if start_date and due_date and start_date > due_date:
+              raise RuntimeError("The start date is after the due date")
+          if repeat not in (None, "none") and not (start_date or due_date):
+              raise RuntimeError("A repeating task needs a date")
           uid = f"{uuid.uuid4()}@quickshell"
           stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           lines = [
@@ -840,8 +1343,12 @@ if True:
               f"LAST-MODIFIED:{stamp}",
               f"SUMMARY:{escape_ics(title)}",
           ]
+          if start_date:
+              lines.append(f"DTSTART;VALUE=DATE:{start_date}")
           if due_date:
               lines.append(f"DUE;VALUE=DATE:{due_date}")
+          if repeat not in (None, "none"):
+              lines.append(f"RRULE:FREQ={repeat.upper()}")
           lines.extend([
               "STATUS:NEEDS-ACTION",
               "PERCENT-COMPLETE:0",
@@ -850,51 +1357,42 @@ if True:
               "",
           ])
           ics = "\r\n".join(lines)
-          href = put_ics(choose_task_calendar(task_list_id), ics)
-          save_undo({"mode": "created", "href": href})
+          href, etag = put_ics(choose_task_calendar(task_list_id), ics)
+          save_undo({"mode": "created", "href": href, "etag": etag})
           print(json.dumps({"ok": True, "type": "task", "undated": due_date is None, "undoable": True}))
 
       def edit_overall_task(args):
+          options, args = split_options(args, {"start", "repeat"})
           if len(args) < 2:
-              raise RuntimeError("Usage: quickshell-calendar edit-overall-task href title")
+              raise RuntimeError("Usage: quickshell-calendar edit-overall-task [--start=YYYY-MM-DD|-] [--repeat=weekly] href title")
           href = writable_href(args[0])
           has_explicit_date = len(args) >= 3 and (args[1] == "-" or re.fullmatch(r"\d{4}-\d{2}-\d{2}", args[1]))
-          due_date = None if not has_explicit_date or args[1] == "-" else compact_date(args[1])
+          due_day = parse_day_option(args[1]) if has_explicit_date else KEEP
           title = " ".join(args[2:] if has_explicit_date else args[1:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
-          original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
-          save_undo({"mode": "restore", "href": href, "ics": original_ics})
-          ics = unfold_ics(original_ics)
-          ics = upsert_component_line(ics, "VTODO", "SUMMARY", escape_ics(title))
-          if has_explicit_date and due_date:
-              ics = replace_component_date_line(ics, "VTODO", "DUE", "DUE;VALUE=DATE", due_date)
-              ics = remove_component_line(ics, "VTODO", "DTSTART")
-          elif has_explicit_date:
-              ics = remove_component_line(ics, "VTODO", "DUE")
-              ics = remove_component_line(ics, "VTODO", "DTSTART")
-          ics = update_stamp(ics, "VTODO")
-          request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
-          print(json.dumps({"ok": True, "type": "task", "undated": due_date is None, "edited": True, "undoable": True}))
+          original_ics, etag = get_item(href)
+          ics = update_todo_calendar(
+              parse_calendar_for_edit(original_ics),
+              title,
+              due_day,
+              parse_day_option(options.get("start")),
+              parse_repeat(options.get("repeat")),
+          )
+          save_undo({"mode": "restore", "href": href, "ics": original_ics, "etag": put_item(href, ics, etag)})
+          print(json.dumps({"ok": True, "type": "task", "undated": due_day is None, "edited": True, "undoable": True}))
 
       def add_event(args):
+          options, args = split_options(args, {"repeat"})
           if len(args) < 2:
-              raise RuntimeError("Usage: quickshell-calendar add-event YYYY-MM-DD title [HH:MM] [HH:MM]")
-          event_date = compact_date(args[0])
-          title_parts = args[1:]
-          start_clock = None
-          end_clock = None
-          if len(title_parts) >= 2 and maybe_clock(title_parts[-1]) and maybe_clock(title_parts[-2]):
-              end_clock = parse_clock(title_parts.pop())
-              start_clock = parse_clock(title_parts.pop())
-          elif len(title_parts) >= 2 and maybe_clock(title_parts[-1]):
-              start_clock = parse_clock(title_parts.pop())
-          title = " ".join(title_parts).strip()
-          if not title:
-              raise RuntimeError("Event title is empty")
+              raise RuntimeError("Usage: quickshell-calendar add-event [--repeat=weekly] YYYY-MM-DD title [HH:MM] [HH:MM]")
+          compact_date(args[0])
+          title, start_clock, end_clock = split_event_title(args[1:])
+          repeat = parse_repeat(options.get("repeat"))
+          extra_lines = [f"RRULE:FREQ={repeat.upper()}"] if repeat not in (None, "none") else None
           uid = f"{uuid.uuid4()}@quickshell"
-          href = put_ics(choose_calendar("VEVENT"), event_ics(uid, args[0], title, start_clock, end_clock))
-          save_undo({"mode": "created", "href": href})
+          href, etag = put_ics(choose_calendar("VEVENT"), event_ics(uid, args[0], title, start_clock, end_clock, extra_lines))
+          save_undo({"mode": "created", "href": href, "etag": etag})
           print(json.dumps({"ok": True, "type": "event", "undoable": True}))
 
       def existing_event_uids(collection):
@@ -1040,66 +1538,64 @@ if True:
           if len(args) != 1:
               raise RuntimeError("Usage: quickshell-calendar complete-task href")
           href = writable_href(args[0])
-          ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
-          save_undo({"mode": "restore", "href": href, "ics": ics})
-          stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-          ics = unfold_ics(ics)
-          ics = upsert_component_line(ics, "VTODO", "STATUS", "COMPLETED")
-          ics = upsert_component_line(ics, "VTODO", "PERCENT-COMPLETE", "100")
-          ics = upsert_component_line(ics, "VTODO", "COMPLETED", stamp)
-          ics = upsert_component_line(ics, "VTODO", "DTSTAMP", stamp)
-          request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
-          print(json.dumps({"ok": True, "type": "task", "completed": True, "undoable": True}))
+          original_ics, etag = get_item(href)
+          ics, advanced = complete_todo_calendar(parse_calendar_for_edit(original_ics))
+          save_undo({"mode": "restore", "href": href, "ics": original_ics, "etag": put_item(href, ics, etag)})
+          print(json.dumps({"ok": True, "type": "task", "completed": True, "advanced": advanced, "undoable": True}))
 
       def edit_task(args):
           if len(args) < 3:
               raise RuntimeError("Usage: quickshell-calendar edit-task href YYYY-MM-DD title")
           href = writable_href(args[0])
-          task_date = compact_date(args[1])
+          due_day = parse_day_option(args[1])
           title = " ".join(args[2:]).strip()
           if not title:
               raise RuntimeError("Task title is empty")
-          original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
-          save_undo({"mode": "restore", "href": href, "ics": original_ics})
-          ics = unfold_ics(original_ics)
-          ics = upsert_component_line(ics, "VTODO", "SUMMARY", escape_ics(title))
-          ics = replace_component_date_line(ics, "VTODO", "DUE", "DUE;VALUE=DATE", task_date)
-          ics = remove_component_line(ics, "VTODO", "DTSTART")
-          ics = update_stamp(ics, "VTODO")
-          request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
+          original_ics, etag = get_item(href)
+          ics = update_todo_calendar(parse_calendar_for_edit(original_ics), title, due_day)
+          save_undo({"mode": "restore", "href": href, "ics": original_ics, "etag": put_item(href, ics, etag)})
           print(json.dumps({"ok": True, "type": "task", "edited": True, "undoable": True}))
 
       def edit_event(args):
+          options, args = split_options(args, {"repeat", "occurrence"})
           if len(args) < 3:
-              raise RuntimeError("Usage: quickshell-calendar edit-event href YYYY-MM-DD title [HH:MM] [HH:MM]")
+              raise RuntimeError("Usage: quickshell-calendar edit-event [--repeat=weekly] [--occurrence=id] href YYYY-MM-DD title [HH:MM] [HH:MM]")
           href = writable_href(args[0])
-          title_parts = args[2:]
-          start_clock = None
-          end_clock = None
-          if len(title_parts) >= 2 and maybe_clock(title_parts[-1]) and maybe_clock(title_parts[-2]):
-              end_clock = parse_clock(title_parts.pop())
-              start_clock = parse_clock(title_parts.pop())
-          elif len(title_parts) >= 2 and maybe_clock(title_parts[-1]):
-              start_clock = parse_clock(title_parts.pop())
-          title = " ".join(title_parts).strip()
-          if not title:
-              raise RuntimeError("Event title is empty")
-          original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
-          save_undo({"mode": "restore", "href": href, "ics": original_ics})
-          uid, extra_lines = existing_event_identity(original_ics)
-          ics = event_ics(uid, args[1], title, start_clock, end_clock, extra_lines)
-          request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
+          new_day = parse_day_option(args[1])
+          if new_day in (KEEP, None):
+              raise RuntimeError("Expected date as YYYY-MM-DD")
+          title, start_clock, end_clock = split_event_title(args[2:])
+          occurrence = parse_occurrence_id(options["occurrence"]) if options.get("occurrence") else None
+          original_ics, etag = get_item(href)
+          ics = update_event_calendar(
+              parse_calendar_for_edit(original_ics),
+              new_day,
+              title,
+              start_clock,
+              end_clock,
+              parse_repeat(options.get("repeat")),
+              occurrence,
+          )
+          save_undo({"mode": "restore", "href": href, "ics": original_ics, "etag": put_item(href, ics, etag)})
           print(json.dumps({"ok": True, "type": "event", "edited": True, "undoable": True}))
 
       def delete_item(args):
+          options, args = split_options(args, {"occurrence"})
           if len(args) != 1:
-              raise RuntimeError("Usage: quickshell-calendar delete-item href")
+              raise RuntimeError("Usage: quickshell-calendar delete-item [--occurrence=id] href")
           href = writable_href(args[0])
-          original_ics = request("GET", href, ok=(200,)).decode("utf-8", errors="replace")
-          save_undo({"mode": "restore", "href": href, "ics": original_ics})
-          request("DELETE", href, ok=(200, 202, 204))
-          print(json.dumps({"ok": True, "deleted": True, "undoable": True}))
+          original_ics, etag = get_item(href)
+          ics = None
+          if options.get("occurrence"):
+              occurrence = parse_occurrence_id(options["occurrence"])
+              ics = delete_occurrence_calendar(parse_calendar_for_edit(original_ics), occurrence)
+          if ics is None:
+              delete_href(href, etag)
+              new_etag = None
+          else:
+              new_etag = put_item(href, ics, etag)
+          save_undo({"mode": "restore", "href": href, "ics": original_ics, "etag": new_etag})
+          print(json.dumps({"ok": True, "deleted": True, "occurrence": ics is not None, "undoable": True}))
 
       def undo_last_change():
           try:
@@ -1109,12 +1605,12 @@ if True:
           mode = payload.get("mode")
           href = writable_href(payload.get("href", ""))
           if mode == "created":
-              request("DELETE", href, ok=(200, 202, 204, 404))
+              delete_href(href, payload.get("etag"), ok=(200, 202, 204, 404))
           elif mode == "restore":
               ics = payload.get("ics")
               if not ics:
                   raise RuntimeError("Undo data is missing calendar content")
-              request("PUT", href, ics, {"Content-Type": "text/calendar; charset=utf-8"}, ok=(200, 201, 204))
+              put_item(href, ics, payload.get("etag"))
           else:
               raise RuntimeError("Undo data is invalid")
           clear_undo()
@@ -1190,18 +1686,54 @@ if True:
                   merged.append(obsidian_item)
           return merged
 
+      def read_cache():
+          try:
+              payload = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+          except (OSError, ValueError):
+              return {}
+          return payload if isinstance(payload, dict) else {}
+
+      def write_cache(payload):
+          try:
+              CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+              temporary = CACHE_FILE.with_suffix(".json.tmp")
+              temporary.write_text(json.dumps(payload), encoding="utf-8")
+              temporary.replace(CACHE_FILE)
+          except OSError:
+              pass
+
       def query():
-          events = []
           task_lists = []
           error = ""
+          stale_since = None
+          calendar_items = None
+          notes = None
+          try:
+              calendar_items, task_lists = nextcloud_events()
+              notes = nextcloud_notes()
+          except Exception as exc:
+              error = str(exc)
+          cache = read_cache()
+          if calendar_items is None:
+              # lenovo is often unreachable (asleep, tailnet down). Show the
+              # last good copy marked stale instead of birthdays only.
+              calendar_items = cache.get("events") or []
+              task_lists = cache.get("taskLists") or []
+              notes = cache.get("notes") or []
+              stale_since = cache.get("savedAt") or ""
+          else:
+              if notes is None:
+                  notes = cache.get("notes") or []
+              write_cache({
+                  "savedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+                  "events": calendar_items,
+                  "taskLists": task_lists,
+                  "notes": notes,
+              })
+          events = calendar_items + notes
           try:
               obsidian_source_events = all_obsidian_events()
               write_obsidian_index(obsidian_source_events)
-              try:
-                  events, task_lists = nextcloud_events()
-                  events.extend(nextcloud_notes())
-              except Exception as exc:
-                  error = str(exc)
               events = merge_obsidian_events(
                   events,
                   obsidian_events([
@@ -1209,22 +1741,25 @@ if True:
                       if event.get("birthday")
                   ]),
               )
-              events.sort(key=lambda item: (
-                  item.get("date", ""),
-                  item.get("startTime") or "",
-                  item.get("title", ""),
-              ))
           except Exception as exc:
               # A partly broken source (a vault file that is not UTF-8, an
               # unreadable index) must not take the whole widget down with an
               # empty stdout; report it the same way network errors are.
-              error = str(exc)
+              error = error or str(exc)
+          events.sort(key=lambda item: (
+              item.get("date", ""),
+              item.get("startTime") or "",
+              item.get("title", ""),
+          ))
           output = {
               "today": date.today().isoformat(),
               "events": events,
               "taskLists": task_lists,
               "canUndo": UNDO_FILE.is_file(),
           }
+          if stale_since is not None:
+              output["stale"] = True
+              output["staleSince"] = stale_since
           if error:
               output["error"] = error
           print(json.dumps(output))

@@ -60,6 +60,7 @@
       (binding "bind" "Special workspaces" "${modshift}, A" "exec, move-special-workspace social" "Move window to social special workspace")
       (binding "bind" "Special workspaces" "${mod}, W" "exec, toggle-special-workspace tools" "Toggle tools special workspace")
       (binding "bind" "Special workspaces" "${modshift}, W" "exec, move-special-workspace tools" "Move window to tools special workspace")
+      (binding "bind" "Special workspaces" "${mod}, M" "exec, launch-obsidian-tools" "Open Obsidian notes")
       (binding "bind" "Special workspaces" "${mod}, Z" "exec, toggle-special-workspace scratchpad" "Toggle scratchpad")
       (binding "bind" "Special workspaces" "${modshift}, Z" "exec, move-special-workspace scratchpad" "Move window to scratchpad")
       (binding "bind" "Special workspaces" "${mod}, O" "exec, toggle-obs-special" "Toggle OBS special workspace")
