@@ -32,8 +32,14 @@ in {
       force = true;
     };
 
-    "${vault}/themes/Catppuccin/theme.css".source = "${catppuccin}/theme.css";
-    "${vault}/themes/Catppuccin/manifest.json".source = "${catppuccin}/manifest.json";
+    "${vault}/themes/Catppuccin/theme.css" = {
+      source = "${catppuccin}/theme.css";
+      force = true;
+    };
+    "${vault}/themes/Catppuccin/manifest.json" = {
+      source = "${catppuccin}/manifest.json";
+      force = true;
+    };
 
     # The theme only picks an accent through the Style Settings plugin.
     "${vault}/snippets/catppuccin-blue.css".text = ''
