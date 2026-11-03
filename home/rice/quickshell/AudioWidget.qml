@@ -15,22 +15,76 @@ Item {
 
   readonly property string activeTab: shell.audioTabMode
 
+  component VolumeSlider: Slider {
+    id: volumeSlider
+
+    property var nodeAudio: null
+
+    implicitHeight: 20
+    from: 0
+    to: 1.5
+    enabled: nodeAudio !== null
+    onMoved: if (nodeAudio) nodeAudio.volume = value
+
+    // PipeWire reports volume back asynchronously, so a live binding pulls the handle away mid-drag.
+    Binding on value {
+      when: !volumeSlider.pressed
+      value: volumeSlider.nodeAudio ? volumeSlider.nodeAudio.volume : 0
+      restoreMode: Binding.RestoreNone
+    }
+
+    background: Rectangle {
+      x: volumeSlider.leftPadding
+      y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+      width: volumeSlider.availableWidth
+      height: 5
+      radius: 3
+      color: Theme.surfaceAlt
+
+      Rectangle {
+        width: volumeSlider.visualPosition * parent.width
+        height: parent.height
+        radius: parent.radius
+        color: volumeSlider.enabled ? Theme.accent : Theme.muted
+      }
+    }
+
+    handle: Rectangle {
+      x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+      y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+      implicitWidth: volumeSlider.pressed ? 15 : 11
+      implicitHeight: implicitWidth
+      radius: width / 2
+      color: volumeSlider.enabled ? Theme.accent : Theme.muted
+      border.color: Theme.background
+      border.width: 2
+    }
+  }
+
   function audioStreams() {
     const streams = Pipewire.nodes.values.filter(node => node && node.audio && node.isStream);
     return streams.sort((a, b) => {
-      const aIsOut = (a.properties && a.properties["media.class"] === "Stream/Output/Audio") || a.isSink;
-      const bIsOut = (b.properties && b.properties["media.class"] === "Stream/Output/Audio") || b.isSink;
-      if (aIsOut && !bIsOut) return -1;
-      if (!aIsOut && bIsOut) return 1;
+      const aIsInput = streamIsInput(a);
+      const bIsInput = streamIsInput(b);
+      if (aIsInput !== bIsInput) return aIsInput ? 1 : -1;
       return streamLabel(a).localeCompare(streamLabel(b));
     });
+  }
+
+  function streamMediaName(node) {
+    const media = (node && node.properties && node.properties["media.name"]) || "";
+    return /^(Playback|ALSA Playback|RecordStream|Mixer Stream)$/.test(media) ? "" : media;
   }
 
   function streamLabel(node) {
     if (!node) return "Unknown";
     if (node.properties) {
-      if (node.properties["application.name"]) return node.properties["application.name"];
-      if (node.properties["media.name"] && node.properties["media.name"] !== "Playback" && node.properties["media.name"] !== "ALSA Playback") return node.properties["media.name"];
+      const app = node.properties["application.name"];
+      const binary = node.properties["application.process.binary"];
+      if (app && binary && /^(FMOD|SDL)\b/.test(app)) return binary.replace(/\.[^.]*$/, "");
+      if (app) return app;
+      const media = streamMediaName(node);
+      if (media) return media;
       if (node.properties["node.name"]) return node.properties["node.name"];
     }
     return node.description || node.nickname || node.name || "Application";
@@ -38,13 +92,10 @@ Item {
 
   function streamDetail(node) {
     if (!node || !node.properties) return "";
-    const app = node.properties["application.name"] || "";
-    const media = node.properties["media.name"] || "";
-    if (media && media !== app && media !== "Playback" && media !== "ALSA Playback") {
-      const parts = media.split("/");
-      return parts[parts.length - 1];
-    }
-    return "";
+    const media = streamMediaName(node);
+    const detail = media && media !== node.properties["application.name"] ? media.split("/").pop() : "";
+    if (!streamIsInput(node)) return detail;
+    return detail ? "Recording: " + detail : "Recording";
   }
 
   function streamIcon(node) {
@@ -60,26 +111,22 @@ Item {
     return Boolean(node && node.properties && node.properties["media.class"] === "Stream/Input/Audio");
   }
 
-  function streamTargetDeviceLabel(streamNode) {
-    if (!streamNode) return "Default";
-    const driverId = Number(streamNode.properties && (streamNode.properties["node.driver-id"] || streamNode.properties["target.node"]));
-    if (driverId) {
-      const dev = Pipewire.nodes.values.find(n => n.id === driverId);
-      if (dev) return shell.audioNodeLabel(dev);
-    }
-    const defaultDev = streamIsInput(streamNode) ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
-    return defaultDev ? shell.audioNodeLabel(defaultDev) : "Default";
+  // node.driver-id is the graph driver, not the device: with EasyEffects it names the headset for streams linked to easyeffects_sink.
+  function streamDevice(node) {
+    if (!node) return null;
+    const isInput = streamIsInput(node);
+    const link = Pipewire.linkGroups.values.find(group => isInput ? group.target === node : group.source === node);
+    if (link) return isInput ? link.source : link.target;
+    return isInput ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
   }
 
+  // pactl indexes are object serials, not PipeWire ids, so the device goes by name.
   function moveStream(streamNode, targetDevice) {
     if (!streamNode || !targetDevice) return;
     const serial = streamNode.properties && streamNode.properties["object.serial"];
     if (!serial) return;
-    if (streamIsInput(streamNode)) {
-      Quickshell.execDetached(["pactl", "move-source-output", String(serial), String(targetDevice.id)]);
-    } else {
-      Quickshell.execDetached(["pactl", "move-sink-input", String(serial), String(targetDevice.id)]);
-    }
+    const command = streamIsInput(streamNode) ? "move-source-output" : "move-sink-input";
+    Quickshell.execDetached(["pactl", command, String(serial), targetDevice.name]);
   }
 
   ColumnLayout {
@@ -132,7 +179,7 @@ Item {
       Layout.fillWidth: true
       spacing: 14
 
-      Text { text: "Output device"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true }
+      Text { text: "Output device"; color: shell.secondaryText; font.family: Theme.fontSans; font.bold: true }
 
       Rectangle {
         id: outputPicker
@@ -148,7 +195,7 @@ Item {
           anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
           Text { text: "󰋋"; color: outputMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.fontIcon; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
           Text { text: shell.audioNodeLabel(Pipewire.defaultAudioSink); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-          Text { text: outputMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
+          Text { text: outputMenu.opened ? "⌃" : "⌄"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
         }
 
         MouseArea {
@@ -224,10 +271,9 @@ Item {
           font.family: Theme.fontIcon; font.pixelSize: 22
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted }
         }
-        Slider {
-          Layout.fillWidth: true; from: 0; to: 1.5
-          value: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Pipewire.defaultAudioSink.audio.volume : 0
-          onMoved: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.volume = value
+        VolumeSlider {
+          Layout.fillWidth: true
+          nodeAudio: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
         }
         Text {
           text: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) + "%" : "0%"
@@ -239,7 +285,7 @@ Item {
         }
       }
 
-      Text { text: "Microphone input"; color: Theme.muted; font.family: Theme.fontSans; font.bold: true; Layout.topMargin: 4 }
+      Text { text: "Microphone input"; color: shell.secondaryText; font.family: Theme.fontSans; font.bold: true; Layout.topMargin: 4 }
 
       Rectangle {
         id: microphonePicker
@@ -255,7 +301,7 @@ Item {
           anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 10; spacing: 9
           Text { text: "󰍬"; color: microphoneMenu.opened ? Theme.accent : Theme.muted; font.family: Theme.fontIcon; font.pixelSize: 17; Layout.preferredWidth: 22; horizontalAlignment: Text.AlignHCenter }
           Text { text: shell.audioNodeLabel(Pipewire.defaultAudioSource); color: Theme.text; font.family: Theme.font; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-          Text { text: microphoneMenu.opened ? "⌃" : "⌄"; color: Theme.muted; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
+          Text { text: microphoneMenu.opened ? "⌃" : "⌄"; color: shell.secondaryText; font.family: Theme.font; font.pixelSize: 16; Layout.preferredWidth: 18; horizontalAlignment: Text.AlignHCenter }
         }
 
         MouseArea {
@@ -331,10 +377,9 @@ Item {
           font.family: Theme.fontIcon; font.pixelSize: 22
           MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.muted = !Pipewire.defaultAudioSource.audio.muted }
         }
-        Slider {
-          Layout.fillWidth: true; from: 0; to: 1.5
-          value: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Pipewire.defaultAudioSource.audio.volume : 0
-          onMoved: if (Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio) Pipewire.defaultAudioSource.audio.volume = value
+        VolumeSlider {
+          Layout.fillWidth: true
+          nodeAudio: Pipewire.defaultAudioSource ? Pipewire.defaultAudioSource.audio : null
         }
         Text {
           text: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio ? Math.round(Pipewire.defaultAudioSource.audio.volume * 100) + "%" : "0%"
@@ -373,7 +418,7 @@ Item {
             spacing: 8
             Text {
               text: "Master volume"
-              color: Theme.muted
+              color: shell.secondaryText
               font.family: Theme.fontSans
               font.bold: true
               font.pixelSize: 12
@@ -381,7 +426,7 @@ Item {
             Item { Layout.fillWidth: true }
             Text {
               text: shell.audioNodeLabel(Pipewire.defaultAudioSink)
-              color: Theme.muted
+              color: shell.secondaryText
               font.family: Theme.fontSans
               font.pixelSize: 11
               elide: Text.ElideRight
@@ -405,11 +450,9 @@ Item {
               }
             }
 
-            Slider {
+            VolumeSlider {
               Layout.fillWidth: true
-              from: 0; to: 1.5
-              value: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio ? Pipewire.defaultAudioSink.audio.volume : 0
-              onMoved: if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) Pipewire.defaultAudioSink.audio.volume = value
+              nodeAudio: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
             }
 
             Text {
@@ -431,7 +474,7 @@ Item {
 
         Text {
           text: "Applications"
-          color: Theme.muted
+          color: shell.secondaryText
           font.family: Theme.fontSans
           font.bold: true
           font.pixelSize: 13
@@ -451,7 +494,7 @@ Item {
             id: streamCountText
             anchors.centerIn: parent
             text: audioRoot.audioStreams().length + " active"
-            color: Theme.muted
+            color: shell.secondaryText
             font.family: Theme.fontSans
             font.pixelSize: 11
           }
@@ -478,7 +521,7 @@ Item {
 
             Text {
               text: "󰓃"
-              color: Theme.muted
+              color: shell.secondaryText
               font.family: Theme.fontIcon
               font.pixelSize: 32
               Layout.alignment: Qt.AlignHCenter
@@ -495,7 +538,7 @@ Item {
 
             Text {
               text: "Applications playing audio will appear here"
-              color: Theme.muted
+              color: shell.secondaryText
               font.family: Theme.fontSans
               font.pixelSize: 11
               Layout.alignment: Qt.AlignHCenter
@@ -565,7 +608,7 @@ Item {
                   Text {
                     visible: audioRoot.streamDetail(streamCard.modelData).length > 0
                     text: audioRoot.streamDetail(streamCard.modelData)
-                    color: Theme.muted
+                    color: shell.secondaryText
                     font.family: Theme.fontMono
                     font.pixelSize: 10
                     elide: Text.ElideRight
@@ -596,7 +639,7 @@ Item {
                     }
 
                     Text {
-                      text: audioRoot.streamTargetDeviceLabel(streamCard.modelData)
+                      text: shell.audioNodeLabel(audioRoot.streamDevice(streamCard.modelData))
                       color: Theme.text
                       font.family: Theme.fontSans
                       font.pixelSize: 10
@@ -606,7 +649,7 @@ Item {
 
                     Text {
                       text: streamCard.expanded ? "⌃" : "⌄"
-                      color: Theme.muted
+                      color: shell.secondaryText
                       font.family: Theme.font
                       font.pixelSize: 10
                     }
@@ -643,12 +686,7 @@ Item {
                     Rectangle {
                       id: devRow
                       required property var modelData
-                      readonly property bool isSelected: {
-                        const driverId = Number(streamCard.modelData.properties && (streamCard.modelData.properties["node.driver-id"] || streamCard.modelData.properties["target.node"]));
-                        if (driverId) return driverId === devRow.modelData.id;
-                        const defaultDev = streamCard.isInput ? Pipewire.defaultAudioSource : Pipewire.defaultAudioSink;
-                        return devRow.modelData === defaultDev;
-                      }
+                      readonly property bool isSelected: devRow.modelData === audioRoot.streamDevice(streamCard.modelData)
                       Layout.fillWidth: true
                       implicitHeight: 30
                       radius: 6
@@ -673,7 +711,7 @@ Item {
 
                         Text {
                           text: shell.audioNodeLabel(devRow.modelData)
-                          color: devRow.isSelected ? Theme.text : Theme.muted
+                          color: devRow.isSelected ? Theme.text : shell.secondaryText
                           font.family: Theme.fontSans
                           font.pixelSize: 11
                           font.bold: devRow.isSelected
@@ -719,12 +757,9 @@ Item {
                   }
                 }
 
-                Slider {
+                VolumeSlider {
                   Layout.fillWidth: true
-                  from: 0
-                  to: 1.5
-                  value: streamCard.modelData.audio ? streamCard.modelData.audio.volume : 0
-                  onMoved: if (streamCard.modelData.audio) streamCard.modelData.audio.volume = value
+                  nodeAudio: streamCard.modelData.audio
                 }
 
                 Text {

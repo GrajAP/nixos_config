@@ -1195,7 +1195,7 @@ ShellRoot {
     return sinks;
   }
   function audioSources() {
-    const sources = Pipewire.nodes.values.filter(node => node.audio && node.isSource && !node.isStream);
+    const sources = Pipewire.nodes.values.filter(node => node.audio && !node.isSink && !node.isStream);
     if (sources.length === 0 && Pipewire.defaultAudioSource) return [Pipewire.defaultAudioSource];
     return sources;
   }
