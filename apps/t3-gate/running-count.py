@@ -10,8 +10,13 @@ import sqlite3
 from urllib.parse import quote
 
 DB_RELATIVE = os.path.join("userdata", "statev2.sqlite")
+# A hung provider leaves its run "running" for hours, so a run only counts while
+# its thread moved in the last hour.
 RUNNING_SQL = (
-    "select count(*) from orchestration_v2_projection_runs where status = 'running'"
+    "select count(*) from orchestration_v2_projection_runs r"
+    " join orchestration_v2_projection_threads t using (thread_id)"
+    " where r.status = 'running'"
+    " and t.updated_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 minutes')"
 )
 
 

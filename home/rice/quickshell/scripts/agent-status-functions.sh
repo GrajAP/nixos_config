@@ -1,10 +1,18 @@
 t3_agent_working() {
-  local state_db="$HOME/.t3/userdata/state.sqlite"
-  [[ -r "$state_db" ]] || return 1
+  local state_db="$HOME/.t3/userdata/statev2.sqlite"
+  local running
+  [[ -d "$HOME/.t3/userdata" ]] || return 1
 
-  [[ "$(sqlite3 -readonly -cmd '.timeout 1000' "$state_db" \
-    "SELECT EXISTS(SELECT 1 FROM projection_thread_sessions WHERE status = 'running' AND active_turn_id IS NOT NULL);" \
-    2>/dev/null || true)" == "1" ]]
+  # A hung provider leaves its run "running" for hours, so a run only counts
+  # while its thread moved in the last hour. A failed query counts as working:
+  # if T3 moves its database again, staying on beats killing a running agent.
+  running="$(sqlite3 -readonly -cmd '.timeout 1000' "$state_db" \
+    "SELECT count(*) FROM orchestration_v2_projection_runs r
+     JOIN orchestration_v2_projection_threads t USING (thread_id)
+     WHERE r.status = 'running'
+       AND t.updated_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 minutes');" \
+    2>/dev/null)" || return 0
+  [[ "$running" != "0" ]]
 }
 
 codex_agent_working() {
