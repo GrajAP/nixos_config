@@ -25,18 +25,19 @@ data this runbook protects, and where it now lives.
   sudo restic -r /var/lib/restic/homenest snapshots --tag nextcloud
   sudo restic -r /var/lib/restic/homenest restore latest --tag nextcloud --target /tmp/nc
   sudo nextcloud-occ maintenance:mode --on
-  sudo systemctl stop phpfpm-nextcloud.service nextcloud-notify_push.service
+  sudo systemctl stop nextcloud-cron.timer phpfpm-nextcloud.service nextcloud-notify_push.service
 
   sudo rsync -a --delete /tmp/nc/var/lib/nextcloud/data/ /var/lib/nextcloud/data/
   sudo cp -a /tmp/nc/var/lib/nextcloud/config/config.php /var/lib/nextcloud/config/
   sudo chown -R nextcloud:nextcloud /var/lib/nextcloud/data /var/lib/nextcloud/config
 
-  sudo -u postgres dropdb nextcloud
+  sudo -u postgres dropdb --force nextcloud
   sudo -u postgres createdb -O nextcloud nextcloud
   sudo -u postgres psql -d nextcloud -v ON_ERROR_STOP=1 \
     -f /tmp/nc/var/lib/homenest-backup/nextcloud.sql
 
-  sudo systemctl start phpfpm-nextcloud.service nextcloud-notify_push.service
+  sudo systemctl restart redis-nextcloud.service
+  sudo systemctl start phpfpm-nextcloud.service nextcloud-notify_push.service nextcloud-cron.timer
   sudo nextcloud-occ maintenance:mode --off
   sudo nextcloud-occ maintenance:data-fingerprint
   sudo rm -rf /tmp/nc

@@ -73,9 +73,8 @@
     umask 0077
 
     if [ "$(nextcloud-occ config:system:get maintenance || true)" != true ]; then
-      nextcloud-occ maintenance:mode --on
       trap 'nextcloud-occ maintenance:mode --off' EXIT
-      trap 'exit 1' INT TERM
+      nextcloud-occ maintenance:mode --on
     fi
 
     rm -f ${ncDump}
@@ -198,6 +197,7 @@ in {
             "postgresql.service"
             "nextcloud-setup.service"
             "homenest-backup-env.service"
+            "homenest-backup.service"
           ];
           requires = ["postgresql.service"];
           onFailure = ["server-alert@nextcloud-backup.service"];
