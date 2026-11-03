@@ -1,5 +1,5 @@
-# PC-only: KDE Connect, and the Tailscale firewall flag plus the --ssh
-# recovery path.
+# PC-only: KDE Connect, the Tailscale firewall flag, the --ssh recovery path,
+# and key-only OpenSSH on 2222 for agents on lenovo.
 {
   config,
   pkgs,
@@ -11,8 +11,16 @@ in {
     kdePackages.kdeconnect-kde
   ];
 
+  # Tailscale SSH owns port 22 on the tailnet and asks for a browser check
+  # every few hours, which an agent on lenovo cannot pass. OpenSSH on 2222,
+  # tailnet only, takes lenovo's fleet key instead.
+  services.openssh.ports = [22 2222];
+  users.users.grajpap.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBnc4+4bYtx2q/y/f2k6BAh3aXyMV4m8c/V1wtprDa1p lenovo-fleet-to-dell"
+  ];
+
   networking.firewall.interfaces.${tailnetInterface} = {
-    allowedTCPPorts = [443];
+    allowedTCPPorts = [443 2222];
     # KDE Connect's fixed port range.
     allowedTCPPortRanges = [
       {
