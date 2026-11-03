@@ -64,6 +64,34 @@
       --exclude '*.apk' \
       --exclude 'auto-update.log'
   '';
+
+  nc = config.services.nextcloud;
+  ncDump = "${stage}/nextcloud.sql";
+
+  nextcloudBackupRun = pkgs.writeShellScriptBin "nextcloud-backup-run" ''
+    set -eu
+    umask 0077
+
+    if [ "$(nextcloud-occ config:system:get maintenance || true)" != true ]; then
+      trap 'nextcloud-occ maintenance:mode --off' EXIT
+      nextcloud-occ maintenance:mode --on
+    fi
+
+    rm -f ${ncDump}
+    ${lib.getExe' pkgs.util-linux "runuser"} -u postgres -- \
+      ${config.services.postgresql.package}/bin/pg_dump ${nc.config.dbname} > ${ncDump}
+    tail -n 5 ${ncDump} | grep -q 'PostgreSQL database dump complete' || {
+      echo "nextcloud-backup: pg_dump output is incomplete, aborting" >&2
+      exit 1
+    }
+
+    ${lib.getExe restic} -r ${repo} backup \
+      ${nc.home} \
+      ${ncDump} \
+      --tag nextcloud \
+      --tag "$(hostname)" \
+      --exclude '${nc.datadir}/data/appdata_*/preview'
+  '';
 in {
   # ===========================================================================
   # BACKUP
@@ -160,6 +188,35 @@ in {
           };
         };
 
+        # Calendars and tasks live in PostgreSQL, notes are files in the datadir.
+        # Maintenance mode holds both still between pg_dump and the file copy.
+        # The whole instance is a few MB, so the 503 window is seconds.
+        nextcloud-backup = lib.mkIf nc.enable {
+          description = "restic backup of Nextcloud: datadir, config and database dump";
+          after = [
+            "postgresql.service"
+            "nextcloud-setup.service"
+            "homenest-backup-env.service"
+            "homenest-backup.service"
+          ];
+          requires = ["postgresql.service"];
+          onFailure = ["server-alert@nextcloud-backup.service"];
+          path = [
+            pkgs.coreutils
+            pkgs.gnugrep
+            pkgs.inetutils
+            nc.occ
+            restic
+          ];
+          environment.RESTIC_PASSWORD_FILE = resticPasswordFile;
+          serviceConfig = {
+            Type = "oneshot";
+            User = "root";
+            ExecStart = "${nextcloudBackupRun}/bin/nextcloud-backup-run";
+            ExecStopPost = "${pkgs.coreutils}/bin/rm -f ${ncDump}";
+          };
+        };
+
         # -----------------------------------------------------------------------
         # Retention
         # -----------------------------------------------------------------------
@@ -167,6 +224,7 @@ in {
           description = "restic forget/prune and repository check";
           after = [
             "homenest-backup.service"
+            "nextcloud-backup.service"
             "homenest-backup-env.service"
           ];
           path = [
@@ -194,6 +252,17 @@ in {
             OnCalendar = "*-*-* 03:30:00";
             RandomizedDelaySec = "10m";
             Persistent = true; # run after a reboot if the window was missed
+            AccuracySec = "1m";
+          };
+        };
+
+        nextcloud-backup = lib.mkIf nc.enable {
+          description = "Nightly Nextcloud backup";
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = "*-*-* 03:50:00";
+            RandomizedDelaySec = "10m";
+            Persistent = true;
             AccuracySec = "1m";
           };
         };

@@ -7,20 +7,47 @@ data this runbook protects, and where it now lives.
 
 ### lenovo: calendar, tasks, notes
 
-- Data: `/var/lib/nextcloud/data` plus the PostgreSQL database.
-- RPO/RTO: **not currently covered.** The nightly job in
-  `hosts/lenovo/modules/backup.nix` backs up `/opt/homenest/data` and
-  `/etc/nixos`; the Nextcloud datadir is not in it. Until that changes, a
-  `rm -rf` in the datadir is unrecoverable.
+- Data: `/var/lib/nextcloud` (`data/`, `config/`, `secrets/`) plus the
+  `nextcloud` PostgreSQL database. Calendars and tasks live in the database,
+  notes are files under `data/grajpap/files`.
+- Backup: `nextcloud-backup.service` in `hosts/lenovo/modules/backup.nix`, every
+  night at 03:50 (up to 10 min random delay). It turns maintenance mode on,
+  writes a `pg_dump` to `/var/lib/homenest-backup/nextcloud.sql`, runs restic on
+  `/var/lib/nextcloud` plus that dump, then turns maintenance mode off. Previews
+  (`data/appdata_*/preview`) are skipped, Nextcloud regenerates them. Same
+  repository and password as HomeNest, snapshots are tagged `nextcloud`, a
+  failure alerts through `server-alert@nextcloud-backup`.
+- RPO: 24 hours. RTO: about 10 minutes. The repository is on the same disk, so
+  this covers mistakes and bad deploys, not disk failure.
 - Restore:
 
   ```sh
-  sudo systemctl stop phpfpm-nextcloud.service
-  sudo restic -r /var/lib/restic/homenest restore latest --include /var/lib/nextcloud
+  sudo restic -r /var/lib/restic/homenest snapshots --tag nextcloud
+  sudo restic -r /var/lib/restic/homenest restore latest --tag nextcloud --target /tmp/nc
+  sudo nextcloud-occ maintenance:mode --on
+  sudo systemctl stop nextcloud-cron.timer phpfpm-nextcloud.service nextcloud-notify_push.service
+
+  sudo rsync -a --delete /tmp/nc/var/lib/nextcloud/data/ /var/lib/nextcloud/data/
+  sudo cp -a /tmp/nc/var/lib/nextcloud/config/config.php /var/lib/nextcloud/config/
+  sudo chown -R nextcloud:nextcloud /var/lib/nextcloud/data /var/lib/nextcloud/config
+
+  sudo -u postgres dropdb --force nextcloud
+  sudo -u postgres createdb -O nextcloud nextcloud
+  sudo -u postgres psql -d nextcloud -v ON_ERROR_STOP=1 \
+    -f /tmp/nc/var/lib/homenest-backup/nextcloud.sql
+
+  sudo systemctl restart redis-nextcloud.service
+  sudo systemctl start phpfpm-nextcloud.service nextcloud-notify_push.service nextcloud-cron.timer
+  sudo nextcloud-occ maintenance:mode --off
+  sudo nextcloud-occ maintenance:data-fingerprint
+  sudo rm -rf /tmp/nc
   ```
 
-  A PostgreSQL dump has to be taken with `pg_dump`; restic restores files, not a
-  consistent database image, so stop the service first.
+  `--delete` on `data/` drops the preview cache, which is expected.
+  `config.php` holds the instance secret and password salt, restore it together
+  with the database. `data-fingerprint` tells sync clients the server went back
+  in time. The backed up `config.php` has maintenance mode on, so the
+  `--off` step is required.
 
 ### grajpap: /mnt/Storage only
 
