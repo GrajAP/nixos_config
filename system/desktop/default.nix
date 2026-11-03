@@ -1,5 +1,5 @@
 # PC-only: KDE Connect, the Tailscale firewall flag, the --ssh recovery path,
-# and key-only OpenSSH on 2222 for agents on lenovo.
+# the Tailscale exit node, and key-only OpenSSH on 2222 for agents on lenovo.
 {
   config,
   pkgs,
@@ -38,8 +38,10 @@ in {
 
   services.tailscale = {
     openFirewall = true;
+    # The exit node needs IPv4 and IPv6 forwarding.
+    useRoutingFeatures = "server";
     # Tailscale SSH is the recovery path before an OpenSSH authorized key is
     # installed.
-    extraSetFlags = ["--ssh"];
+    extraSetFlags = ["--ssh" "--advertise-exit-node"];
   };
 }

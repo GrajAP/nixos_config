@@ -97,6 +97,8 @@ in {
       download = "$HOME/download";
 
       music = "$HOME/music";
+      videos = "$HOME/vids";
+      projects = "$HOME/dev";
       pictures = "$HOME/pics";
       desktop = "$HOME/other";
       publicShare = "$HOME/other";

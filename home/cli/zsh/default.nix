@@ -25,8 +25,8 @@
     };
 
     dirHashes = {
-      docs = "$HOME/docs";
-      notes = "$HOME/docs/notes";
+      docs = "$HOME/documents";
+      notes = "$HOME/Nextcloud/Notes";
       dots = "/etc/nixos";
       dl = "$HOME/download";
       vids = "$HOME/vids";

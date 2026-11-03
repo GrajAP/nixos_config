@@ -17,6 +17,8 @@
       kernel_errors="$(journalctl --dmesg --priority=err --since='24 hours ago' --output=json 2>/dev/null | jq -s 'length')"
       backup_state="$(systemctl show restic-backups-storage.service --property=ActiveState --value 2>/dev/null || echo unknown)"
       backup_result="$(systemctl show restic-backups-storage.service --property=Result --value 2>/dev/null || echo unknown)"
+      backup_exit_status="$(systemctl show restic-backups-storage.service --property=ExecMainStatus --value 2>/dev/null || echo 0)"
+      [[ "$backup_exit_status" =~ ^[0-9]+$ ]] || backup_exit_status=0
       backup_stamp=/var/lib/restic-nextcloud/storage-backup.last-success
       backup_last_success=""
       backup_age_hours=null
@@ -44,6 +46,7 @@
         --argjson kernelErrors24h "$kernel_errors" \
         --arg backupState "$backup_state" \
         --arg backupResult "$backup_result" \
+        --argjson backupExitStatus "$backup_exit_status" \
         --arg backupLastSuccess "$backup_last_success" \
         --argjson backupAgeHours "$backup_age_hours" \
         --argjson disks "$disks" \
@@ -53,6 +56,7 @@
           backup: {
             state: $backupState,
             result: $backupResult,
+            exitStatus: $backupExitStatus,
             lastSuccess: (if $backupLastSuccess == "" then null else $backupLastSuccess end),
             ageHours: $backupAgeHours
           },
@@ -65,11 +69,35 @@
       if ((root_used >= 90)); then
         logger --tag system-health --priority user.err "Root filesystem usage is ''${root_used}%"
       fi
-      if [[ "$backup_result" == "failed" || "$backup_age_hours" == "null" ]]; then
+      # A rebuild can reset Result to success after a failed run, ExecMainStatus
+      # keeps the real exit code.
+      if [[ "$backup_result" == "failed" || "$backup_exit_status" != "0" || "$backup_age_hours" == "null" ]]; then
         logger --tag system-health --priority user.err "The /mnt/Storage backup is missing or failed"
       elif ((backup_age_hours >= 36)); then
         logger --tag system-health --priority user.err "The latest /mnt/Storage backup is ''${backup_age_hours} hours old"
       fi
+    '';
+  };
+  backupHealthNotify = pkgs.writeShellApplication {
+    name = "backup-health-notify";
+    runtimeInputs = with pkgs; [jq libnotify];
+    text = ''
+      set -euo pipefail
+
+      status=/var/lib/system-health/status.json
+      [[ -r "$status" ]] || exit 0
+
+      message="$(jq -r '
+        .backup
+        | if .ageHours == null then "No successful /mnt/Storage backup is recorded."
+          elif .exitStatus != 0 then "The last /mnt/Storage backup failed. The last good one is \(.ageHours) hours old. See: journalctl -u restic-backups-storage"
+          elif .ageHours >= 36 then "The latest /mnt/Storage backup is \(.ageHours) hours old."
+          else empty
+          end
+      ' "$status")"
+      [[ -n "$message" ]] || exit 0
+
+      notify-send --app-name="Backup" --icon=dialog-warning -u critical "Backup problem" "$message"
     '';
   };
   systemHealth = pkgs.writeShellApplication {
@@ -120,6 +148,23 @@ in {
         OnUnitInactiveSec = "15min";
         Persistent = true;
         RandomizedDelaySec = "2min";
+      };
+    };
+    user = {
+      services.backup-health-notify = {
+        description = "Warn on the desktop when the /mnt/Storage backup is failing";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = lib.getExe backupHealthNotify;
+        };
+      };
+      timers.backup-health-notify = {
+        wantedBy = ["graphical-session.target"];
+        partOf = ["graphical-session.target"];
+        timerConfig = {
+          OnActiveSec = "10min";
+          OnUnitActiveSec = "6h";
+        };
       };
     };
   };
