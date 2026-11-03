@@ -45,6 +45,7 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 - The full rubric, live model matching, and prompt pattern live in the `model-pick` skill. Load it for "which model" or "how to prompt" questions.
 - Mechanical work (edits, formatting, searches, rebuilds) belongs on the cheap or free model in the current thread.
 - Antigravity subagents (Gemini 3.8 Flash, high) are unlimited and free, but low quality: use them only for very simple tasks, to save cost.
+- OpenCode free models have tight rate limits, so an OpenCode task can stall with no output. If it hangs, it is likely the limit, not your prompt: cancel it and move the work to another provider instead of waiting or retrying.
 - Reviews, plans, and anything user-facing (docs, copy, UI strings) deserve a stronger model: in T3 Code, delegate an independent pass with `delegate_task` to a different provider, so the review is not the same model grading its own work. Never use the same model as reviewer and author on one diff.
 - If a cheaper model's output misses the bar, redo it with a stronger model without asking. Judge output, not price.
 - Two different weak models agreeing on separate runs is strong evidence; one strong model alone is not.
