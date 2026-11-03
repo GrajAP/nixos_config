@@ -185,6 +185,51 @@ def test_day_shift_of_custom_series_is_refused():
     assert "2026-11-04 10:00" not in occurrence_starts(store[EVENT_HREF])
 
 
+def test_utc_custom_series_time_edit_that_changes_rule_day_is_refused():
+    ics = crlf("""
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    PRODID:x
+    BEGIN:VEVENT
+    UID:utc-series
+    DTSTAMP:20261001T000000Z
+    DTSTART:20261102T230000Z
+    DTEND:20261103T000000Z
+    RRULE:FREQ=WEEKLY;BYDAY=MO
+    EXDATE:20261109T230000Z
+    SUMMARY:Late
+    END:VEVENT
+    END:VCALENDAR
+    """)
+    store[EVENT_HREF] = ics
+    try:
+        run("edit_event", EVENT_HREF, "2026-11-03", "Late", "01:00", "02:00")
+    except RuntimeError as error:
+        assert "custom-repeat" in str(error)
+    else:
+        raise AssertionError("time edit that moves a UTC BYDAY series to another day was accepted")
+    assert store[EVENT_HREF] == ics
+
+
+def test_no_end_event_gets_end_when_duration_changes():
+    ics = crlf("""
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    PRODID:x
+    BEGIN:VEVENT
+    UID:point2
+    DTSTAMP:20261001T000000Z
+    DTSTART:20261105T090000Z
+    SUMMARY:Call
+    END:VEVENT
+    END:VCALENDAR
+    """)
+    store[EVENT_HREF] = ics
+    run("edit_event", EVENT_HREF, "2026-11-05", "Call", "10:00", "12:00")
+    event = Calendar.from_ical(store[EVENT_HREF]).walk("VEVENT")[0]
+    assert event["DTEND"].dt - event["DTSTART"].dt == timedelta(hours=2)
+
+
 def test_day_shift_of_plain_weekly_series():
     plain = SERIES.replace("RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T225959Z", "RRULE:FREQ=WEEKLY").replace(
         "EXDATE;TZID=Europe/Warsaw:20261104T100000", "EXDATE;TZID=Europe/Warsaw:20261116T100000"

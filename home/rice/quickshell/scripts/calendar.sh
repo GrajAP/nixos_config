@@ -1135,7 +1135,7 @@ if True:
           if target is not master and repeat is not None:
               raise RuntimeError("This day was changed on its own; change the repeat from another day of the series")
           replaces_rule = repeat is not None and repeat != repeat_choice(master)
-          if target is master and not replaces_rule and local_day(new_start) != local_day(old_start) and rule_has_by_parts(master):
+          if target is master and not replaces_rule and wall_clock(new_start, zone_of(new_start)).date() != wall_clock(old_start, zone_of(old_start)).date() and rule_has_by_parts(master):
               # EXDATE and RECURRENCE-ID move by the same delta as DTSTART,
               # but BYDAY and friends pin the instances, so they would stop
               # lining up and deleted or moved days would come back.
@@ -1151,7 +1151,7 @@ if True:
                   shift_series(calendar, master, old_start, new_start)
               significant = True
           implied_end = old_end if old_end is not None else (old_start + timedelta(days=1) if not isinstance(old_start, datetime) else old_start)
-          keeps_no_end = old_end is None and same_moment(new_start, old_start)
+          keeps_no_end = old_end is None and same_moment(new_start, old_start) and (end_clock is None or same_moment(new_end, new_start + timedelta(hours=1)))
           if not keeps_no_end and (significant or not same_moment(new_end, implied_end)):
               if target.get("DURATION") is not None and target.get("DTEND") is None:
                   set_property(target, "DURATION", new_end - new_start)
