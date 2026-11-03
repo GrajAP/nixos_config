@@ -238,6 +238,18 @@ ShellRoot {
   property int calendarEventDurationMinutes: 60
   property string calendarRepeatAction: ""
   property int calendarRepeatDelta: 0
+  property bool calendarStale: false
+  property string calendarStaleSince: ""
+  property string calendarRepeat: "none"
+  property string calendarRepeatOriginal: "none"
+  property string calendarEditingOccurrence: ""
+  property bool calendarEditingRecurring: false
+  property bool calendarDeleteChoice: false
+  property bool overallTodoHasStart: false
+  property string overallTodoStartDate: ""
+  property string overallTodoStartOriginal: ""
+  property string overallTodoRepeat: "none"
+  property string overallTodoRepeatOriginal: "none"
   readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   readonly property var keybindHelpEntries: @keybindHelp@
@@ -586,9 +598,9 @@ ShellRoot {
           if (root.overallTodoListId.length === 0 && root.calendarTaskLists.length > 0)
             root.overallTodoListId = root.calendarTaskLists[0].id;
           root.calendarError = payload.error || "";
+          root.calendarStale = Boolean(payload.stale);
+          root.calendarStaleSince = payload.staleSince || "";
         } catch (error) {
-          root.calendarEvents = [];
-          root.calendarTaskLists = [];
           root.calendarError = "Could not read calendar data";
         }
       }
@@ -613,11 +625,8 @@ ShellRoot {
           if (calendarTaskAction.succeeded) {
             if (payload.undoable !== undefined)
               root.calendarCanUndo = Boolean(payload.undoable);
-            if (calendarTaskAction.actionName === "add-overall-task" || calendarTaskAction.actionName === "edit-overall-task") {
-              root.overallTodoDraft = "";
-              root.overallTodoEditingHref = "";
-              root.overallTodoHasDate = false;
-            }
+            if (calendarTaskAction.actionName === "add-overall-task" || calendarTaskAction.actionName === "edit-overall-task")
+              root.resetOverallTodoEditor();
             if (calendarTaskAction.actionName === "create-task-list") {
               root.overallTodoListDraft = "";
               root.overallTodoCreatingList = false;
@@ -631,11 +640,8 @@ ShellRoot {
               root.overallTodoListId = "";
               root.overallTodoPendingDeleteListId = "";
             }
-            if (calendarTaskAction.actionName === "undo") {
-              root.overallTodoDraft = "";
-              root.overallTodoEditingHref = "";
-              root.overallTodoHasDate = false;
-            }
+            if (calendarTaskAction.actionName === "undo")
+              root.resetOverallTodoEditor();
           }
         } catch (error) {
           calendarTaskAction.succeeded = false;
@@ -1757,11 +1763,7 @@ ShellRoot {
     const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = dateKey(clock.date);
-    const counts = {};
-    for (const event of root.calendarEvents) {
-      if (root.calendarTaskIsGeneral(event)) continue;
-      counts[event.date] = (counts[event.date] || 0) + 1;
-    }
+    const dayEvents = root.calendarEvents.filter(event => !root.calendarTaskIsGeneral(event));
     const cells = [];
     for (let index = 0; index < 42; index++) {
       const day = index - firstDay + 1;
@@ -1777,7 +1779,7 @@ ShellRoot {
         date: key,
         isToday: key === today,
         isSelected: key === root.calendarSelectedDate,
-        eventCount: counts[key] || 0
+        eventCount: dayEvents.filter(event => root.calendarItemCovers(event, key)).length
       });
     }
     // Keep all six rows on every panel: slicing short months to 4-5 rows also
@@ -1787,17 +1789,31 @@ ShellRoot {
     // position.
     return cells;
   }
+  // Multi-day items (spanStart/spanEnd) and future runs of repeating tasks
+  // (coverDays) belong on every day they cover, not only their first date.
+  function calendarItemCovers(event, date) {
+    if (!event || !date) return false;
+    const first = event.spanStart || event.date;
+    const last = event.spanEnd || event.date;
+    if (first && first <= date && date <= last) return true;
+    return Boolean(event.coverDays && event.coverDays[date]);
+  }
+  // A timed event shown on a later day of its span reads as all day there.
+  // startTime/endTime stay intact so editing it still loads the real times.
+  function calendarItemOnDay(event, date) {
+    const copy = Object.assign({}, event);
+    copy.nowMarker = false;
+    copy.nowThrough = false;
+    copy.continued = !event.task && date !== event.date && !event.allDay;
+    if (copy.continued) copy.allDay = true;
+    copy.sortMinutes = root.calendarAgendaSortMinutes(copy);
+    return copy;
+  }
   function calendarDayItems(date, limit) {
     if (!date) return [];
     const items = root.calendarEvents
-      .filter(event => event.date === date && !root.calendarTaskIsGeneral(event))
-      .map(event => {
-        const copy = Object.assign({}, event);
-        copy.nowMarker = false;
-        copy.nowThrough = false;
-        copy.sortMinutes = root.calendarAgendaSortMinutes(event);
-        return copy;
-      });
+      .filter(event => root.calendarItemCovers(event, date) && !root.calendarTaskIsGeneral(event))
+      .map(event => root.calendarItemOnDay(event, date));
     if (date === root.dateKey(clock.date)) {
       const nowMinutes = clock.date.getHours() * 60 + clock.date.getMinutes();
       let ongoingStart = -1;
@@ -1857,7 +1873,7 @@ ShellRoot {
   function calendarDayOverflow(date, limit) {
     if (!date) return 0;
     const count = root.calendarEvents
-      .filter(event => event.date === date && !root.calendarTaskIsGeneral(event))
+      .filter(event => root.calendarItemCovers(event, date) && !root.calendarTaskIsGeneral(event))
       .length;
     return Math.max(0, count - (limit || 3));
   }
@@ -1892,7 +1908,7 @@ ShellRoot {
   function todayActiveTasks(limit) {
     const today = root.dateKey(clock.date);
     const tasks = root.calendarEvents
-      .filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today)
+      .filter(event => Boolean(event.task) && !Boolean(event.completed) && root.calendarItemCovers(event, today))
       .filter(event => !root.calendarTaskIsGeneral(event))
       .slice()
       .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
@@ -1982,7 +1998,7 @@ ShellRoot {
   function agendaTodayTaskCount() {
     const today = root.dateKey(clock.date);
     return root.calendarEvents
-      .filter(event => Boolean(event.task) && !Boolean(event.completed) && event.date === today)
+      .filter(event => Boolean(event.task) && !Boolean(event.completed) && root.calendarItemCovers(event, today))
       .filter(event => !root.calendarTaskIsGeneral(event))
       .length;
   }
@@ -2002,15 +2018,8 @@ ShellRoot {
   }
  	  function selectedDayEvents() {
  	    const list = root.calendarEvents
- 	      .filter(event => event.date === root.calendarSelectedDate && !root.calendarTaskIsGeneral(event))
- 	      .slice()
- 	      .map(event => {
- 	        const copy = Object.assign({}, event);
- 	        copy.nowMarker = false;
- 	        copy.nowThrough = false;
- 	        copy.sortMinutes = root.calendarAgendaSortMinutes(copy);
- 	        return copy;
- 	      });
+ 	      .filter(event => root.calendarItemCovers(event, root.calendarSelectedDate) && !root.calendarTaskIsGeneral(event))
+ 	      .map(event => root.calendarItemOnDay(event, root.calendarSelectedDate));
  	    if (root.calendarNowKey.length >= 16 && root.calendarSelectedDate === root.calendarNowKey.substring(0, 10)) {
  	      const nowTime = root.calendarNowKey.substring(11, 16);
  	      const nowMinutes = root.calendarMinutesFromClock(nowTime, -1);
@@ -2121,6 +2130,11 @@ ShellRoot {
     root.calendarEditingHref = "";
     root.calendarEditingKind = "";
     root.calendarAllDay = false;
+    root.calendarRepeat = "none";
+    root.calendarRepeatOriginal = "none";
+    root.calendarEditingOccurrence = "";
+    root.calendarEditingRecurring = false;
+    root.calendarDeleteChoice = false;
   }
   function editCalendarItem(item) {
     if (!item || !item.href || item.note || item.source === "Obsidian")
@@ -2129,13 +2143,41 @@ ShellRoot {
       root.editOverallTodo(item);
       return;
     }
+    // The editor saves against the selected day, so it has to be the
+    // occurrence's own start day, not a later day of a multi-day span.
+    if (item.date) root.selectCalendarDate(item.date, true);
     root.calendarEditingHref = item.href;
     root.calendarEditingKind = "event";
     root.calendarEntryMode = "event";
     root.calendarTitleDraft = item.title || "";
-    root.calendarAllDay = Boolean(item.allDay);
+    root.calendarAllDay = Boolean(item.allDay) && !item.continued;
     root.calendarEventStartMinutes = root.calendarMinutesFromClock(item.startTime, root.calendarEventStartMinutes);
     root.calendarEventDurationMinutes = root.calendarDurationFromClocks(item.startTime, item.endTime);
+    root.calendarRepeat = item.repeat || "none";
+    root.calendarRepeatOriginal = root.calendarRepeat;
+    root.calendarEditingRecurring = Boolean(item.recurring);
+    root.calendarEditingOccurrence = item.recurring ? (item.recurrenceId || "") : "";
+    root.calendarDeleteChoice = false;
+  }
+  function calendarRepeatLabel(value) {
+    if (value === "daily") return "Daily";
+    if (value === "weekly") return "Weekly";
+    if (value === "monthly") return "Monthly";
+    if (value === "yearly") return "Yearly";
+    if (value === "custom") return "Custom";
+    return "No repeat";
+  }
+  // "custom" (a phone-made rule the editor cannot express) is never offered:
+  // leaving the chip alone keeps that rule, any click replaces it.
+  function nextCalendarRepeat(value) {
+    const order = ["none", "daily", "weekly", "monthly", "yearly"];
+    return order[(order.indexOf(value) + 1) % order.length];
+  }
+  function calendarStatusText() {
+    if (!root.calendarStale) return root.calendarError;
+    const since = root.calendarStaleSince ? new Date(root.calendarStaleSince) : null;
+    const when = since && Number.isFinite(since.getTime()) ? Qt.formatDateTime(since, "d.MM HH:mm") : "earlier";
+    return "Offline, showing data from " + when + (root.calendarError ? ": " + root.calendarError : "");
   }
   function calendarSaveLabel() {
     return root.calendarEditingHref.length > 0 ? "Save" : "+";
@@ -2145,10 +2187,29 @@ ShellRoot {
       return;
     root.runCalendarAction(["@calendarTask@", "complete-task", href]);
   }
-  function deleteCalendarItem(href) {
+  function deleteCalendarItem(href, occurrence) {
     if (!href || calendarTaskAction.running)
       return;
-    root.runCalendarAction(["@calendarTask@", "delete-item", href]);
+    const args = ["@calendarTask@", "delete-item"];
+    if (occurrence) args.push("--occurrence=" + occurrence);
+    args.push(href);
+    root.runCalendarAction(args);
+  }
+  function removeCalendarItem(item) {
+    if (!item || !item.href) return;
+    if (!item.task && item.recurring) {
+      root.editCalendarItem(item);
+      root.calendarDeleteChoice = true;
+      return;
+    }
+    root.deleteCalendarItem(item.href);
+  }
+  function pressCalendarEditorDelete() {
+    if (root.calendarEditingRecurring && !root.calendarDeleteChoice) {
+      root.calendarDeleteChoice = true;
+      return;
+    }
+    root.deleteCalendarItem(root.calendarEditingHref);
   }
   function openCalendarNote(noteId) {
     if (!noteId || calendarTaskAction.running)
@@ -2174,9 +2235,11 @@ ShellRoot {
     const title = root.calendarTitleDraft.trim();
     if (title.length === 0 || calendarTaskAction.running)
       return;
-    const action = root.calendarEditingHref.length > 0 ? "edit-event" : "add-event";
-    const args = ["@calendarTask@", action];
-    if (root.calendarEditingHref.length > 0) args.push(root.calendarEditingHref);
+    const editing = root.calendarEditingHref.length > 0;
+    const args = ["@calendarTask@", editing ? "edit-event" : "add-event"];
+    if (root.calendarRepeat !== root.calendarRepeatOriginal) args.push("--repeat=" + root.calendarRepeat);
+    if (editing && root.calendarEditingOccurrence.length > 0) args.push("--occurrence=" + root.calendarEditingOccurrence);
+    if (editing) args.push(root.calendarEditingHref);
     args.push(root.calendarSelectedDate);
     args.push(title);
     if (!root.calendarAllDay) {
@@ -2190,25 +2253,69 @@ ShellRoot {
     const list = root.selectedOverallTodoList();
     if (title.length === 0 || list === null || calendarTaskAction.running)
       return;
+    const editing = root.overallTodoEditingHref.length > 0;
     const dueDate = root.overallTodoHasDate ? root.calendarSelectedDate : "-";
-    if (root.overallTodoEditingHref.length > 0)
-      root.runCalendarAction(["@calendarTask@", "edit-overall-task", root.overallTodoEditingHref, dueDate, title]);
+    const startDate = root.overallTodoHasStart ? root.overallTodoStartDate : "";
+    const options = [];
+    // Only send what changed, so an edit never rewrites a start date or a
+    // repeat rule the phone set and this editor did not touch.
+    if (startDate !== root.overallTodoStartOriginal) options.push("--start=" + (startDate || "-"));
+    if (root.overallTodoRepeat !== root.overallTodoRepeatOriginal) options.push("--repeat=" + root.overallTodoRepeat);
+    if (editing)
+      root.runCalendarAction(["@calendarTask@", "edit-overall-task"].concat(options, [root.overallTodoEditingHref, dueDate, title]));
     else
-      root.runCalendarAction(["@calendarTask@", "add-overall-task", list.id, dueDate, title]);
+      root.runCalendarAction(["@calendarTask@", "add-overall-task"].concat(options, [list.id, dueDate, title]));
   }
   function editOverallTodo(todo) {
     root.overallTodoEditingHref = todo.href || "";
     root.overallTodoDraft = todo.title || "";
-    root.overallTodoHasDate = Boolean(todo.date);
-    if (todo.date) root.selectCalendarDate(todo.date, true);
+    root.overallTodoHasDate = Boolean(todo.dueDate);
+    root.overallTodoHasStart = Boolean(todo.startDate);
+    root.overallTodoStartDate = todo.startDate || "";
+    root.overallTodoStartOriginal = todo.startDate || "";
+    root.overallTodoRepeat = todo.repeat || "none";
+    root.overallTodoRepeatOriginal = root.overallTodoRepeat;
+    if (todo.dueDate) root.selectCalendarDate(todo.dueDate, true);
     if (todo.taskListId) root.overallTodoListId = todo.taskListId;
     overallTodoInput.forceActiveFocus();
     overallTodoInput.selectAll();
   }
-  function cancelOverallTodoEdit() {
+  function resetOverallTodoEditor() {
     root.overallTodoEditingHref = "";
     root.overallTodoDraft = "";
     root.overallTodoHasDate = false;
+    root.overallTodoHasStart = false;
+    root.overallTodoStartDate = "";
+    root.overallTodoStartOriginal = "";
+    root.overallTodoRepeat = "none";
+    root.overallTodoRepeatOriginal = "none";
+  }
+  function cancelOverallTodoEdit() {
+    root.resetOverallTodoEditor();
+  }
+  function shiftDateKey(value, days) {
+    const parsed = root.calendarDateFromKey(value);
+    if (!parsed) return value;
+    parsed.setDate(parsed.getDate() + days);
+    return root.dateKey(parsed);
+  }
+  function toggleOverallTodoStart() {
+    root.overallTodoHasStart = !root.overallTodoHasStart;
+    if (root.overallTodoHasStart && root.overallTodoStartDate.length === 0) {
+      const today = root.dateKey(clock.date);
+      root.overallTodoStartDate = root.overallTodoHasDate && root.calendarSelectedDate < today ? root.calendarSelectedDate : today;
+    }
+  }
+  function shiftOverallTodoStart(days) {
+    let next = root.shiftDateKey(root.overallTodoStartDate || root.dateKey(clock.date), days);
+    if (root.overallTodoHasDate && next > root.calendarSelectedDate) next = root.calendarSelectedDate;
+    root.overallTodoStartDate = next;
+  }
+  function overallTodoDateLabel(todo) {
+    if (!todo || !todo.date) return todo && todo.recurring ? "↻" : "";
+    const due = root.calendarDateLabel(todo.date);
+    const label = todo.spanStart ? root.calendarDateLabel(todo.spanStart) + "-" + due : due;
+    return todo.recurring ? "↻ " + label : label;
   }
   function createOverallTodoList() {
     const name = root.overallTodoListDraft.trim();
@@ -3252,7 +3359,7 @@ ShellRoot {
 	              Layout.preferredHeight: 30
 	              spacing: 8
 	              Text {
-	                text: root.calendarEditingHref.length > 0 ? "Editing " + root.calendarEditingKind : ""
+	                text: root.calendarEditingHref.length === 0 ? "" : (root.calendarDeleteChoice ? "Delete only this day, or the whole series?" : "Editing " + root.calendarEditingKind + (root.calendarEditingRecurring ? " series" : ""))
 	                color: Theme.accent
 	                font.family: Theme.fontSans
 	                font.pixelSize: 11
@@ -3269,16 +3376,30 @@ ShellRoot {
 	                MouseArea { anchors.fill: parent; enabled: root.calendarEditingHref.length > 0; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.resetCalendarEditor() }
 	              }
 	              Rectangle {
+	                visible: root.calendarDeleteChoice && root.calendarEditingOccurrence.length > 0
+	                implicitWidth: 80
+	                implicitHeight: 30
+	                radius: Theme.radiusSm
+	                color: Theme.danger
+	                Text { anchors.fill: parent; text: "This one"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+	                MouseArea {
+	                  anchors.fill: parent
+	                  enabled: root.calendarDeleteChoice && !calendarTaskAction.running
+	                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+	                  onClicked: root.deleteCalendarItem(root.calendarEditingHref, root.calendarEditingOccurrence)
+	                }
+	              }
+	              Rectangle {
 	                implicitWidth: 80
 	                implicitHeight: 30
 		                radius: Theme.radiusSm
 		                color: root.calendarEditingHref.length > 0 ? Theme.danger : "transparent"
-		                Text { anchors.fill: parent; text: "Delete"; color: root.calendarEditingHref.length > 0 ? Theme.text : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+		                Text { anchors.fill: parent; text: root.calendarDeleteChoice ? "Series" : "Delete"; color: root.calendarEditingHref.length > 0 ? Theme.text : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
 	                MouseArea {
 	                  anchors.fill: parent
 	                  enabled: root.calendarEditingHref.length > 0 && !calendarTaskAction.running
 	                  cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-	                  onClicked: root.deleteCalendarItem(root.calendarEditingHref)
+	                  onClicked: root.pressCalendarEditorDelete()
 	                }
               }
             }
@@ -3364,6 +3485,16 @@ ShellRoot {
 		                  Text { text: "All day"; color: root.calendarEntryMode === "event" ? (root.calendarAllDay ? Theme.background : Theme.text) : "transparent"; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; verticalAlignment: Text.AlignVCenter }
 		                }
 		                MouseArea { anchors.fill: parent; enabled: root.calendarEntryMode === "event"; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: root.calendarAllDay = !root.calendarAllDay }
+		              }
+		              Rectangle {
+		                implicitWidth: 92
+		                implicitHeight: 40
+		                radius: 8
+		                color: root.calendarRepeat !== "none" ? Theme.accent : Theme.surface
+		                border.color: root.calendarRepeat !== "none" ? Theme.accent : Theme.border
+		                border.width: 1
+		                Text { anchors.fill: parent; text: root.calendarRepeatLabel(root.calendarRepeat); color: root.calendarRepeat !== "none" ? Theme.background : Theme.text; font.family: Theme.fontSans; font.pixelSize: 11; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+		                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.calendarRepeat = root.nextCalendarRepeat(root.calendarRepeat) }
 		              }
 				              ColumnLayout {
 					                Layout.preferredWidth: 260
@@ -3461,17 +3592,17 @@ ShellRoot {
 				              }
 	            }
             Rectangle {
-              visible: root.calendarError.length > 0
+              visible: root.calendarError.length > 0 || root.calendarStale
               Layout.fillWidth: true
               implicitHeight: 30
               radius: Theme.radiusSm
               color: Theme.surface
-              border.color: Theme.accent
+              border.color: root.calendarStale ? Theme.warning : Theme.accent
               border.width: 1
               Text {
                 anchors.fill: parent
                 anchors.margins: 8
-                text: root.calendarError
+                text: root.calendarStatusText()
                 color: Theme.accent
                 font.family: Theme.fontSans
                 font.pixelSize: 10
@@ -4133,7 +4264,7 @@ ShellRoot {
                     anchors.fill: parent
                     enabled: calendarItemRow.editable && !calendarTaskAction.running
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: root.deleteCalendarItem(calendarItemRow.modelData.href)
+                    onClicked: root.removeCalendarItem(calendarItemRow.modelData)
                   }
                 }
                 Rectangle {
@@ -4244,7 +4375,7 @@ ShellRoot {
                       anchors.fill: parent
                       enabled: calendarItemRow.editable && !calendarTaskAction.running
                       cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                      onClicked: root.deleteCalendarItem(calendarItemRow.modelData.href)
+                      onClicked: root.removeCalendarItem(calendarItemRow.modelData)
                     }
                   }
                   Rectangle {
@@ -4694,6 +4825,81 @@ ShellRoot {
               }
             }
           }
+          RowLayout {
+            visible: root.overallTodoDraft.length > 0 || root.overallTodoEditingHref.length > 0
+            Layout.fillWidth: true
+            spacing: 4
+            Rectangle {
+              visible: root.overallTodoHasStart
+              implicitWidth: 28
+              implicitHeight: 32
+              radius: 9
+              color: Theme.surface
+              border.color: Theme.border
+              border.width: 1
+              Text { anchors.centerIn: parent; text: "‹"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 20; font.bold: true }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftOverallTodoStart(-1) }
+            }
+            Rectangle {
+              implicitWidth: 104
+              implicitHeight: 32
+              radius: 9
+              color: root.overallTodoHasStart ? Theme.surfaceAlt : Theme.surface
+              border.color: root.overallTodoHasStart ? Theme.accent : Theme.border
+              border.width: 1
+              Text {
+                anchors.fill: parent
+                anchors.margins: 6
+                text: root.overallTodoHasStart ? "Start " + root.calendarDateLabel(root.overallTodoStartDate) : "No start"
+                color: root.overallTodoHasStart ? Theme.accent : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: 10
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+              }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleOverallTodoStart() }
+            }
+            Rectangle {
+              visible: root.overallTodoHasStart
+              implicitWidth: 28
+              implicitHeight: 32
+              radius: 9
+              color: Theme.surface
+              border.color: Theme.border
+              border.width: 1
+              Text { anchors.centerIn: parent; text: "›"; color: Theme.text; font.family: Theme.fontSans; font.pixelSize: 20; font.bold: true }
+              MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.shiftOverallTodoStart(1) }
+            }
+            Item { Layout.fillWidth: true }
+            Rectangle {
+              readonly property bool canRepeat: root.overallTodoHasDate || root.overallTodoHasStart
+              implicitWidth: 110
+              implicitHeight: 32
+              radius: 9
+              color: root.overallTodoRepeat !== "none" && canRepeat ? Theme.accent : Theme.surface
+              border.color: root.overallTodoRepeat !== "none" && canRepeat ? Theme.accent : Theme.border
+              border.width: 1
+              Text {
+                anchors.fill: parent
+                text: parent.canRepeat ? root.calendarRepeatLabel(root.overallTodoRepeat) : "Repeat needs a date"
+                color: root.overallTodoRepeat !== "none" && parent.canRepeat ? Theme.background : Theme.muted
+                font.family: Theme.fontSans
+                font.pixelSize: parent.canRepeat ? 11 : 9
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+              }
+              MouseArea {
+                anchors.fill: parent
+                enabled: parent.canRepeat
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.overallTodoRepeat = root.nextCalendarRepeat(root.overallTodoRepeat)
+              }
+            }
+          }
           ListView {
             id: overallTodoList
             Layout.fillWidth: true
@@ -4726,7 +4932,7 @@ ShellRoot {
                   // Date only. The calendar name used to sit here too, and on a
                   // narrow agenda column it left the title as "wher…": the event
                   // is the useful half of the row, the source is not.
-                  text: modelData.date ? root.calendarDateLabel(modelData.date) : ""
+                  text: root.overallTodoDateLabel(modelData)
                   visible: text.length > 0
                   color: Theme.muted
                   font.family: Theme.fontSans
@@ -4828,7 +5034,7 @@ ShellRoot {
                   Layout.fillWidth: true
                   spacing: 6
                   Text {
-                    text: overallTodoRow.modelData.date ? root.calendarDateLabel(overallTodoRow.modelData.date) : ""
+                    text: root.overallTodoDateLabel(overallTodoRow.modelData)
                     visible: text.length > 0
                     color: Theme.muted
                     font.family: Theme.fontSans
