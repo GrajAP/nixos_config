@@ -211,6 +211,29 @@ def test_utc_custom_series_time_edit_that_changes_rule_day_is_refused():
     assert store[EVENT_HREF] == ics
 
 
+def test_utc_custom_series_title_edit_near_midnight_is_accepted():
+    ics = crlf("""
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    PRODID:x
+    BEGIN:VEVENT
+    UID:utc-series
+    DTSTAMP:20261001T000000Z
+    DTSTART:20261102T230000Z
+    DTEND:20261103T000000Z
+    RRULE:FREQ=WEEKLY;BYDAY=MO
+    EXDATE:20261109T230000Z
+    SUMMARY:Late
+    END:VEVENT
+    END:VCALENDAR
+    """)
+    store[EVENT_HREF] = ics
+    run("edit_event", EVENT_HREF, "2026-11-03", "Renamed", "00:00", "01:00")
+    calendar, master = master_of(store[EVENT_HREF])
+    assert str(master["SUMMARY"]) == "Renamed"
+    assert master["DTSTART"].to_ical() == b"20261102T230000Z"
+
+
 def test_no_end_event_gets_end_when_duration_changes():
     ics = crlf("""
     BEGIN:VCALENDAR

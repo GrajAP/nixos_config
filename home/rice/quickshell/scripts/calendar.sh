@@ -1135,7 +1135,7 @@ if True:
           if target is not master and repeat is not None:
               raise RuntimeError("This day was changed on its own; change the repeat from another day of the series")
           replaces_rule = repeat is not None and repeat != repeat_choice(master)
-          if target is master and not replaces_rule and wall_clock(new_start, zone_of(new_start)).date() != wall_clock(old_start, zone_of(old_start)).date() and rule_has_by_parts(master):
+          if target is master and not replaces_rule and not same_moment(new_start, old_start) and wall_clock(new_start, zone_of(new_start)).date() != wall_clock(old_start, zone_of(old_start)).date() and rule_has_by_parts(master):
               # EXDATE and RECURRENCE-ID move by the same delta as DTSTART,
               # but BYDAY and friends pin the instances, so they would stop
               # lining up and deleted or moved days would come back.

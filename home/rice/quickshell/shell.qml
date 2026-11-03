@@ -2154,7 +2154,7 @@ ShellRoot {
     root.calendarTitleDraft = item.title || "";
     root.calendarAllDay = Boolean(item.allDay) && !item.continued;
     root.calendarEventStartMinutes = root.calendarMinutesFromClock(item.startTime, root.calendarEventStartMinutes);
-    root.calendarEventDurationMinutes = root.calendarDurationFromClocks(item.startTime, item.endTime);
+    root.calendarEventDurationMinutes = item.endTime ? root.calendarDurationFromClocks(item.startTime, item.endTime) : 60;
     root.calendarRepeat = item.repeat || "none";
     root.calendarRepeatOriginal = root.calendarRepeat;
     root.calendarEditingRecurring = Boolean(item.recurring);
