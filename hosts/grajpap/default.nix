@@ -48,6 +48,7 @@ in {
     ../../system/desktop
     ../../system/backup
     ../../system/monitoring
+    ../../system/ci
   ];
 
   # Keep user services (ollama, whisprflow) running after logout.
