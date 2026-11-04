@@ -8,7 +8,12 @@
   ...
 }: let
   name = "bespotted";
+  user = "github-runner";
   tokenFile = "/var/lib/github-runner-tokens/${name}.token";
+  # The default work dir is on tmpfs, too small for an Android build, and the
+  # module wipes it on every start. The cache dir survives that.
+  workDir = "/var/lib/github-runner-work/${name}";
+  cacheDir = "/var/lib/github-runner-cache/${name}";
   nixLd = "/run/current-system/sw/share/nix-ld/lib";
 
   # The Nix store SDK is read-only, so Gradle cannot download what is missing.
@@ -26,7 +31,8 @@ in {
   services.github-runners.${name} = {
     enable = true;
     url = "https://github.com/be-spotted/bespotted_codex";
-    inherit tokenFile;
+    inherit tokenFile user workDir;
+    group = user;
     replace = true;
     extraLabels = ["grajpap-ci"];
     extraPackages = with pkgs; [
@@ -51,6 +57,8 @@ in {
     extraEnvironment = {
       ANDROID_HOME = androidHome;
       ANDROID_SDK_ROOT = androidHome;
+      CARGO_HOME = "${cacheDir}/cargo";
+      RUSTUP_HOME = "${cacheDir}/rustup";
       # Actions on the deprecated Node 20 runtime, the runner only ships Node 24.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 = "true";
       # setup-node, setup-java, rustup and Gradle download generic Linux binaries.
@@ -61,7 +69,9 @@ in {
       # Docker socket access for service containers and `docker build`.
       # PrivateUsers would map the docker group away from this service.
       PrivateUsers = false;
-      SupplementaryGroups = ["docker"];
+      # The runner reads /proc/1/cgroup before it starts service containers.
+      ProtectProc = "default";
+      ReadWritePaths = [cacheDir];
       # This is the desktop: CI yields to whatever is running on it.
       CPUWeight = 20;
       IOWeight = 20;
@@ -72,6 +82,23 @@ in {
   # Stay inactive, not failed, until the token exists, so a rebuild cannot fail on it.
   systemd = {
     services."github-runner-${name}".unitConfig.ConditionPathExists = tokenFile;
-    tmpfiles.rules = ["d ${dirOf tokenFile} 0700 root root -"];
+    tmpfiles.rules = [
+      "d ${dirOf tokenFile} 0700 root root -"
+      "d ${dirOf workDir} 0755 root root -"
+      "d ${workDir} 0750 ${user} ${user} -"
+      "d ${dirOf cacheDir} 0755 root root -"
+      "d ${cacheDir} 0750 ${user} ${user} -"
+    ];
+  };
+
+  # A fixed home, because Gradle reads it from passwd and not from $HOME.
+  users = {
+    groups.${user} = {};
+    users.${user} = {
+      isSystemUser = true;
+      group = user;
+      extraGroups = ["docker"];
+      home = cacheDir;
+    };
   };
 }
