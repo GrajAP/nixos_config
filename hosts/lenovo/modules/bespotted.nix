@@ -92,7 +92,7 @@
       RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
       RCLONE_CONFIG_R2_ENDPOINT="$(value R2_ENDPOINT)" \
       RCLONE_CONFIG_R2_ACCESS_KEY_ID="$(value R2_ACCESS_KEY_ID)" \
-      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$(cat ${secretsDir}/r2-secret-access-key.compose)" \
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$(cat "$(value R2_SECRET_ACCESS_KEY_FILE_HOST)")" \
       ${lib.getExe pkgs.rclone} sync "r2:$(value R2_BUCKET)" ${mediaMirrorDir} \
       --config /dev/null --s3-no-check-bucket --fast-list --transfers 4
   '';
@@ -104,7 +104,7 @@
     umask 0077
     install -d -m 0700 ${stageDir}
     media_status=0
-    ${mediaMirror} || media_status=$?
+    ${pkgs.coreutils}/bin/timeout 90m ${mediaMirror} || media_status=$?
     dump=${stageDir}/bespotted.dump
     rm -f "$dump"
     ${compose} exec -T postgres pg_dump -U bespotted -d bespotted -Fc > "$dump"
@@ -137,15 +137,16 @@
 
   # Sent on every location: add_header in a location replaces inherited ones.
   # Content-Security-Policy stays Report-Only until a logged-in session shows no
-  # violations; webEnforceCsp then turns it on. Tiles and media come through the
-  # API, which redirects media to signed R2 URLs.
+  # violations; web.enforceCsp then turns it on. The map loads OpenFreeMap first
+  # and falls back to the API. Media comes through the API, which redirects to
+  # signed R2 URLs.
   webCsp = lib.concatStringsSep "; " [
     "default-src 'self'"
     "script-src 'self' https://clerk.be-spotted.org https://challenges.cloudflare.com"
     "style-src 'self' 'unsafe-inline'"
     "img-src 'self' data: blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com https://img.clerk.com https://images.clerk.dev"
     "media-src 'self' blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com"
-    "connect-src 'self' https://api.be-spotted.org https://clerk.be-spotted.org https://photon.komoot.io https://*.eu.r2.cloudflarestorage.com"
+    "connect-src 'self' https://api.be-spotted.org https://tiles.openfreemap.org https://clerk.be-spotted.org https://photon.komoot.io https://*.eu.r2.cloudflarestorage.com"
     "worker-src 'self' blob:"
     "frame-src https://clerk.be-spotted.org https://challenges.cloudflare.com"
     "font-src 'self' data:"
