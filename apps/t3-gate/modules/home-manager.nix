@@ -47,7 +47,7 @@ in {
         ExecStart = lib.getExe gate;
         Environment = [
           "T3_GATE_PORT=${toString cfg.port}"
-          "T3_GATE_REMOTES=${lib.concatStringsSep " " cfg.remotes}"
+          "\"T3_GATE_REMOTES=${lib.concatStringsSep " " cfg.remotes}\""
           "T3_GATE_CACHE=${toString cfg.cacheSeconds}"
         ];
         Restart = "on-failure";
