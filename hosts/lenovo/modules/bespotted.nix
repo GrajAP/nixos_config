@@ -7,6 +7,8 @@
   cfg = config.services.bespotted;
   secretsDir = "${cfg.stateDir}/secrets";
   stageDir = "${cfg.stateDir}/backup-stage";
+  mediaMirrorDir = "${cfg.stateDir}/backup-media";
+  offsiteEnvFile = "${secretsDir}/offsite-r2.env";
   envFile = "${secretsDir}/production.env";
   docker = lib.getExe config.virtualisation.docker.package;
 
@@ -77,12 +79,32 @@
     ''}
   '';
 
+  # R2 is the only copy of the media and the API's own token can delete from it,
+  # so it is pulled into restic, whose snapshots a later deletion cannot touch.
+  # The secret goes through the environment, never the command line. A failure
+  # must not cost the database dump, so it is reported after restic has run.
+  mediaMirror = pkgs.writeShellScript "bespotted-media-mirror" ''
+    set -eu
+    install -d -m 0700 ${mediaMirrorDir}
+    value() { sed -n "s/^$1=//p" ${envFile} | tail -n 1; }
+    [ "$(value MEDIA_STORAGE_BACKEND)" = r2 ] || exit 0
+    RCLONE_CONFIG_R2_TYPE=s3 \
+      RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+      RCLONE_CONFIG_R2_ENDPOINT="$(value R2_ENDPOINT)" \
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID="$(value R2_ACCESS_KEY_ID)" \
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$(cat "$(value R2_SECRET_ACCESS_KEY_FILE_HOST)")" \
+      ${lib.getExe pkgs.rclone} sync "r2:$(value R2_BUCKET)" ${mediaMirrorDir} \
+      --config /dev/null --s3-no-check-bucket --fast-list --transfers 4
+  '';
+
   # pg_dump through the running container, then prove the archive is readable
   # before restic stores it.
   backupRun = pkgs.writeShellScriptBin "bespotted-backup" ''
     set -eu
     umask 0077
     install -d -m 0700 ${stageDir}
+    media_status=0
+    ${pkgs.coreutils}/bin/timeout 90m ${mediaMirror} || media_status=$?
     dump=${stageDir}/bespotted.dump
     rm -f "$dump"
     ${compose} exec -T postgres pg_dump -U bespotted -d bespotted -Fc > "$dump"
@@ -90,9 +112,61 @@
     ${lib.getExe pkgs.restic} -r ${lib.escapeShellArg config.backup.resticRepository} backup \
       ${stageDir} \
       ${secretsDir} \
+      ${mediaMirrorDir} \
       /var/lib/docker/volumes/bespotted_uploads_prod/_data \
       --tag bespotted \
       --tag "$(hostname)"
+    if [ "$media_status" -ne 0 ]; then
+      echo "bespotted-backup: copying the R2 media failed, status $media_status" >&2
+      exit "$media_status"
+    fi
+  '';
+
+  # lenovo and its mirror on the PC share a house, so a fire or a burglary takes
+  # both. restic already encrypts this repository, and its files never change
+  # once written, so --immutable can only add to the copy.
+  offsiteCopy = pkgs.writeShellScript "bespotted-offsite-copy" ''
+    set -eu
+    set -a
+    . ${offsiteEnvFile}
+    set +a
+    exec ${lib.getExe pkgs.rclone} copy ${lib.escapeShellArg config.backup.resticRepository} \
+      "offsite:$OFFSITE_BUCKET/restic" \
+      --config /dev/null --s3-no-check-bucket --immutable --exclude "locks/**" --transfers 4
+  '';
+
+  # Sent on every location: add_header in a location replaces inherited ones.
+  # Content-Security-Policy stays Report-Only until a logged-in session shows no
+  # violations; web.enforceCsp then turns it on. The map loads OpenFreeMap first
+  # and falls back to the API. Media comes through the API, which redirects to
+  # signed R2 URLs.
+  webCsp = lib.concatStringsSep "; " [
+    "default-src 'self'"
+    "script-src 'self' https://clerk.be-spotted.org https://challenges.cloudflare.com"
+    "style-src 'self' 'unsafe-inline'"
+    "img-src 'self' data: blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com https://img.clerk.com https://images.clerk.dev"
+    "media-src 'self' blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com"
+    "connect-src 'self' https://api.be-spotted.org https://tiles.openfreemap.org https://clerk.be-spotted.org https://photon.komoot.io https://*.eu.r2.cloudflarestorage.com"
+    "worker-src 'self' blob:"
+    "frame-src https://clerk.be-spotted.org https://challenges.cloudflare.com"
+    "font-src 'self' data:"
+    "manifest-src 'self'"
+    "object-src 'none'"
+    "base-uri 'self'"
+    "form-action 'self' https://clerk.be-spotted.org"
+    "frame-ancestors 'none'"
+  ];
+  webSecurityHeaders = ''
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(self), geolocation=(self), microphone=()" always;
+    add_header ${
+      if cfg.web.enforceCsp
+      then "Content-Security-Policy"
+      else "Content-Security-Policy-Report-Only"
+    } "${webCsp}" always;
   '';
 
   alertOnFailure = name: ["server-alert@${name}.service"];
@@ -149,6 +223,12 @@ in {
         description = "Loopback port of the nginx site that serves the web build.";
       };
 
+      enforceCsp = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Enforce the Content-Security-Policy instead of only reporting violations in the browser console.";
+      };
+
       root = lib.mkOption {
         type = lib.types.path;
         default = "/var/lib/bespotted-web/current";
@@ -168,6 +248,7 @@ in {
           "d ${cfg.stateDir} 0700 root root -"
           "d ${secretsDir} 0700 root root -"
           "d ${stageDir} 0700 root root -"
+          "d ${mediaMirrorDir} 0700 root root -"
           "d ${dirOf config.serverAlerts.posthogKeyFile} 0700 root root -"
         ]
         ++ lib.optional cfg.web.enable "d ${dirOf cfg.web.root} 0755 root root -";
@@ -251,6 +332,18 @@ in {
             ExecStopPost = "${pkgs.coreutils}/bin/rm -f ${stageDir}/bespotted.dump";
           };
         };
+
+        bespotted-offsite = {
+          description = "Copy the encrypted restic repository outside the house";
+          after = ["bespotted-backup.service" "network-online.target"];
+          wants = ["network-online.target"];
+          unitConfig.ConditionPathExists = offsiteEnvFile;
+          onFailure = alertOnFailure "bespotted-offsite";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = offsiteCopy;
+          };
+        };
       };
 
       timers = {
@@ -270,6 +363,16 @@ in {
             Persistent = true;
           };
         };
+
+        # After restic's 03:00-05:30 backup and prune window.
+        bespotted-offsite = {
+          wantedBy = ["timers.target"];
+          timerConfig = {
+            OnCalendar = "*-*-* 06:00:00";
+            RandomizedDelaySec = "20m";
+            Persistent = true;
+          };
+        };
       };
     };
 
@@ -286,18 +389,24 @@ in {
         }
       ];
       inherit (cfg.web) root;
+      # Cloudflare reports how the visitor connected. A plain HTTP page could be
+      # rewritten by anyone on the network, for example on campus Wi-Fi.
+      extraConfig = ''
+        if ($http_x_forwarded_proto = "http") {
+          return 308 https://${cfg.web.hostname}$request_uri;
+        }
+      '';
       locations = {
         "/" = {
           tryFiles = "$uri /index.html";
           extraConfig = ''
             add_header Cache-Control "no-cache";
-            add_header X-Content-Type-Options "nosniff";
-            add_header Referrer-Policy "strict-origin-when-cross-origin";
+            ${webSecurityHeaders}
           '';
         };
         "/assets/".extraConfig = ''
           add_header Cache-Control "public, max-age=31536000, immutable";
-          add_header X-Content-Type-Options "nosniff";
+          ${webSecurityHeaders}
         '';
       };
     };
