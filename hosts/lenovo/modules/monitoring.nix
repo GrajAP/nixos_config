@@ -44,7 +44,7 @@
       reclaimed=$(( (after - before) / 1048576 ))" MiB reclaimed by prune+GC"
     fi
 
-    ${notify}/bin/server-notify "root filesystem at ''${used}% (''${avail} free, reclaimed: ''${reclaimed})" \\
+    ${notify}/bin/server-notify "root filesystem at ''${used}% (''${avail} free, reclaimed: ''${reclaimed})" \
       "$(df -h /; echo; echo 'journalctl -u agent-scratch-prune -u nix-store-gc -n 50')"
   '';
 
@@ -53,7 +53,7 @@
   serverAlert = pkgs.writeShellScriptBin "server-alert" ''
     set -eu
     unit="''${1:?usage: server-alert <unit>}"
-    ${notify}/bin/server-notify "unit failed: $unit" \\
+    ${notify}/bin/server-notify "unit failed: $unit" \
       "$(systemctl status "$unit" --no-pager -n 20 2>&1 || true)"
   '';
 

@@ -20,8 +20,8 @@
   # React Native 0.85 and its native modules ask for exactly these versions.
   androidSdk =
     (pkgs.androidenv.composeAndroidPackages {
-      platformVersions = ["36"];
-      buildToolsVersions = ["36.0.0"];
+      platformVersions = ["33" "35" "36"];
+      buildToolsVersions = ["35.0.0" "36.0.0"];
       includeNDK = true;
       ndkVersions = ["27.1.12297006" "27.0.12077973"];
       cmakeVersions = ["3.22.1"];
