@@ -131,6 +131,10 @@ in {
           "nixos-activation.service"
         ];
         wants = ["network-online.target"];
+        # This unit runs the switch. If the switch stopped it for changing, it would
+        # kill its own activation halfway through.
+        restartIfChanged = false;
+        stopIfChanged = false;
 
         serviceConfig = {
           Type = "oneshot";
