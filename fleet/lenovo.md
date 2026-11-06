@@ -3,7 +3,9 @@
 - What: HomeNest (Docker, Caddy :80), Nextcloud under `/nextcloud`, restic backups, HTML plan uploads at `/plans`
 - Config: `hosts/lenovo/`, nixpkgs 25.11 stable + `unstablePkgs`, no home-manager
 - IP: `192.168.1.11` LAN (DHCP reservation on the Funbox, MAC 68:f7:28:47:1a:b7), `100.110.204.8` tailnet
-- SSH: `ssh lenovo-user-ts` (or `lenovo-user` on the LAN), user `grajpap`, NOPASSWD sudo, root SSH disabled
+- SSH: `ssh lenovo-user-ts` (or `lenovo-user` on the LAN), user `grajpap`: T3 and dev, no sudo, rootless Docker.
+- Admin: `ssh lenovo-admin-ts` (`ssh -l fleetadmin lenovo-user-ts`), the only account with NOPASSWD sudo and the production Docker socket.
+- Deploy fleet changes: `ssh lenovo-admin-ts 'git -C /etc/nixos pull --ff-only && nrb'`. The nightly rebuild does not pull.
 - Rebuild: `./rebuild.sh` (switches `#lenovo`)
 - T3 devices: `hosts/lenovo/modules/t3-devices.nix` keeps a read-only Android
   SDK symlinked at `/home/grajpap/Android/Sdk` so T3's device panel on lenovo

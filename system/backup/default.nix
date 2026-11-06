@@ -77,7 +77,7 @@ in {
             mkdir -p ${lenovoMirror}
             exec rsync -a --exclude locks/ \
               --rsync-path="sudo rsync" \
-              -e "ssh -o BatchMode=yes -o ConnectTimeout=20" \
+              -e "ssh -l fleetadmin -o BatchMode=yes -o ConnectTimeout=20" \
               lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
           '';
         };

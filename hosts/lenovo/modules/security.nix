@@ -10,18 +10,18 @@
         description = "grajpap";
         shell = pkgs.zsh;
 
-        # wheel  - sudo, and (as a side effect) the nix profile on $PATH
-        # docker  - container engine socket
+        # No wheel and no docker: T3, its agents and dev work run as this account,
+        # next to production. Administration goes through fleetadmin below.
         # homenest- write access to /opt/homenest/data alongside the app's own user,
         #           so APK builds and manual sqlite work still function
         # adbusers- USB access to the tethered POCO (system/mobile/adb.nix)
         extraGroups = [
           "networkmanager"
-          "wheel"
-          "docker"
           "homenest"
           "adbusers"
         ];
+        # Rootless Docker for dev work, which cannot see the production daemon.
+        autoSubUidGidRange = true;
 
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHNE9YV3UXWgYdYsNlF8pxBqF9DWSXeGyAM7rzzFElEm lenovo-auto"
@@ -72,18 +72,32 @@
   #
   # Still passwordless: the rebuild aliases and the HomeNest auto-updater both
   # invoke sudo non-interactively, and this box has no logged-in session to type
-  # a password into. That means grajpap is root-equivalent, so at least every
+  # a password into. That means fleetadmin is root-equivalent, so at least every
   # invocation is now written to a log.
   #
   # To require a password, set this to true -- but then `nrb`/`rebuild` stop
   # working unattended and the auto-updater's restart step will fail.
   # ---------------------------------------------------------------------------
-  security.sudo.wheelNeedsPassword = false;
-  security.sudo.extraConfig = ''
-    Defaults log_output
-    Defaults logfile=/var/log/sudo.log
-    Defaults timestamp_timeout=15
-  '';
+  security.sudo = {
+    wheelNeedsPassword = false;
+    # The one thing the desktops' calendar still needs from the grajpap account.
+    extraRules = [
+      {
+        users = ["grajpap"];
+        commands = [
+          {
+            command = "/run/current-system/sw/bin/nextcloud-quickshell-token-print";
+            options = ["NOPASSWD"];
+          }
+        ];
+      }
+    ];
+    extraConfig = ''
+      Defaults log_output
+      Defaults logfile=/var/log/sudo.log
+      Defaults timestamp_timeout=15
+    '';
+  };
 
   # ---------------------------------------------------------------------------
   # OpenSSH

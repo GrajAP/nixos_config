@@ -202,5 +202,7 @@
   # ownership and mode, so real content in that file is not truncated.
   systemd.tmpfiles.rules = [
     "f /home/grajpap/.zshrc 0644 grajpap users -"
+    "d /home/grajpap/.config/environment.d 0755 grajpap users -"
+    "f+ /home/grajpap/.config/environment.d/50-rootless-docker.conf 0644 grajpap users - DOCKER_HOST=unix:///run/user/1000/docker.sock"
   ];
 }

@@ -14,13 +14,13 @@ Android phones configured around them.
 | Name | What | Access |
 | --- | --- | --- |
 | `grajpap` | PC, desktop + heavy extras + hosting | this checkout, local shell |
-| `lenovo` | headless laptop server (HomeNest, Nextcloud) | `ssh lenovo-user` / `ssh lenovo-user-ts`, `sudo -i` NOPASSWD |
+| `lenovo` | headless laptop server (HomeNest, Nextcloud, Bespotted production) | dev: `ssh lenovo-user` / `ssh lenovo-user-ts`, no sudo. Admin: `ssh lenovo-admin-ts`, `sudo -i` NOPASSWD |
 | `dell` (`dellap`) | uni laptop, desktop minus heavy | `ssh dell` / `dell-lan`: `fleet/dell.md` |
 | `poco-x4-pro-5g` | test phone, USB to lenovo | `adb devices` on lenovo |
 | `grajpap-9a` | Pixel 9a | `adb devices` on the host it is docked to |
 
 Root SSH on lenovo is disabled; the `Host lenovo`/`lenovo-ts` aliases
-(`User root`) are dead, use `lenovo-user*`.
+(`User root`) are dead, use `lenovo-user*`, and `lenovo-admin-ts` for anything that needs sudo or the production Docker.
 
 ## Desktop profiles
 

@@ -3,8 +3,21 @@
   # CONTAINER ENGINE
   # ===========================================================================
 
+  environment.extraInit = ''
+    if [ "$(id -un)" = grajpap ]; then
+      export DOCKER_HOST=unix:///run/user/1000/docker.sock
+    fi
+  '';
+
   virtualisation.docker = {
     enable = true;
+
+    # Dev work gets its own daemon. The system one runs production and only
+    # fleetadmin can reach it.
+    rootless = {
+      enable = true;
+      package = unstablePkgs.docker;
+    };
 
     # 25.11 ships 28.5.2, which nixpkgs flags as insecure; the old config
     # silenced that with permittedInsecurePackages. Taking docker from the
