@@ -29,6 +29,23 @@
         ];
       };
 
+      # The only account with sudo and the Docker socket. T3, its agents and dev
+      # work run as grajpap on this same box as production, so a poisoned package
+      # there must not reach the production database or secrets. Only the
+      # personal key is listed: the keys agents hold have no business here.
+      fleetadmin = {
+        isNormalUser = true;
+        description = "Fleet administration";
+        shell = pkgs.zsh;
+        extraGroups = [
+          "wheel"
+          "docker"
+        ];
+        openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJvg6c2WU5T613n8uRr8PxteoOcX+79X70k1scYgiCyO adampisarczyk2006@gmail.com"
+        ];
+      };
+
       # HomeNest runs as this account, not as grajpap. It has no shell, no wheel, no
       # docker group and an empty capability set, so a remote code execution in the
       # Node process is no longer a root shell.
