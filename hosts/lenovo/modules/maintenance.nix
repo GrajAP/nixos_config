@@ -211,7 +211,7 @@ in {
         serviceConfig = {
           Type = "oneshot";
           # The repo owner: as root, git refuses /etc/nixos as "dubious ownership".
-          User = "grajpap";
+          User = "fleetadmin";
           WorkingDirectory = "/etc/nixos";
           ExecStart = "${nixUpdateCheck}/bin/nix-update-check";
         };

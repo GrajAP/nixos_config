@@ -38,6 +38,11 @@
   # The production app. Everything else on this box is infrastructure for it.
   services.homenest.enable = true;
 
+  # The repo the root rebuild reads must not be writable by the account agents run
+  # as. @wheel alone would lock that account out of the nix daemon.
+  systemd.tmpfiles.rules = ["Z /etc/nixos - fleetadmin users - -"];
+  nix.settings.allowed-users = ["@wheel" "grajpap"];
+
   services.bespotted = {
     enable = true;
     tunnelId = "c6db6e1a-59ac-4f27-814a-fa796011a85d";
@@ -72,13 +77,18 @@
     serviceDropIn = false;
   };
 
-  # Daily git pull + rebuild. Headless, so there is nobody's session to protect
-  # and the update is switched in rather than left for the next boot.
+  # Daily rebuild of what is checked out. Headless, so there is nobody's session to
+  # protect and the update is switched in rather than left for the next boot.
   fleet.autoRebuild = {
     enable = true;
     onCalendar = "*-*-* 04:40:00";
     randomizedDelaySec = "20min";
     mode = "switch";
+    # Not pulled here: grajpap holds a GitHub token, so a pull at night would turn
+    # any push to main into root on this box. Deploy with:
+    #   ssh lenovo-admin-ts 'git -C /etc/nixos pull --ff-only && nrb'
+    pull = false;
+    user = "fleetadmin";
     # This box is the tailnet's only always-on path to the others. If tailscaled
     # is not back after a switch, the run rolls the switch back by itself.
     criticalUnits = [
