@@ -235,9 +235,13 @@ in {
           serviceConfig = {
             Type = "oneshot";
             User = "root";
-            ExecStart = ''
+            ExecStart = pkgs.writeShellScript "homenest-backup-prune" ''
+              set -eu
               ${lib.getExe restic} -r ${repo} \
-                forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+                forget --tag homenest --tag nextcloud --tag "" \
+                --keep-daily 7 --keep-weekly 4 --keep-monthly 6
+              ${lib.getExe restic} -r ${repo} \
+                forget --tag bespotted --keep-within 30d --prune
               ${lib.getExe restic} -r ${repo} check --read-data-subset=5%
             '';
           };
