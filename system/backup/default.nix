@@ -51,8 +51,11 @@ in {
     # Second copy of lenovo's restic repository (Bespotted production and
     # HomeNest), with its password, so a dead lenovo can be restored. A user unit
     # because the SSH key for lenovo-user-ts sits in gnome-keyring, unlocked at
-    # login. No --delete: a wiped repository on lenovo cannot propagate. Midday,
-    # away from lenovo's 03:00-05:30 backup and prune window.
+    # login. No --delete: a wiped repository on lenovo cannot propagate. restic
+    # forget then drops old Bespotted snapshots here too, because the privacy
+    # policy promises the same limit. --keep-within counts from the newest
+    # snapshot, so a dead lenovo does not age out the last copies. Midday, away
+    # from lenovo's 03:00-05:30 backup and prune window.
     user = {
       services.lenovo-backup-mirror = {
         description = "Mirror lenovo's restic repository to SSD2";
@@ -62,6 +65,7 @@ in {
         path = [
           pkgs.coreutils
           pkgs.openssh
+          pkgs.restic
           pkgs.rsync
           pkgs.util-linux
         ];
@@ -75,10 +79,13 @@ in {
             set -eu
             mountpoint -q /mnt/SSD2
             mkdir -p ${lenovoMirror}
-            exec rsync -a --exclude locks/ \
+            rsync -a --exclude locks/ \
               --rsync-path="sudo rsync" \
               -e "ssh -l fleetadmin -o BatchMode=yes -o ConnectTimeout=20" \
               lenovo-user-ts:/var/lib/restic/ ${lenovoMirror}/
+            exec restic -r ${lenovoMirror}/homenest \
+              --password-file ${lenovoMirror}/password \
+              forget --tag bespotted --keep-within 30d --prune
           '';
         };
       };
