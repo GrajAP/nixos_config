@@ -49,6 +49,7 @@ in {
     ../../system/backup
     ../../system/monitoring
     ../../system/ci
+    ./moderation-judge.nix
   ];
 
   # Keep user services (ollama, whisprflow) running after logout.
