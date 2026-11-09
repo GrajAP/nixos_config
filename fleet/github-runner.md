@@ -1,12 +1,16 @@
 # GitHub Actions runner on grajpap
 
-Self-hosted runner for `be-spotted/bespotted_codex`: `system/ci/default.nix`.
-Label: `grajpap-ci`. Unit: `github-runner-bespotted.service`.
+Three self-hosted runners for `be-spotted/bespotted_codex`: `system/ci/default.nix`.
+Label: `grajpap-ci`. Units: `github-runner-bespotted.service`,
+`github-runner-bespotted-2.service`, `github-runner-bespotted-3.service`. They
+restart 30 s after a crash. Each keeps its Rust build output in
+`/var/lib/github-runner-cache/bespotted/cargo-target/<name>`.
 
 ## First setup
 
-The unit stays inactive until the token file exists. The registration token is
-valid for one hour, and the runner keeps its own credentials afterwards. Changing
+A unit stays inactive until its token file exists. One registration token is
+valid for one hour and can register every runner; each runner keeps its own
+credentials afterwards. Changing
 `workDir`, the url, the name or the labels needs a new token before the rebuild.
 
 ```bash
@@ -14,9 +18,11 @@ valid for one hour, and the runner keeps its own credentials afterwards. Changin
 token="$(gh api -X POST repos/be-spotted/bespotted_codex/actions/runners/registration-token --jq .token)"
 
 # as root on grajpap
-printf %s "$token" > /var/lib/github-runner-tokens/bespotted.token
-chmod 600 /var/lib/github-runner-tokens/bespotted.token
-systemctl start github-runner-bespotted
+for name in bespotted bespotted-2 bespotted-3; do
+  printf %s "$token" > "/var/lib/github-runner-tokens/$name.token"
+  chmod 600 "/var/lib/github-runner-tokens/$name.token"
+  systemctl start "github-runner-$name"
+done
 ```
 
 Then send jobs to it:
