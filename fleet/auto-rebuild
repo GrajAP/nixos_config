@@ -22,7 +22,9 @@
 # Tunables, all environment variables so the systemd unit stays declarative:
 #   AUTO_REBUILD_PULL=0                     skip the pull, rebuild what is here
 #   AUTO_REBUILD_MODE=boot|build|switch     what nixos-rebuild does (switch)
-#   AUTO_REBUILD_SKIP_WHEN_USER_SESSION=1   leave a logged-in desktop alone
+#   AUTO_REBUILD_WHEN_USER_SESSION=boot|skip|switch
+#                                           what to do while a desktop is in use
+#   AUTO_REBUILD_UPDATE_INPUTS=1            refresh flake.lock first (one host only)
 #   AUTO_REBUILD_CRITICAL_UNITS="a b"       roll back if these are not active
 #   AUTO_REBUILD_LINT_CHECKS="a b"          which flake checks to run
 set -euo pipefail
@@ -31,8 +33,13 @@ readonly repo=/etc/nixos
 host="$(hostname)"
 readonly host
 readonly pull_enabled="${AUTO_REBUILD_PULL:-1}"
-readonly rebuild_mode="${AUTO_REBUILD_MODE:-switch}"
-readonly skip_when_busy="${AUTO_REBUILD_SKIP_WHEN_USER_SESSION:-0}"
+rebuild_mode="${AUTO_REBUILD_MODE:-switch}"
+# Defaults to boot, not skip: a unit from an older generation does not set this
+# yet, and skip would keep that old unit in place forever on a desktop that is
+# never logged out.
+readonly session_mode="${AUTO_REBUILD_WHEN_USER_SESSION:-boot}"
+readonly update_inputs_enabled="${AUTO_REBUILD_UPDATE_INPUTS:-0}"
+session_busy=0
 readonly critical_units="${AUTO_REBUILD_CRITICAL_UNITS:-tailscaled}"
 readonly lint_checks="${AUTO_REBUILD_LINT_CHECKS:-formatting statix deadnix shellcheck}"
 readonly runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -148,6 +155,48 @@ pull_changes() {
   fi
 }
 
+# Refresh flake.lock, and keep it only if every host still evaluates and this
+# host's system builds. A broken upstream then costs one log line instead of a
+# fleet that cannot rebuild.
+update_inputs() {
+  local hosts name
+  if ! tree_clean; then
+    log "working tree has local changes, not updating inputs"
+    return 0
+  fi
+  if ! nix flake update; then
+    log "WARNING: nix flake update failed; keeping the old lock"
+    git checkout -- flake.lock
+    return 0
+  fi
+  if git diff --quiet -- flake.lock; then
+    log "flake inputs already up to date"
+    return 0
+  fi
+
+  if ! hosts="$(nix eval --raw "path:$repo#nixosConfigurations" \
+    --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)')"; then
+    log "WARNING: could not list hosts with the new lock; reverting it"
+    git checkout -- flake.lock
+    return 0
+  fi
+  for name in $hosts; do
+    if ! nix eval --raw "path:$repo#nixosConfigurations.$name.config.system.build.toplevel.drvPath" >/dev/null; then
+      log "WARNING: $name does not evaluate with the new lock; reverting it"
+      git checkout -- flake.lock
+      return 0
+    fi
+  done
+  if ! nix build --no-link "path:$repo#nixosConfigurations.$host.config.system.build.toplevel"; then
+    log "WARNING: $host does not build with the new lock; reverting it"
+    git checkout -- flake.lock
+    return 0
+  fi
+
+  git commit -q -m "chore(flake): update inputs (auto-rebuild on ${host})" -- flake.lock
+  log "updated flake inputs as $(git rev-parse --short HEAD)"
+}
+
 lint() {
   local arch check
   arch="$(nix eval --raw --impure --expr builtins.currentSystem)"
@@ -171,6 +220,10 @@ commit_local_changes() {
 switch_system() {
   sudo nixos-rebuild "$rebuild_mode" --flake "$(flake_ref)" ||
     die "nixos-rebuild $rebuild_mode failed; the running system was not changed"
+  if [[ $rebuild_mode == boot ]]; then
+    log "staged $(readlink -f /nix/var/nix/profiles/system) for the next boot"
+    return 0
+  fi
   if [[ "$(readlink -f /nix/var/nix/profiles/system)" != "$(readlink -f /run/current-system)" ]]; then
     die "generation is not live; run: sudo nixos-rebuild switch --profile /nix/var/nix/profiles/system"
   fi
@@ -181,6 +234,8 @@ switch_system() {
 # human who is not at the machine.
 verify_critical_units() {
   local unit
+  # Nothing went live in boot or build mode, so there is nothing to verify.
+  [[ $rebuild_mode == switch ]] || return 0
   for unit in $critical_units; do
     systemctl is-active --quiet "$unit" && continue
     log "ERROR: $unit is not active after the switch, rolling back"
@@ -221,6 +276,15 @@ publish_local_commits() {
   die "git push failed after retrying; the system is updated but these commits are local only"
 }
 
+# The run can take half an hour, so with someone at the keyboard an edit
+# started after the first check must not be committed or staged either.
+leave_if_edited() {
+  if ((session_busy)) && ! tree_clean; then
+    log "$repo gained uncommitted edits during the run, leaving it alone"
+    exit 0
+  fi
+}
+
 main() {
   local lock="$runtime_dir/auto-rebuild.lock"
 
@@ -233,10 +297,28 @@ main() {
     exit 0
   fi
 
-  if truthy "$skip_when_busy" && graphical_session_active; then
-    log "a graphical session is active, leaving this host alone"
-    exit 0
+  if [[ $rebuild_mode == switch ]] && graphical_session_active; then
+    case $session_mode in
+      skip)
+        log "a graphical session is active, leaving this host alone"
+        exit 0
+        ;;
+      boot)
+        # Someone at the keyboard may be halfway through an edit here, and the
+        # commit step would publish it. Only an idle checkout is fair game.
+        if ! tree_clean; then
+          log "a graphical session is active and $repo has uncommitted edits, leaving it alone"
+          exit 0
+        fi
+        log "a graphical session is active, staging the update for the next boot"
+        rebuild_mode=boot
+        session_busy=1
+        ;;
+      switch) ;;
+      *) die "unknown AUTO_REBUILD_WHEN_USER_SESSION=$session_mode" ;;
+    esac
   fi
+  readonly rebuild_mode session_busy
 
   log "starting at $(git log -1 --oneline)"
 
@@ -248,6 +330,7 @@ main() {
 
   lint
 
+  leave_if_edited
   commit_local_changes || true
 
   # After the commit and before the switch, so the tree is clean and the
@@ -255,11 +338,21 @@ main() {
   # branch the push is about to be rejected for.
   integrate_origin || true
 
+  # After the merge, so the lock is validated against the tree that gets built.
+  if truthy "$update_inputs_enabled"; then
+    update_inputs
+  fi
+
+  leave_if_edited
   switch_system
   verify_critical_units
   publish_local_commits
 
-  log "done, live system is $(readlink -f /run/current-system)"
+  if [[ $rebuild_mode == boot ]]; then
+    log "done, next boot is $(readlink -f /nix/var/nix/profiles/system)"
+  else
+    log "done, live system is $(readlink -f /run/current-system)"
+  fi
 }
 
 main "$@"

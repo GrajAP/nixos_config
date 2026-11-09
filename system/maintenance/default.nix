@@ -70,15 +70,33 @@ in {
       '';
     };
 
-    skipWhenUserSessionActive = lib.mkOption {
+    whenUserSessionActive = lib.mkOption {
+      type = lib.types.enum [
+        "boot"
+        "skip"
+        "switch"
+      ];
+      default = "boot";
+      description = ''
+        What the run does while a graphical session is logged in.
+
+        `boot` builds the update and makes it the next boot entry without
+        touching the running system, so a desktop that is never logged out
+        still gets updated. `skip` does nothing that day, `switch` ignores the
+        session. Headless hosts have no such session, so this never fires there.
+      '';
+    };
+
+    updateInputs = lib.mkOption {
       type = lib.types.bool;
       default = false;
       description = ''
-        Skip the run while a graphical session is logged in.
+        Run `nix flake update` before the rebuild, and commit the new
+        flake.lock only if every host still evaluates and this host builds.
 
-        Worth it on a desktop: switching the system under a running compositor
-        restarts user services it depends on. Headless hosts have no such
-        session, so the check costs two loginctl calls and never fires.
+        Exactly one host should set this: the lock is shared, and the other
+        hosts get it with their next pull or deploy. A failed update is reverted and
+        the run continues on the old lock.
       '';
     };
 
@@ -172,7 +190,8 @@ in {
             "XDG_RUNTIME_DIR=/run/auto-rebuild"
             "AUTO_REBUILD_PULL=${lib.boolToString cfg.pull}"
             "AUTO_REBUILD_MODE=${cfg.mode}"
-            "AUTO_REBUILD_SKIP_WHEN_USER_SESSION=${lib.boolToString cfg.skipWhenUserSessionActive}"
+            "AUTO_REBUILD_WHEN_USER_SESSION=${cfg.whenUserSessionActive}"
+            "AUTO_REBUILD_UPDATE_INPUTS=${lib.boolToString cfg.updateInputs}"
             # Quoted, or systemd splits the list of units into separate (invalid)
             # environment assignments.
             "AUTO_REBUILD_CRITICAL_UNITS=\"${lib.concatStringsSep " " cfg.criticalUnits}\""
@@ -183,6 +202,7 @@ in {
           WorkingDirectory = repo;
           # Updating is maintenance, not the machine's actual job.
           Nice = 10;
+          IOSchedulingClass = "idle";
         };
       };
 
