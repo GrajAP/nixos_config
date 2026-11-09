@@ -13,7 +13,6 @@
       gawk
       jq
       libnotify
-      pipewire
       ripgrep
       sqlite
       systemd
@@ -22,30 +21,17 @@
       #!/usr/bin/env bash
       set -euo pipefail
 
-      default_targets="00:00 01:00 02:00 03:00 04:00 05:00 06:00"
       watch_seconds=$((5 * 60))
       poll_seconds=60
 
       runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-shutdown"
       cancel_file="$runtime_dir/cancel"
       custom_deadline_file="$runtime_dir/custom-deadline"
-      last_trigger_file="$runtime_dir/last-trigger"
       pending_file="$runtime_dir/pending"
       pending_deadline_file="$runtime_dir/pending-deadline"
       agent_wait_file="$runtime_dir/agent-waiting"
       mkdir -p "$runtime_dir"
       rm -f "$runtime_dir/custom-target"
-
-      should_trigger() {
-        local now_minute="$1"
-        local target
-        for target in $default_targets; do
-          if [[ "$now_minute" == "$target" ]]; then
-            return 0
-          fi
-        done
-        return 1
-      }
 
       read_deadline() {
         if [[ -r "$custom_deadline_file" ]]; then
@@ -59,12 +45,6 @@
       }
 
       ${builtins.readFile ../quickshell/scripts/agent-status-functions.sh}
-
-      play_shutdown_alert() {
-        pw-play --volume=0.55 \
-          "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/message.oga" \
-          >/dev/null 2>&1 &
-      }
 
       notify_shutdown() {
         notify-send --app-name="Auto shutdown" --icon=system-shutdown "$@"
@@ -147,52 +127,10 @@
         exit 0
       }
 
+      # Only the shutdown widget's timer powers off. The nightly 00:00-06:00
+      # shutdown is gone: the PC hosts CI and dev backends overnight now.
       while true; do
         handle_custom_deadline && { sleep 1; continue; }
-
-        today="$(date +%F)"
-        now_minute="$(date +%H:%M)"
-        trigger_id="$today $now_minute"
-
-        if should_trigger "$now_minute" && [[ "$(cat "$last_trigger_file" 2>/dev/null || true)" != "$trigger_id" ]]; then
-          printf '%s\n' "$trigger_id" > "$last_trigger_file"
-          printf '%s\n' "$now_minute" > "$pending_file"
-          deadline=$(( $(date +%s) + watch_seconds ))
-          printf '%s\n' "$deadline" > "$pending_deadline_file"
-          rm -f "$cancel_file" "$agent_wait_file"
-          notify_shutdown -u critical -t $((watch_seconds * 1000)) \
-            "Auto shutdown" \
-            "System will power off in 5 minutes. Open the shutdown widget to cancel."
-          play_shutdown_alert
-
-          cancel=0
-          while true; do
-            if [ -f "$cancel_file" ]; then
-              cancel=1
-              rm -f "$cancel_file"
-              break
-            fi
-            now="$(date +%s)"
-            if guard_deadline_for_agents "$deadline" "$now"; then
-              deadline="$agent_guard_deadline"
-            fi
-            if (( now >= deadline )); then
-              break
-            fi
-            sleep 1
-          done
-
-          rm -f "$pending_file" "$pending_deadline_file" "$agent_wait_file"
-
-          if (( cancel == 0 )); then
-            notify_shutdown -u critical -t 3000 "Auto shutdown" "Powering off now."
-            power_off || true
-            exit 0
-          fi
-
-          notify_shutdown -u normal -t 2500 "Auto shutdown" "Shutdown cancelled."
-        fi
-
         sleep "$poll_seconds"
       done
     '';
@@ -620,7 +558,7 @@ in {
       };
       auto-shutdown = {
         Unit = {
-          Description = "Power off overnight after AI agents become idle";
+          Description = "Run the shutdown widget timer, waiting for AI agents";
           After = ["graphical-session.target"];
           PartOf = ["graphical-session.target"];
         };

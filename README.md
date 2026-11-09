@@ -29,11 +29,17 @@ rebuild --build  # checks + build, no switch, no Git (rootless)
 | Host | Time | Behaviour |
 | --- | --- | --- |
 | `lenovo` | 04:40 + up to 20 min | switch |
-| `grajpap` | 05:20 + up to 2 h | switch, skipped while a desktop session is open |
+| `grajpap` | 05:20 + up to 2 h | `nix flake update`, then switch, or stage for next boot while a desktop session is open |
 
 The run pulls, checks, commits local work, switches, and rolls back by itself
-if a critical unit (`tailscaled`, `sshd`, plus `caddy` on lenovo) is down.
+if a critical unit (`tailscaled`, `sshd`, plus `caddy` on lenovo) is down after
+a live switch.
 Only commits made on that host are pushed.
+
+grajpap owns `flake.lock`: it keeps a new lock only if every host evaluates and
+grajpap builds, then pushes it; lenovo gets it with the next manual deploy. While you are
+logged in, the update lands at the next reboot, and an uncommitted edit in
+`/etc/nixos` skips that day.
 
 ```bash
 journalctl -u auto-rebuild.service -e

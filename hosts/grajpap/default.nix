@@ -68,11 +68,16 @@ in {
       # catches the run on the next boot if it was missed.
       onCalendar = "*-*-* 05:20:00";
       randomizedDelaySec = "2h";
-      # Nobody is usually logged in at 05:20, and switching the system under a
-      # running compositor restarts user services out from under it.
-      skipWhenUserSessionActive = true;
+      # The session is practically never closed, so `skip` meant this host never
+      # updated. Switching under a running compositor restarts user services
+      # (t3code, quickshell) out from under it, so stage the update for the next
+      # boot instead.
+      whenUserSessionActive = "boot";
+      # The PC builds the heaviest closure, so it owns the shared flake.lock.
+      updateInputs = true;
       # A desktop is not a server: the nightly update is a convenience, so a
       # failed switch is rolled back and the previous system is left running.
+      # Only checked after a live switch, not when the update is only staged.
       criticalUnits = [
         "tailscaled"
         "sshd"

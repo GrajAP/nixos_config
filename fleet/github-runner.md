@@ -31,6 +31,6 @@ gh variable set CI_RUNNER -R be-spotted/bespotted_codex --body grajpap-ci
 - Jobs wait while the PC is off. GitHub fails a job queued for 24 hours.
 - GitHub removes a runner that stays offline for 14 days. Repeat first setup with
   a new token.
-- The auto-shutdown timer does not wait for CI: a job running at that moment is lost.
+- The shutdown widget timer does not wait for CI: a job running at that moment is lost.
 - The job can reach the Docker socket, which is root on this PC. Keep this runner
   on private repos only.

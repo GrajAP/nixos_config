@@ -426,7 +426,7 @@ ScrollView {
             return "Reminds you to step away for a " + shell.breakDurationMinutes + "-minute break after " + shell.breakWorkMinutes + " minutes on PC.";
           if (timerScroll.alarmMode)
             return "Rings an audible alarm with persistent notification and on-screen alert until silenced or snoozed.";
-          return "Overnight checks still run at 00:00-06:00.";
+          return "Waits for running AI agents before powering off.";
         }
         color: Theme.muted
         font.family: Theme.fontSans

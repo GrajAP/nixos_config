@@ -100,34 +100,6 @@
 
     echo "agent-scratch-prune: pruned=$pruned skipped=$skipped avail=$(free_bytes /)"
   '';
-
-  nixUpdateCheck = pkgs.writeShellScriptBin "nix-update-check" ''
-    set -eu
-    cd /etc/nixos
-
-    if [ -n "$(git status --porcelain 2>/dev/null || true)" ]; then
-      echo "nix-update-check: /etc/nixos has uncommitted changes, skipping"
-      exit 0
-    fi
-
-    before=$(git rev-parse HEAD)
-
-    if ! ${pkgs.nix}/bin/nix flake update --commit-lockfile 2>&1; then
-      echo "nix-update-check: flake update failed, lockfile untouched"
-      exit 0
-    fi
-
-    after=$(git rev-parse HEAD)
-
-    if [ "$before" = "$after" ]; then
-      echo "nix-update-check: already current ($(git rev-parse --short HEAD))"
-      exit 0
-    fi
-
-    echo "nix-update-check: lockfile updated $before -> $after"
-    git --no-pager log --oneline "$before".."$after" || true
-    echo "nix-update-check: run rebuild (or nh os switch /etc/nixos) to apply"
-  '';
 in {
   # ===========================================================================
   # ROUTINE MAINTENANCE
@@ -184,38 +156,6 @@ in {
           ExecStart = "${agentScratchPrune}/bin/agent-scratch-prune";
         };
       };
-
-      # ---------------------------------------------------------------------------
-      # Patch awareness
-      #
-      # Deliberately NOT an unattended `nixos-rebuild switch`. This box is headless
-      # with no console and no IPMI: if an automated switch produced an
-      # unbootable system at 04:00 the only recovery is physical access to the
-      # keyboard. So the timer updates the lockfile and *builds* the result, and
-      # reports that a switch is pending. Nothing changes on the running system
-      # until a human runs `rebuild`.
-      #
-      # To go fully unattended, add `nixos-rebuild switch` to the script below and
-      # keep systemd-boot.configurationLimit high enough to roll back from the
-      # console. Do not do that on a machine you cannot reach.
-      # ---------------------------------------------------------------------------
-      nix-update-check = {
-        description = "Update the flake lockfile and report pending system changes";
-        after = ["network-online.target"];
-        wants = ["network-online.target"];
-        path = [
-          pkgs.coreutils
-          pkgs.git
-          pkgs.nix
-        ];
-        serviceConfig = {
-          Type = "oneshot";
-          # The repo owner: as root, git refuses /etc/nixos as "dubious ownership".
-          User = "fleetadmin";
-          WorkingDirectory = "/etc/nixos";
-          ExecStart = "${nixUpdateCheck}/bin/nix-update-check";
-        };
-      };
     };
 
     timers = {
@@ -239,16 +179,6 @@ in {
         timerConfig = {
           OnCalendar = "*-*-* 04:00:00";
           RandomizedDelaySec = "45m";
-          Persistent = true;
-        };
-      };
-
-      nix-update-check = {
-        description = "Weekly check for NixOS security updates";
-        wantedBy = ["timers.target"];
-        timerConfig = {
-          OnCalendar = "Wed *-*-* 05:00:00";
-          RandomizedDelaySec = "2h";
           Persistent = true;
         };
       };
