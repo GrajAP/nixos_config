@@ -378,37 +378,64 @@ in {
 
     # A single-page app: unknown paths (/sso-callback, /spots/<id>) fall back to
     # index.html, hashed assets are cached for a year, index.html never.
-    services.nginx.enable = lib.mkIf cfg.web.enable true;
-    services.nginx.virtualHosts.bespotted-web = lib.mkIf cfg.web.enable {
-      serverName = cfg.web.hostname;
-      listen = [
-        {
-          addr = "127.0.0.1";
-          inherit (cfg.web) port;
-          ssl = false;
-        }
-      ];
-      inherit (cfg.web) root;
-      # Cloudflare reports how the visitor connected. A plain HTTP page could be
-      # rewritten by anyone on the network, for example on campus Wi-Fi.
-      extraConfig = ''
-        if ($http_x_forwarded_proto = "http") {
-          return 308 https://${cfg.web.hostname}$request_uri;
-        }
-      '';
-      locations = {
-        "/" = {
-          tryFiles = "$uri /index.html";
-          extraConfig = ''
-            add_header Cache-Control "no-cache";
+    services.nginx = lib.mkIf cfg.web.enable {
+      enable = true;
+      virtualHosts.bespotted-web = {
+        serverName = cfg.web.hostname;
+        listen = [
+          {
+            addr = "127.0.0.1";
+            inherit (cfg.web) port;
+            ssl = false;
+          }
+        ];
+        inherit (cfg.web) root;
+        # Cloudflare reports how the visitor connected. A plain HTTP page could be
+        # rewritten by anyone on the network, for example on campus Wi-Fi.
+        extraConfig = ''
+          if ($http_x_forwarded_proto = "http") {
+            return 308 https://${cfg.web.hostname}$request_uri;
+          }
+        '';
+        locations = {
+          "/" = {
+            tryFiles = "$uri /index.html";
+            extraConfig = ''
+              add_header Cache-Control "no-cache";
+              ${webSecurityHeaders}
+            '';
+          };
+          "/assets/".extraConfig = ''
+            add_header Cache-Control "public, max-age=31536000, immutable";
             ${webSecurityHeaders}
           '';
+          # A shared post link: link-preview crawlers get the API's small page
+          # with that post's Open Graph tags, people get the app as before.
+          # proxy_pass is not allowed inside "if", hence the 418 hop.
+          "~ ^/spots/[A-Za-z0-9_-]+$".extraConfig = ''
+            error_page 418 = @bespotted_spot_preview;
+            if ($bespotted_preview_bot) {
+              return 418;
+            }
+            add_header Cache-Control "no-cache";
+            ${webSecurityHeaders}
+            try_files /index.html =404;
+          '';
+          # With the API down a crawler gets the app's generic preview, not a 502.
+          "@bespotted_spot_preview".extraConfig = ''
+            rewrite ^/spots/([A-Za-z0-9_-]+)$ /share/spots/$1 break;
+            proxy_pass http://127.0.0.1:${toString cfg.originPort};
+            proxy_intercept_errors on;
+            error_page 500 502 503 504 = /index.html;
+          '';
         };
-        "/assets/".extraConfig = ''
-          add_header Cache-Control "public, max-age=31536000, immutable";
-          ${webSecurityHeaders}
-        '';
       };
+      appendHttpConfig = ''
+        map $http_user_agent $bespotted_preview_bot {
+          default 0;
+          "~*(facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|WhatsApp|TelegramBot|LinkedInBot|Applebot|Signal|Mastodon|redditbot|SkypeUriPreview|Embedly|vkShare)" 1;
+        }
+      '';
     };
   };
 }
