@@ -14,6 +14,8 @@
       antigravity-ide
       opencode
       ollama
+      uv
+      google-cloud-sdk
       (pkgs.writeShellApplication {
         name = "install-js-clis";
         runtimeInputs = [pkgs.bun];
@@ -32,12 +34,17 @@
             @expo/cli \
             vite \
             @react-native-community/cli \
-            concurrently
+            concurrently \
+            @google/gemini-cli
         '';
       })
     ];
 
-    sessionPath = ["${config.home.homeDirectory}/.bun-global/bin"];
+    sessionPath = [
+      "${config.home.homeDirectory}/.bun-global/bin"
+      # uv tool install (harbor)
+      "${config.home.homeDirectory}/.local/bin"
+    ];
   };
 
   systemd.user.services.ollama = {
