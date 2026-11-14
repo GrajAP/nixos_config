@@ -139,14 +139,14 @@
   # Content-Security-Policy stays Report-Only until a logged-in session shows no
   # violations; web.enforceCsp then turns it on. The map loads OpenFreeMap first
   # and falls back to the API. Media comes through the API, which redirects to
-  # signed R2 URLs.
+  # signed R2 URLs. PostHog EU receives web analytics only after opt-in.
   webCsp = lib.concatStringsSep "; " [
     "default-src 'self'"
     "script-src 'self' https://clerk.be-spotted.org https://challenges.cloudflare.com"
     "style-src 'self' 'unsafe-inline'"
     "img-src 'self' data: blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com https://img.clerk.com https://images.clerk.dev"
     "media-src 'self' blob: https://api.be-spotted.org https://*.eu.r2.cloudflarestorage.com"
-    "connect-src 'self' https://api.be-spotted.org https://tiles.openfreemap.org https://clerk.be-spotted.org https://photon.komoot.io https://*.eu.r2.cloudflarestorage.com"
+    "connect-src 'self' https://api.be-spotted.org https://tiles.openfreemap.org https://clerk.be-spotted.org https://photon.komoot.io https://*.eu.r2.cloudflarestorage.com https://eu.i.posthog.com"
     "worker-src 'self' blob:"
     "frame-src https://clerk.be-spotted.org https://challenges.cloudflare.com"
     "font-src 'self' data:"
