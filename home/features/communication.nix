@@ -3,5 +3,6 @@
     ferdium
     proton-pass
     signal-desktop
+    vesktop
   ];
 }
