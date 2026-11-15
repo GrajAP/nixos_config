@@ -94,6 +94,12 @@
 in {
   services.github-runners = lib.genAttrs names runner;
 
+  # IOWeight only works under bfq. The zen default (kyber) ignores it, and CI
+  # then starved the desktop of disk.
+  services.udev.extraRules = lib.mkAfter ''
+    ACTION=="add|change", KERNEL=="nvme[0-9]*n[0-9]*", ENV{DEVTYPE}=="disk", ATTR{queue/scheduler}="bfq"
+  '';
+
   # Stay inactive, not failed, until the token exists, so a rebuild cannot fail on it.
   systemd = {
     services = lib.listToAttrs (map (name:
