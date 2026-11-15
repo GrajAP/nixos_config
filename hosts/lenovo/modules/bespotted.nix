@@ -239,6 +239,34 @@ in {
         '';
       };
     };
+
+    admin = {
+      enable = lib.mkEnableOption "the operator panel, reachable only inside the tailnet";
+
+      hostname = lib.mkOption {
+        type = lib.types.str;
+        default = "admin.be-spotted.org";
+        description = "Its DNS record points at this host's Tailscale address, so the name resolves for everyone but answers only tailnet devices.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 9443;
+        description = "HTTPS port. 443 on the Tailscale address belongs to `tailscale serve`.";
+      };
+
+      root = lib.mkOption {
+        type = lib.types.path;
+        default = "/var/lib/bespotted-admin/current";
+        description = "`npm run build:production` output of bespotted_codex/admin, copied here by hand like the web build.";
+      };
+
+      acmeEmail = lib.mkOption {
+        type = lib.types.str;
+        default = "kontakt@be-spotted.org";
+        description = "Contact address for the Let's Encrypt account.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -251,7 +279,8 @@ in {
           "d ${mediaMirrorDir} 0700 root root -"
           "d ${dirOf config.serverAlerts.posthogKeyFile} 0700 root root -"
         ]
-        ++ lib.optional cfg.web.enable "d ${dirOf cfg.web.root} 0755 root root -";
+        ++ lib.optional cfg.web.enable "d ${dirOf cfg.web.root} 0755 root root -"
+        ++ lib.optional cfg.admin.enable "d ${dirOf cfg.admin.root} 0755 root root -";
 
       services = {
         bespotted-production = {
@@ -378,64 +407,136 @@ in {
 
     # A single-page app: unknown paths (/sso-callback, /spots/<id>) fall back to
     # index.html, hashed assets are cached for a year, index.html never.
-    services.nginx = lib.mkIf cfg.web.enable {
-      enable = true;
-      virtualHosts.bespotted-web = {
-        serverName = cfg.web.hostname;
-        listen = [
-          {
-            addr = "127.0.0.1";
-            inherit (cfg.web) port;
-            ssl = false;
-          }
-        ];
-        inherit (cfg.web) root;
-        # Cloudflare reports how the visitor connected. A plain HTTP page could be
-        # rewritten by anyone on the network, for example on campus Wi-Fi.
-        extraConfig = ''
-          if ($http_x_forwarded_proto = "http") {
-            return 308 https://${cfg.web.hostname}$request_uri;
-          }
-        '';
-        locations = {
-          "/" = {
-            tryFiles = "$uri /index.html";
-            extraConfig = ''
-              add_header Cache-Control "no-cache";
+    services.nginx = lib.mkMerge [
+      (lib.mkIf cfg.web.enable {
+        enable = true;
+        virtualHosts.bespotted-web = {
+          serverName = cfg.web.hostname;
+          listen = [
+            {
+              addr = "127.0.0.1";
+              inherit (cfg.web) port;
+              ssl = false;
+            }
+          ];
+          inherit (cfg.web) root;
+          # Cloudflare reports how the visitor connected. A plain HTTP page could be
+          # rewritten by anyone on the network, for example on campus Wi-Fi.
+          extraConfig = ''
+            if ($http_x_forwarded_proto = "http") {
+              return 308 https://${cfg.web.hostname}$request_uri;
+            }
+          '';
+          locations = {
+            "/" = {
+              tryFiles = "$uri /index.html";
+              extraConfig = ''
+                add_header Cache-Control "no-cache";
+                ${webSecurityHeaders}
+              '';
+            };
+            "/assets/".extraConfig = ''
+              add_header Cache-Control "public, max-age=31536000, immutable";
               ${webSecurityHeaders}
             '';
+            # A shared post link: link-preview crawlers get the API's small page
+            # with that post's Open Graph tags, people get the app as before.
+            # proxy_pass is not allowed inside "if", hence the 418 hop.
+            "~ ^/spots/[A-Za-z0-9_-]+$".extraConfig = ''
+              error_page 418 = @bespotted_spot_preview;
+              if ($bespotted_preview_bot) {
+                return 418;
+              }
+              add_header Cache-Control "no-cache";
+              ${webSecurityHeaders}
+              try_files /index.html =404;
+            '';
+            # With the API down a crawler gets the app's generic preview, not a 502.
+            "@bespotted_spot_preview".extraConfig = ''
+              rewrite ^/spots/([A-Za-z0-9_-]+)$ /share/spots/$1 break;
+              proxy_pass http://127.0.0.1:${toString cfg.originPort};
+              proxy_intercept_errors on;
+              error_page 500 502 503 504 = /index.html;
+            '';
           };
-          "/assets/".extraConfig = ''
-            add_header Cache-Control "public, max-age=31536000, immutable";
-            ${webSecurityHeaders}
-          '';
-          # A shared post link: link-preview crawlers get the API's small page
-          # with that post's Open Graph tags, people get the app as before.
-          # proxy_pass is not allowed inside "if", hence the 418 hop.
-          "~ ^/spots/[A-Za-z0-9_-]+$".extraConfig = ''
-            error_page 418 = @bespotted_spot_preview;
-            if ($bespotted_preview_bot) {
-              return 418;
-            }
-            add_header Cache-Control "no-cache";
-            ${webSecurityHeaders}
-            try_files /index.html =404;
-          '';
-          # With the API down a crawler gets the app's generic preview, not a 502.
-          "@bespotted_spot_preview".extraConfig = ''
-            rewrite ^/spots/([A-Za-z0-9_-]+)$ /share/spots/$1 break;
-            proxy_pass http://127.0.0.1:${toString cfg.originPort};
-            proxy_intercept_errors on;
-            error_page 500 502 503 504 = /index.html;
-          '';
         };
+        appendHttpConfig = ''
+          map $http_user_agent $bespotted_preview_bot {
+            default 0;
+            "~*(facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|WhatsApp|TelegramBot|LinkedInBot|Applebot|Signal|Mastodon|redditbot|SkypeUriPreview|Embedly|vkShare)" 1;
+          }
+        '';
+      })
+      (lib.mkIf cfg.admin.enable {
+        enable = true;
+        virtualHosts.bespotted-admin = let
+          # nginx drops inherited add_header lines in a block that sets its own,
+          # so every location repeats them.
+          headers = ''
+            add_header Strict-Transport-Security "max-age=31536000" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Referrer-Policy "no-referrer" always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
+          '';
+          api = ''
+            proxy_pass http://127.0.0.1:${toString cfg.originPort};
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto https;
+          '';
+        in {
+          serverName = cfg.admin.hostname;
+          listen = [
+            {
+              addr = "0.0.0.0";
+              inherit (cfg.admin) port;
+              ssl = true;
+            }
+          ];
+          useACMEHost = cfg.admin.hostname;
+          onlySSL = true;
+          inherit (cfg.admin) root;
+          extraConfig = ''
+            allow 100.64.0.0/10;
+            allow 127.0.0.1;
+            deny all;
+          '';
+          locations = {
+            "/" = {
+              tryFiles = "$uri /index.html";
+              extraConfig = ''
+                add_header Cache-Control "no-cache";
+                ${headers}
+              '';
+            };
+            "/assets/".extraConfig = ''
+              add_header Cache-Control "public, max-age=31536000, immutable";
+              ${headers}
+            '';
+            "/api/".extraConfig = api;
+            "/uploads/".extraConfig = api;
+          };
+        };
+      })
+    ];
+
+    # The operator panel can ban people and read private data, so it gets two
+    # gates: the network (tailnet only) and the operator's Clerk login, which the
+    # API checks against ADMIN_USER_IDS as before. The firewall trusts only
+    # tailscale0 and does not open this port, and nginx refuses other sources too.
+    # It listens on every address instead of the Tailscale one, because a bind to
+    # an address that is not up yet at boot would stop nginx and take the public
+    # web app down with it.
+    security.acme = lib.mkIf cfg.admin.enable {
+      acceptTerms = true;
+      certs.${cfg.admin.hostname} = {
+        email = cfg.admin.acmeEmail;
+        # DNS-01: the name points at a private address, so HTTP-01 cannot work.
+        dnsProvider = "cloudflare";
+        credentialFiles.CF_DNS_API_TOKEN_FILE = "${secretsDir}/cloudflare-dns-token";
+        group = config.services.nginx.group;
       };
-      appendHttpConfig = ''
-        map $http_user_agent $bespotted_preview_bot {
-          default 0;
-          "~*(facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|WhatsApp|TelegramBot|LinkedInBot|Applebot|Signal|Mastodon|redditbot|SkypeUriPreview|Embedly|vkShare)" 1;
-        }
-      '';
     };
   };
 }
