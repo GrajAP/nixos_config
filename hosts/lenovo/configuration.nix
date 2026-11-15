@@ -49,6 +49,8 @@
     # app.be-spotted.org, the web app, through the same tunnel.
     web.enable = true;
     web.enforceCsp = true;
+    # admin.be-spotted.org:9443, the operator panel, tailnet only.
+    admin.enable = true;
   };
 
   # Drop PTI, retpolines, IBPB, RDT and friends (boot.nix adds mitigations=off).
