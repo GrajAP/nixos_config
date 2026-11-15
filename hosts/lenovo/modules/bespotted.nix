@@ -422,6 +422,7 @@ in {
     services.nginx = lib.mkMerge [
       (lib.mkIf cfg.web.enable {
         enable = true;
+        additionalModules = [pkgs.nginxModules.brotli];
         virtualHosts.bespotted-web = {
           serverName = cfg.web.hostname;
           listen = [
@@ -438,6 +439,10 @@ in {
             if ($http_x_forwarded_proto = "http") {
               return 308 https://${cfg.web.hostname}$request_uri;
             }
+            # The web build ships a .br and a .gz next to every text file.
+            brotli_static on;
+            gzip_static on;
+            gzip_vary on;
           '';
           locations = {
             "/" = {
