@@ -530,6 +530,14 @@ in {
           useACMEHost = cfg.admin.hostname;
           onlySSL = true;
           inherit (cfg.admin) root;
+          # The panel's build ships a .gz next to every text asset. Nothing was
+          # compressed before: nginx compresses only HTML by default.
+          extraConfig = ''
+            gzip_static on;
+            gzip on;
+            gzip_vary on;
+            gzip_types text/css application/javascript text/javascript application/json image/svg+xml;
+          '';
           locations = {
             "/" = {
               tryFiles = "$uri /index.html";
