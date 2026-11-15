@@ -188,7 +188,8 @@
           --set NIX_SSL_CERT_FILE "${certBundle}" \
           --set NODE_EXTRA_CA_CERTS "${certBundle}" \
           --set REQUESTS_CA_BUNDLE "${certBundle}" \
-          --set CURL_CA_BUNDLE "${certBundle}"
+          --set CURL_CA_BUNDLE "${certBundle}" \
+          --run 'export DBUS_SESSION_BUS_ADDRESS="''${DBUS_SESSION_BUS_ADDRESS:-unix:path=''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus}"'
       done
     '';
   };
@@ -359,6 +360,12 @@
       export CURL_CA_BUNDLE="$SSL_CERT_FILE"
 
       app="''${XDG_DATA_HOME:-$HOME/.local/share}/t3code/desktop/T3-Code.AppImage"
+
+      # Electron's safeStorage (connection catalog) needs the session bus
+      # address explicitly: Chromium's DBus stack has no $XDG_RUNTIME_DIR/bus
+      # fallback, and without it isEncryptionAvailable() is false and saving
+      # connections fails with "Desktop secure storage is unavailable".
+      export DBUS_SESSION_BUS_ADDRESS="''${DBUS_SESSION_BUS_ADDRESS:-unix:path=''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus}"
 
       if ! ${lib.getExe update}; then
         echo "Could not refresh T3 Code; using the newest installed version" >&2
