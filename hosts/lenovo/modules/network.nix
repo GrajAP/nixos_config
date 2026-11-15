@@ -84,6 +84,10 @@
   #     https://lenovo.tail138448.ts.net/
   # work from any enrolled device, with no port 443 opened on the LAN.
   #
+  # It is published on 8444, not 443: nginx holds 443 for the Bespotted operator
+  # panel and passes this name through untouched (services.bespotted.admin), so
+  # the URL above still has no port in it.
+  #
   # Verified working: returns 200 with a valid LE certificate.
   #
   # Requires HTTPS enabled for the tailnet in the Tailscale admin console. If it
@@ -102,8 +106,8 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${lib.getExe' unstablePkgs.tailscale "tailscale"} serve --bg --https=443 http://127.0.0.1:80";
-      ExecStop = "${lib.getExe' unstablePkgs.tailscale "tailscale"} serve --https=443 off";
+      ExecStart = "${lib.getExe' unstablePkgs.tailscale "tailscale"} serve --bg --https=8444 http://127.0.0.1:80";
+      ExecStop = "${lib.getExe' unstablePkgs.tailscale "tailscale"} serve --https=8444 off";
       TimeoutStartSec = 60;
     };
   };

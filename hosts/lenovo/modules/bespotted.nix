@@ -252,7 +252,19 @@ in {
       port = lib.mkOption {
         type = lib.types.port;
         default = 9443;
-        description = "HTTPS port. 443 on the Tailscale address belongs to `tailscale serve`.";
+        description = "Loopback HTTPS port of the panel's nginx site. People reach it on 443 through the SNI switch below.";
+      };
+
+      tailnetHttps = lib.mkOption {
+        type = lib.types.str;
+        example = "100.110.204.8:8444";
+        description = ''
+          Where `tailscale serve` publishes this host's own `*.ts.net` HTTPS
+          site. Production Clerk refuses an origin with a port, so the panel
+          needs 443, which that site used to hold. nginx now owns 443, reads the
+          TLS server name without decrypting and passes every name but the
+          panel's on to this address, so the `*.ts.net` URLs stay as they were.
+        '';
       };
 
       root = lib.mkOption {
@@ -469,6 +481,27 @@ in {
       })
       (lib.mkIf cfg.admin.enable {
         enable = true;
+        # The firewall trusts only tailscale0 and does not open 443, and this
+        # server refuses sources outside the tailnet ranges as well. It listens
+        # on every address, not the Tailscale one: a bind to an address that is
+        # not up yet at boot would stop nginx and take the public web app down.
+        streamConfig = ''
+          map $ssl_preread_server_name $bespotted_tailnet_tls {
+            ${cfg.admin.hostname} 127.0.0.1:${toString cfg.admin.port};
+            default ${cfg.admin.tailnetHttps};
+          }
+          server {
+            listen 0.0.0.0:443;
+            listen [::]:443;
+            allow 100.64.0.0/10;
+            allow fd7a:115c:a1e0::/48;
+            allow 127.0.0.1;
+            allow ::1;
+            deny all;
+            ssl_preread on;
+            proxy_pass $bespotted_tailnet_tls;
+          }
+        '';
         virtualHosts.bespotted-admin = let
           # nginx drops inherited add_header lines in a block that sets its own,
           # so every location repeats them.
@@ -489,7 +522,7 @@ in {
           serverName = cfg.admin.hostname;
           listen = [
             {
-              addr = "0.0.0.0";
+              addr = "127.0.0.1";
               inherit (cfg.admin) port;
               ssl = true;
             }
@@ -497,11 +530,6 @@ in {
           useACMEHost = cfg.admin.hostname;
           onlySSL = true;
           inherit (cfg.admin) root;
-          extraConfig = ''
-            allow 100.64.0.0/10;
-            allow 127.0.0.1;
-            deny all;
-          '';
           locations = {
             "/" = {
               tryFiles = "$uri /index.html";
@@ -522,12 +550,8 @@ in {
     ];
 
     # The operator panel can ban people and read private data, so it gets two
-    # gates: the network (tailnet only) and the operator's Clerk login, which the
-    # API checks against ADMIN_USER_IDS as before. The firewall trusts only
-    # tailscale0 and does not open this port, and nginx refuses other sources too.
-    # It listens on every address instead of the Tailscale one, because a bind to
-    # an address that is not up yet at boot would stop nginx and take the public
-    # web app down with it.
+    # gates: the network (tailnet only, enforced where nginx accepts 443) and the
+    # operator's Clerk login, which the API checks against ADMIN_USER_IDS.
     security.acme = lib.mkIf cfg.admin.enable {
       acceptTerms = true;
       certs.${cfg.admin.hostname} = {
