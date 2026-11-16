@@ -542,6 +542,9 @@ in {
             gzip on;
             gzip_vary on;
             gzip_types text/css application/javascript text/javascript application/json image/svg+xml;
+            # The lab's image tester uploads pictures up to 10 MB, which is
+            # nginx's default limit before the request body's own overhead.
+            client_max_body_size 12m;
           '';
           locations = {
             "/" = {
