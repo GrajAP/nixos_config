@@ -6,45 +6,46 @@
 }: let
   # writeShellScriptBin, not writeShellScript: the latter emits the script at
   # the root of its store path, so "${x}/bin/name" would not resolve.
-  # Warn at 85%, but *act* at 92%.
+  # Reclaim at 80%, warn only if still at 85% or more afterwards.
   #
   # Notifying alone is not enough on a headless box: the 2026-10-11 audit found
   # / at 92% with only 18G free, and the nightly Nix GC that should have been
-  # reclaiming that space had been failing for days. By the time a human reads
-  # the alert, a single large build can already have taken the root filesystem
-  # (and with it the journal) to zero.
-  #
-  # So above the critical line this runs the same two reclaim jobs the timers
-  # run, and reports what they managed to free.
+  # reclaiming that space had been failing for days. Acting at 92% left a
+  # 85-92% band where the alert fired every 4h and nothing was cleaned, so the
+  # reclaim now runs first and the alert means "reclaim was not enough".
   diskSpaceCheck = pkgs.writeShellScriptBin "disk-space-check" ''
     set -eu
+    reclaim=80
     warn=85
-    critical=92
+
+    used=$(df --output=pcent / | tail -n1 | tr -dc '0-9')
+    avail=$(df -h --output=avail / | tail -n1 | tr -d ' ')
+
+    if [ "$used" -lt "$reclaim" ]; then
+      echo "disk-space-check: ''${used}% used, ''${avail} available"
+      exit 0
+    fi
+
+    before=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
+    systemctl start --no-block agent-scratch-prune.service
+    systemctl start --no-block nix-store-gc.service
+    # Neither job is instant; give them room before measuring the result.
+    for _ in $(seq 1 60); do
+      [ -z "$(systemctl list-jobs --no-legend agent-scratch-prune.service nix-store-gc.service 2>/dev/null)" ] && break
+      sleep 10
+    done
+    after=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
+    reclaimed=$(( (after - before) / 1048576 ))" MiB reclaimed by prune+GC"
 
     used=$(df --output=pcent / | tail -n1 | tr -dc '0-9')
     avail=$(df -h --output=avail / | tail -n1 | tr -d ' ')
 
     if [ "$used" -lt "$warn" ]; then
-      echo "disk-space-check: ''${used}% used, ''${avail} available"
+      echo "disk-space-check: ''${used}% used, ''${avail} available, ''${reclaimed}"
       exit 0
     fi
 
-    reclaimed="nothing reclaimed"
-
-    if [ "$used" -ge "$critical" ]; then
-      before=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
-      systemctl start --no-block agent-scratch-prune.service
-      systemctl start --no-block nix-store-gc.service
-      # Neither job is instant; give them room before measuring the result.
-      for _ in $(seq 1 60); do
-        [ -z "$(systemctl list-jobs --no-legend agent-scratch-prune.service nix-store-gc.service 2>/dev/null)" ] && break
-        sleep 10
-      done
-      after=$(df --output=avail -B1 / | tail -n1 | tr -dc '0-9')
-      reclaimed=$(( (after - before) / 1048576 ))" MiB reclaimed by prune+GC"
-    fi
-
-    ${notify}/bin/server-notify "root filesystem at ''${used}% (''${avail} free, reclaimed: ''${reclaimed})" \
+    ${notify}/bin/server-notify "root filesystem at ''${used}% (''${avail} free, ''${reclaimed})" \
       "$(df -h /; echo; echo 'journalctl -u agent-scratch-prune -u nix-store-gc -n 50')"
   '';
 
@@ -257,7 +258,7 @@ in {
       description = "Disk space check every 4 hours";
       wantedBy = ["timers.target"];
       timerConfig = {
-        # Every 4h, not daily: the check is a df() plus, above the critical
+        # Every 4h, not daily: the check is a df() plus, above the reclaim
         # line, a reclaim. At the observed growth rate (34G of worktrees in a
         # fortnight on a 219G disk) a daily cadence leaves very little room.
         OnCalendar = "*-*-* 00/4:15:00";
