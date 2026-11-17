@@ -84,10 +84,23 @@
           # No --force: `git worktree remove` refuses a tree with modified or
           # untracked files, which is exactly the guarantee we want here.
           # Uncommitted work is never deleted by this job.
-          main=$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-          [ -n "$main" ] || continue
+          # This runs as root and the repos belong to grajpap, so without
+          # safe.directory every git call failed and nothing was ever pruned.
+          main=$(git -c safe.directory='*' -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+          if [ -z "$main" ]; then
+            echo "agent-scratch-prune: not a git worktree, keeping $wt"
+            skipped=$((skipped + 1))
+            continue
+          fi
           main=''${main%/.git}
-          if git -C "$main" worktree remove "$wt" 2>/dev/null; then
+          # A detached HEAD whose commit no branch holds would be lost.
+          if ! git -c safe.directory='*' -C "$wt" symbolic-ref -q HEAD >/dev/null \
+            && [ -z "$(git -c safe.directory='*' -C "$wt" branch -a --contains HEAD 2>/dev/null)" ]; then
+            echo "agent-scratch-prune: detached with unbranched commits, keeping $wt"
+            skipped=$((skipped + 1))
+            continue
+          fi
+          if git -c safe.directory='*' -C "$main" worktree remove "$wt" 2>/dev/null; then
             echo "agent-scratch-prune: removed $wt"
             pruned=$((pruned + 1))
           else
