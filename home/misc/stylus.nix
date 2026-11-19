@@ -175,6 +175,12 @@
       chmod u+w "$out/sw.js" "$out/js/worker.js"
       sed -i 's/then(code)/then(() => code)/g' "$out/js/worker.js"
       sed -i '$a importScripts("nix-seed.js");' "$out/sw.js"
+      # Chromium keeps the cached service worker scripts until the extension
+      # version changes, so a new seed or bundle needs a new version.
+      seedHash=$(cat "$out/nix-seed.js" "$out/catppuccin-mocha-blue.json" "$out/custom-userstyles.json" | sha256sum | cut -c1-4)
+      chmod u+w "$out/manifest.json"
+      sed -i "s/\"version\": \"2.4.5\"/\"version\": \"2.4.5.$((16#$seedHash))\"/" "$out/manifest.json"
+      grep -q "\"version\": \"2.4.5.$((16#$seedHash))\"" "$out/manifest.json"
     '';
 
   # NOTE: Helium Browser uses Helium-Browser-DRM-Fixer (https://github.com/Du-vy/Helium-Browser-DRM-Fixer)
