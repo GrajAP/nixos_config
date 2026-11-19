@@ -160,7 +160,7 @@
   '';
 
   stylusSeed = pkgs.replaceVars ./stylus-seed.js {
-    seedVersion = "catppuccin-userstyles-2026-09-20";
+    seedVersion = "catppuccin-userstyles-2026-11-20";
   };
 
   stylusExtension =
