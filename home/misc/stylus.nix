@@ -175,12 +175,18 @@
       chmod u+w "$out/sw.js" "$out/js/worker.js"
       sed -i 's/then(code)/then(() => code)/g' "$out/js/worker.js"
       sed -i '$a importScripts("nix-seed.js");' "$out/sw.js"
-      # Chromium keeps the cached service worker scripts until the extension
-      # version changes, so a new seed or bundle needs a new version.
-      seedHash=$(cat "$out/nix-seed.js" "$out/catppuccin-mocha-blue.json" "$out/custom-userstyles.json" | sha256sum | cut -c1-4)
-      chmod u+w "$out/manifest.json"
-      sed -i "s/\"version\": \"2.4.5\"/\"version\": \"2.4.5.$((16#$seedHash))\"/" "$out/manifest.json"
-      grep -q "\"version\": \"2.4.5.$((16#$seedHash))\"" "$out/manifest.json"
+      # Chromium keeps an extension's cached service worker scripts until it
+      # re-registers the worker (on a version change) with a different script
+      # URL. Both change whenever the seed or the bundles change.
+      seedId=$(cat "$out/sw.js" "$out/nix-seed.js" "$out/catppuccin-mocha-blue.json" "$out/custom-userstyles.json" | sha256sum | cut -c1-4)
+      seedId=$((16#$seedId))
+      chmod u+w "$out/manifest.json" "$out/js/common.js" "$out/js/offscreen.js"
+      mv "$out/sw.js" "$out/sw-$seedId.js"
+      substituteInPlace "$out/manifest.json" \
+        --replace-fail '"version": "2.4.5"' "\"version\": \"2.4.5.$seedId\"" \
+        --replace-fail '"service_worker": "sw.js"' "\"service_worker\": \"sw-$seedId.js\""
+      substituteInPlace "$out/js/common.js" --replace-fail 'swPath = "/sw.js"' "swPath = \"/sw-$seedId.js\""
+      substituteInPlace "$out/js/offscreen.js" --replace-fail 'request("/sw.js"' "request(\"/sw-$seedId.js\""
     '';
 
   # NOTE: Helium Browser uses Helium-Browser-DRM-Fixer (https://github.com/Du-vy/Helium-Browser-DRM-Fixer)
