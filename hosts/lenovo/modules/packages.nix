@@ -33,7 +33,9 @@
     procps # pgrep in the GC timer
 
     # --- ssh / remote access -------------------------------------------
-    cloudflared # required by T3 Code connect tunnel
+    # T3 Code connect tunnel; the service unit `t3 service install` wrote
+    # points T3CODE_CLOUDFLARED_PATH at /run/current-system/sw/bin/cloudflared.
+    (callPackage ../../../apps/t3code/cloudflared.nix {})
     openssh
 
     # --- diagnostics, cheap enough to keep system-wide -------------------
