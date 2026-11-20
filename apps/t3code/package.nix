@@ -7,6 +7,8 @@
   cli ? null,
   channel ? "nightly",
 }: let
+  cloudflared = pkgs.callPackage ./cloudflared.nix {};
+
   t3codeNpm = pkgs.writeShellApplication {
     name = "npm";
     runtimeInputs = [pkgs.nodejs];
@@ -141,7 +143,7 @@
     t3codeProviderTools
     pkgs.gh
     pkgs.git
-    pkgs.cloudflared
+    cloudflared
   ]}";
 
   # Antigravity ACP (Gemini backend) runs Python inside the AppImage FHS env.
@@ -183,7 +185,7 @@
           --set T3CODE_CLERK_JWT_TEMPLATE "t3-relay" \
           --set T3CODE_CLERK_CLI_OAUTH_CLIENT_ID "hzxSgY2cH10sDU2r" \
           --set T3CODE_RELAY_URL "https://relay.t3.codes" \
-          --set T3CODE_CLOUDFLARED_PATH "${lib.getExe pkgs.cloudflared}" \
+          --set T3CODE_CLOUDFLARED_PATH "${lib.getExe cloudflared}" \
           --set SSL_CERT_FILE "${certBundle}" \
           --set NIX_SSL_CERT_FILE "${certBundle}" \
           --set NODE_EXTRA_CA_CERTS "${certBundle}" \
@@ -377,7 +379,7 @@
       export T3CODE_CLERK_JWT_TEMPLATE="t3-relay"
       export T3CODE_CLERK_CLI_OAUTH_CLIENT_ID="hzxSgY2cH10sDU2r"
       export T3CODE_RELAY_URL="https://relay.t3.codes"
-      export T3CODE_CLOUDFLARED_PATH="${lib.getExe pkgs.cloudflared}"
+      export T3CODE_CLOUDFLARED_PATH="${lib.getExe cloudflared}"
       if [[ -x "$app" ]]; then
         export APPIMAGE="$app"
         exec ${lib.getExe t3codeAppimageRun} "$app" --no-sandbox "$@"

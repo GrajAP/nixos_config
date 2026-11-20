@@ -15,6 +15,7 @@
   pkgs,
 }: let
   certBundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+  cloudflared = pkgs.callPackage ./cloudflared.nix {};
 in
   pkgs.writeShellApplication {
     name = "t3";
@@ -45,10 +46,10 @@ in
       fi
 
       export PATH="${lib.makeBinPath [
-        pkgs.cloudflared
+        cloudflared
         pkgs.git
       ]}:$PATH"
-      export T3CODE_CLOUDFLARED_PATH="${lib.getExe pkgs.cloudflared}"
+      export T3CODE_CLOUDFLARED_PATH="${lib.getExe cloudflared}"
       export SSL_CERT_FILE="${certBundle}"
       export NIX_SSL_CERT_FILE="${certBundle}"
       export NODE_EXTRA_CA_CERTS="${certBundle}"

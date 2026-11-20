@@ -25,6 +25,7 @@
   t3code = pkgs.callPackage ../package.nix {cli = t3Cli;};
   t3gate = (pkgs.callPackage ../../t3-gate/packages.nix {}).helper;
   certBundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+  cloudflared = pkgs.callPackage ../cloudflared.nix {};
 
   # Provider CLIs and helper tools the server spawns have to be resolvable from
   # a unit with no login shell. npm-installed codex/opencode come first, then
@@ -120,7 +121,7 @@ in {
       "systemd/user/t3code.service.d/nixos.conf".text = ''
         [Service]
         Environment=PATH=${servicePath}
-        Environment=T3CODE_CLOUDFLARED_PATH=${lib.getExe pkgs.cloudflared}
+        Environment=T3CODE_CLOUDFLARED_PATH=${lib.getExe cloudflared}
         # The runtime under ~/.t3/runtime is a plain npm tree, so its
         # dynamically linked provider binaries need the Nix loader.
         Environment=NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so
@@ -142,7 +143,8 @@ in {
     # hourly, but never while an agent runs: --yes restarts the service.
     systemd.user.services.t3code-update = {
       description = "Update the t3 runtime to the newest ${cfg.channel} release";
-      path = [t3gate];
+      # `t3 update` unpacks the runtime archive with tar.
+      path = [t3gate pkgs.gnutar pkgs.gzip pkgs.xz];
       script = ''
         if [ "$(t3-running-count)" != 0 ]; then
           echo "t3code-update: agents running, skipping"
