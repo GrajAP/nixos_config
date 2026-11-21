@@ -5,6 +5,7 @@
   '';
 
   environment = {
+    sessionVariables.NIXOS_OZONE_WL = "1";
     variables = {
       _JAVA_AWT_WM_NONEREPARENTING = "1";
       GDK_BACKEND = "wayland,x11";
