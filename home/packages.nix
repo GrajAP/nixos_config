@@ -6,6 +6,7 @@
     rnnoise-plugin
     rnnoise
     krita
+    solaar
 
     # AI coding harnesses
     aider-chat

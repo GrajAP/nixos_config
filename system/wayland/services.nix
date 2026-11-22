@@ -42,4 +42,6 @@
     printing.enable = true;
     fstrim.enable = true;
   };
+
+  hardware.logitech.wireless.enable = true;
 }
