@@ -105,6 +105,12 @@ in {
     };
   };
 
-  # Only the tailnet reaches the judge; the LAN and the internet do not.
-  networking.firewall.interfaces.${config.services.tailscale.interfaceName}.allowedTCPPorts = [port];
+  # Only the tailnet reaches the judge; the LAN and the internet do not. The
+  # second entry is the Docker bridge of the Bespotted campaign stack
+  # (bespotted_codex docs/CAMPAIGN_HOSTING.md): its compose override names the
+  # bridge, so the API container on this host can ask the judge.
+  networking.firewall.interfaces = {
+    ${config.services.tailscale.interfaceName}.allowedTCPPorts = [port];
+    "br-bespotted".allowedTCPPorts = [port];
+  };
 }

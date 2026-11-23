@@ -1,4 +1,8 @@
-{...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
 
@@ -95,13 +99,14 @@
     user = "fleetadmin";
     # This box is the tailnet's only always-on path to the others. If tailscaled
     # is not back after a switch, the run rolls the switch back by itself.
-    criticalUnits = [
-      "tailscaled"
-      "sshd"
-      "caddy"
-      "bespotted-production"
-      "bespotted-tunnel"
-    ];
+    criticalUnits =
+      [
+        "tailscaled"
+        "sshd"
+        "caddy"
+        "bespotted-tunnel"
+      ]
+      ++ lib.optional (!config.services.bespotted.standby) "bespotted-production";
   };
 
   # The release this host was installed with. Never bump it on upgrades.

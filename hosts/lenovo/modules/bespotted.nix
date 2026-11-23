@@ -68,7 +68,9 @@
 
   healthCheck = pkgs.writeShellScriptBin "bespotted-health" ''
     set -eu
-    ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
+    ${lib.optionalString (!cfg.standby) ''
+      ${lib.getExe pkgs.curl} -fsS -m 10 -o /dev/null http://127.0.0.1:${toString cfg.originPort}/health/ready
+    ''}
     ${lib.getExe pkgs.curl} -fsS -m 15 -o /dev/null https://${cfg.hostname}/health/ready
     ${config.serverAlerts.posthogEvent}/bin/server-posthog-event server_heartbeat bespotted || true
     # After the heartbeat, so a web outage still alerts but never hides a
@@ -186,6 +188,21 @@
 in {
   options.services.bespotted = {
     enable = lib.mkEnableOption "the Bespotted production API, database, moderation guard and tunnel";
+
+    standby = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        The API, database and guard run on another host for now (bespotted_codex
+        docs/CAMPAIGN_HOSTING.md). The compose stack stays down here: nothing
+        starts it, not the boot, a rebuild or the backup. The tunnel, the web
+        app and the panel stay up. Two APIs with the production secrets must
+        never run at once: the one with the older database would delete the
+        other's new media from R2 as orphans.
+        Switching this on stops a running stack at the next rebuild, so take
+        the database dump first.
+      '';
+    };
 
     appDir = lib.mkOption {
       type = lib.types.path;
@@ -310,7 +327,10 @@ in {
       services = {
         bespotted-production = {
           description = "Bespotted production API, PostgreSQL and Polish moderation guard";
-          wantedBy = ["multi-user.target"];
+          wantedBy = lib.optional (!cfg.standby) "multi-user.target";
+          # A path that never exists: in standby every start is skipped, also
+          # one pulled in by another unit or typed by hand.
+          unitConfig = lib.mkIf cfg.standby {ConditionPathExists = "/var/empty/bespotted-standby-off";};
           requires = ["docker.service"];
           after = [
             "docker.service"
@@ -373,7 +393,7 @@ in {
             "bespotted-production.service"
             "homenest-backup-env.service"
           ];
-          requires = ["bespotted-production.service"];
+          requires = lib.optional (!cfg.standby) "bespotted-production.service";
           onFailure = alertOnFailure "bespotted-backup";
           path = [
             pkgs.coreutils
@@ -415,8 +435,10 @@ in {
           };
         };
 
+        # In standby the database is on the other host, which takes its own
+        # dumps; a run here would have nothing to dump.
         bespotted-backup = {
-          wantedBy = ["timers.target"];
+          wantedBy = lib.optional (!cfg.standby) "timers.target";
           timerConfig = {
             OnCalendar = "*-*-* 03:10:00";
             RandomizedDelaySec = "10m";
