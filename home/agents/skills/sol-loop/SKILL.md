@@ -11,16 +11,21 @@ Replaces Theo's tstack `sol-loop`. I have no GPT Sol access, so never wait for S
 
 Call `orchestrator_capabilities` in T3 and take the first one that is enabled:
 
-1. A different provider than the author: Claude Opus when Codex or OpenCode wrote the change, or Codex GPT when Claude wrote it.
-2. The best enabled OpenCode model.
-3. A fresh Claude Opus subagent: same model as the author, so say so in the report.
+1. The strongest model on a different provider than the author: Claude Opus first, then Codex GPT.
+2. Claude Opus 4.6 (Thinking) on Antigravity.
+3. The best enabled OpenCode model.
+4. A fresh subagent on the author's own model: say so in the report.
+
+A missing reviewer or a "quota reached" error is not a blocker: go down the list.
 
 Gemini 3.8 Flash on Antigravity is low quality: use it only as an extra second opinion, never as the only reviewer.
+
+An APPROVE from one free model does not end the loop. Run a second, different free model on the same brief in the same round: done needs both to approve. If only one free model is enabled, it reviews alone: say so in the report.
 
 ## Loop
 
 - Budget: 3 rounds. Up to 5 only for security, auth, data loss or concurrency, while a blocker is still open. Stop early when only nits are left.
-- One reviewer per round, through `delegate_task` (`role: "review"`, `mode: "async"`). Wait for the notice. Do not poll. A timeout is not approval.
+- One reviewer per round, or two different free models, through `delegate_task` (`role: "review"`, `mode: "async"`). Wait for the notice. Do not poll. A timeout is not approval.
 - Do not edit the scoped files while a review runs.
 
 Round 1 brief (the child gets no history):
