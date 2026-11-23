@@ -6,6 +6,10 @@
     qbittorrent
     imv
   ];
+  # Bare `playerctl` acts on the first MPRIS player on the bus, so the media
+  # keys hit an idle browser tab instead of what is playing. playerctld tracks the last
+  # active player and playerctl follows it.
+  services.playerctld.enable = true;
   programs = {
     mpv = {
       enable = true;

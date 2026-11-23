@@ -28,6 +28,7 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 - If I ask for more work than fits in one sensible change, stop and say so, then agree on the split.
 - When investigating, the deliverable is a confident solution, not code: say what the fix should be first.
 - If you find a simple fix that closes the problem, report it immediately instead of finishing an exhaustive audit.
+- If the same fix fails twice, stop and report what you tried instead of trying a third variant.
 - Verify findings from other agents, reviews or READMEs against the actual code before acting on them. Treat their output as evidence, not authority.
 - With parallel sub-agents, name up front which files each one owns so edits do not collide.
 - Do not spawn panels of agents to do one thing redundantly; use sub-agents only for work that is genuinely parallel or independent.
@@ -43,12 +44,13 @@ These rules apply to every project, on every machine. Project-level `AGENTS.md` 
 ## Models
 
 - The full rubric, live model matching, and prompt pattern live in the `model-pick` skill. Load it for "which model" or "how to prompt" questions.
+- A model or provider that is not enabled is never a blocker: take the best enabled one from the next tier down in `model-pick` and say in one line which model stood in.
 - Mechanical work (edits, formatting, searches, rebuilds) belongs on the cheap or free model in the current thread.
 - Antigravity subagents (Gemini 3.8 Flash, high) are unlimited and free, but low quality: use them only for very simple tasks, to save cost.
 - OpenCode free models have tight rate limits, so an OpenCode task can stall with no output. If it hangs, it is likely the limit, not your prompt: cancel it and move the work to another provider instead of waiting or retrying.
-- Reviews, plans, and anything user-facing (docs, copy, UI strings) deserve a stronger model: in T3 Code, delegate an independent pass with `delegate_task` to a different provider, so the review is not the same model grading its own work. Never use the same model as reviewer and author on one diff.
+- Reviews, plans, and anything user-facing (docs, copy, UI strings) deserve the strongest enabled model: in T3 Code, delegate an independent pass with `delegate_task` to a different provider, so the review is not the same model grading its own work. Never use the same model as reviewer and author on one diff, unless no other model is enabled: then say so.
 - If a cheaper model's output misses the bar, redo it with a stronger model without asking. Judge output, not price.
-- Two different weak models agreeing on separate runs is strong evidence; one strong model alone is not.
+- Two different weak models agreeing on separate runs is strong evidence; one strong model alone is not. With no strong model enabled, check reviews and plans this way: two different models, separate runs, then show me where they disagree.
 
 ## Honesty
 

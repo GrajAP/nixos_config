@@ -251,7 +251,9 @@ ShellRoot {
   property string overallTodoStartOriginal: ""
   property string overallTodoRepeat: "none"
   property string overallTodoRepeatOriginal: "none"
-  readonly property var mediaPlayer: Mpris.players.values.find(player => player.identity.toLowerCase().includes("spotify")) || null
+  // playerctld is a proxy that copies the identity of the last active player:
+  // skip it, so the widget always holds the real Spotify.
+  readonly property var mediaPlayer: Mpris.players.values.find(player => player.dbusName !== "org.mpris.MediaPlayer2.playerctld" && player.identity.toLowerCase().includes("spotify")) || null
   readonly property var numerals: ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
   readonly property var keybindHelpEntries: @keybindHelp@
   readonly property var keyboardMainRows: [
