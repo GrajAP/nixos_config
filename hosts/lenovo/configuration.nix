@@ -14,6 +14,7 @@
     ./modules/power.nix # TLP, thermald, lid/backlight, CPU mitigations
     ./modules/security.nix # users, sudo, sshd
     ./modules/network.nix # tailscale, avahi, caddy, firewall
+    ./modules/dns.nix # systemd-resolved, public upstreams, Tailscale for ts.net only
     ./modules/wifi.nix # BCM43142 driver + PWr eduroam profile
     ./modules/docker.nix # container engine
     ./modules/homenest.nix # the production app

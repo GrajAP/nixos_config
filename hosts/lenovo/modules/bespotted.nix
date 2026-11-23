@@ -170,6 +170,19 @@
   '';
 
   alertOnFailure = name: ["server-alert@${name}.service"];
+
+  # A nightly job that needs the network runs once a day, so one bad minute
+  # (the router reconnecting, a DNS outage) used to cost the whole day's copy.
+  # Three more tries, 20 minutes apart, then it stays failed until the next
+  # night. Every failed try still alerts.
+  retryLater = {
+    startLimitBurst = 4;
+    startLimitIntervalSec = 6 * 60 * 60;
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "20min";
+    };
+  };
 in {
   options.services.bespotted = {
     enable = lib.mkEnableOption "the Bespotted production API, database, moderation guard and tunnel";
@@ -367,11 +380,14 @@ in {
             pkgs.inetutils
           ];
           environment.RESTIC_PASSWORD_FILE = "/var/lib/restic/password";
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${backupRun}/bin/bespotted-backup";
-            ExecStopPost = "${pkgs.coreutils}/bin/rm -f ${stageDir}/bespotted.dump";
-          };
+          inherit (retryLater) startLimitBurst startLimitIntervalSec;
+          serviceConfig =
+            {
+              Type = "oneshot";
+              ExecStart = "${backupRun}/bin/bespotted-backup";
+              ExecStopPost = "${pkgs.coreutils}/bin/rm -f ${stageDir}/bespotted.dump";
+            }
+            // retryLater.serviceConfig;
         };
 
         bespotted-offsite = {
@@ -380,10 +396,13 @@ in {
           wants = ["network-online.target"];
           unitConfig.ConditionPathExists = offsiteEnvFile;
           onFailure = alertOnFailure "bespotted-offsite";
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = offsiteCopy;
-          };
+          inherit (retryLater) startLimitBurst startLimitIntervalSec;
+          serviceConfig =
+            {
+              Type = "oneshot";
+              ExecStart = offsiteCopy;
+            }
+            // retryLater.serviceConfig;
         };
       };
 
