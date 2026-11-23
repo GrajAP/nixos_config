@@ -18,3 +18,7 @@
 - Health audit details live in this file's history; the box has no battery, dies
   instantly on power loss once a minute passes.
 - HTTPS: `https://lenovo.tail138448.ts.net/` via `tailscale serve` + Caddy.
+- DNS: systemd-resolved asks 1.1.1.1 and 9.9.9.9 itself, plus the router. Tailscale
+  only answers `ts.net`. Check with `resolvectl status`: `tailscale0` must list
+  `~ts.net` and must not be a default route. A container started before a DNS
+  change keeps its old upstreams until it is restarted.
