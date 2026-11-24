@@ -118,12 +118,12 @@ in {
         enable = true;
         settings = {
           # This Haswell has no HWP. A kernel booted without `intel_pstate=active`
-          # (modules/boot.nix) runs the legacy intel_cpufreq driver, and there
-          # `powersave` is a fixed governor: the lowest clock, always. On
-          # 2026-11-24 the box sat at 798 of 3100 MHz under full load for that
-          # reason, 59 days after a boot that was older than the kernel param.
-          # TLP sets the mode at runtime, so `powersave` below is the dynamic
-          # intel_pstate governor after a switch, not only after a reboot.
+          # (modules/boot.nix) runs intel_pstate in passive mode (intel_cpufreq),
+          # and there `powersave` is a fixed governor: the lowest clock, always.
+          # On 2026-11-24 the box sat at 798 of 3100 MHz under full load, 59 days
+          # after a boot that was older than the kernel param. TLP writes the
+          # mode when it starts, so `powersave` below is the dynamic intel_pstate
+          # governor once this config is switched in, not only after a reboot.
           CPU_DRIVER_OPMODE_ON_AC = "active";
           CPU_SCALING_GOVERNOR_ON_AC = "powersave";
           CPU_ENERGY_PERF_POLICY_ON_AC = "balance_power";
@@ -144,11 +144,12 @@ in {
         };
       };
 
-      # A clock stuck at 800MHz under load was the driver mode, not thermald (see
-      # CPU_DRIVER_OPMODE_ON_AC above). Check that first:
+      # If the CPU sticks at 800MHz under load, check the driver mode first (see
+      # CPU_DRIVER_OPMODE_ON_AC above):
       #   cat /sys/devices/system/cpu/intel_pstate/status   ->  active
-      # Only then suspect TLP and thermald together, a known source of odd
-      # throttling on some Haswell laptops.
+      # If it is `active` and the clock still does not rise, suspect BD PROCHOT
+      # from the dead battery, then TLP and thermald together, a known source
+      # of odd throttling on some Haswell laptops.
       thermald.enable = true;
 
       # power-profiles-daemon would fight TLP for the same knobs.

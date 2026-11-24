@@ -19,8 +19,9 @@
   instantly on power loss once a minute passes.
 - CPU clock: `cat /sys/devices/system/cpu/intel_pstate/status` must say `active`.
   In `passive` mode the `powersave` governor pins every core at 800 MHz. TLP
-  sets the mode on each switch (`hosts/lenovo/modules/power.nix`). Kernel
-  params and a new kernel still need a reboot: compare
+  sets the mode at boot and when its config changes
+  (`hosts/lenovo/modules/power.nix`); to force it: `sudo systemctl restart tlp`.
+  Kernel params and a new kernel still need a reboot: compare
   `/run/booted-system/kernel-params` with `/run/current-system/kernel-params`.
 - HTTPS: `https://lenovo.tail138448.ts.net/` via `tailscale serve` + Caddy.
 - DNS: systemd-resolved asks 1.1.1.1 and 9.9.9.9 itself, plus the router. Tailscale
