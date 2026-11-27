@@ -10,7 +10,7 @@
   # Saving the exact level matters: this panel reports max_brightness 937, and
   # the previous handler wrote a hardcoded 200 on lid-open, which left the
   # screen at ~21% every time. bl_power is also gated, because that is what
-  # actually cuts the backlight on i915.
+  # actually cuts the backlight on i915: 0 is on, 4 is off.
   # writeShellScriptBin, not writeShellScript: the latter puts the script at
   # the root of its store path, so "${x}/bin/name" would not resolve.
   lidBacklight = pkgs.writeShellScriptBin "lid-backlight" ''
@@ -28,7 +28,7 @@
           cat "$dir/actual_brightness" > "$state" 2>/dev/null || true
         fi
         echo 0 > "$dir/brightness" 2>/dev/null || true
-        echo 0 > "$dir/bl_power" 2>/dev/null || true
+        echo 4 > "$dir/bl_power" 2>/dev/null || true
         ;;
       open | on)
         if [ -s "$state" ]; then
@@ -36,7 +36,7 @@
         else
           level=$(( $(cat "$dir/max_brightness") / 2 ))
         fi
-        echo 1 > "$dir/bl_power" 2>/dev/null || true
+        echo 0 > "$dir/bl_power" 2>/dev/null || true
         echo "$level" > "$dir/brightness" 2>/dev/null || true
         rm -f "$state"
         ;;
@@ -44,7 +44,7 @@
   '';
   blankIfClosed = pkgs.writeShellScriptBin "blank-if-lid-closed" ''
     set -eu
-    state=$(awk '{print $2}' /proc/acpi/button/lid/*/state 2>/dev/null | head -n1)
+    state=$(${pkgs.gawk}/bin/awk '{print $2}' /proc/acpi/button/lid/*/state 2>/dev/null | head -n1)
     if [ "$state" = "closed" ]; then
       ${lidBacklight}/bin/lid-backlight closed
     fi
@@ -100,7 +100,7 @@ in {
         enable = true;
         handlers.lid = {
           event = "button/lid.*";
-          action = "${lidBacklight}/bin/lid-backlight $(awk '{print $2}' /proc/acpi/button/lid/*/state 2>/dev/null | head -n1)";
+          action = "${lidBacklight}/bin/lid-backlight $(${pkgs.gawk}/bin/awk '{print $2}' /proc/acpi/button/lid/*/state 2>/dev/null | head -n1)";
         };
       };
 
@@ -147,9 +147,9 @@ in {
       # If the CPU sticks at 800MHz under load, check the driver mode first (see
       # CPU_DRIVER_OPMODE_ON_AC above):
       #   cat /sys/devices/system/cpu/intel_pstate/status   ->  active
-      # If it is `active` and the clock still does not rise, suspect BD PROCHOT
-      # from the dead battery, then TLP and thermald together, a known source
-      # of odd throttling on some Haswell laptops.
+      # If it is `active` and the clock still sits near 220 MHz, the EC is
+      # throttling because of a dead battery: on 2026-11-27 clearing BD PROCHOT
+      # did nothing, pulling the battery plus a cold boot restored 2.8 GHz.
       thermald.enable = true;
 
       # power-profiles-daemon would fight TLP for the same knobs.
